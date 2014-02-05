@@ -80,6 +80,7 @@ def handle(q, q_output, settings, protsL, numprots, numpeptides, expasy, proteas
 
         peptides = PeptideList(settings)
         peptides.get_from_pepxmlfile(line, min_charge=min_charge, max_charge=max_charge, max_rank=1)
+#        peptides.filter_modifications(RT_type='biolccc')
         missed_modifications = set()
         for peptide in peptides.peptideslist:
             for mod in peptide.missed_modifications:
@@ -259,7 +260,7 @@ def handle(q, q_output, settings, protsL, numprots, numpeptides, expasy, proteas
                     print copy_peptides.get_calibrate_coeff()
                     peptides.calc_RT(RTtype=RT_type)
                 else:
-                    copy_peptides.filter_modifications()
+                    copy_peptides.filter_modifications(RT_type=RT_type)
                     copy_peptides.calc_RT(RTtype=RT_type)
                     calibrate_coeff = copy_peptides.get_calibrate_coeff()
                     copy_peptides.calc_RT(calibrate_coeff=calibrate_coeff, RTtype=RT_type)

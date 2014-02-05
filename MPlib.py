@@ -1,8 +1,8 @@
 import sys
 import re
-import functools
+import SSRCalc
 from string import punctuation, lowercase
-from pyteomics import parser
+from pyteomics import parser, biolccc
 from pyteomics.parser import cleave, expasy_rules
 from pyteomics import pepxml, electrochem, mass
 from pyteomics.auxiliary import linear_regression
@@ -216,19 +216,21 @@ class PeptideList:
 
     def calc_RT(self, calibrate_coeff=(1, 0, 0, 0), RTtype='achrom'):
         if RTtype == 'ssrcalc':
-            ps = list(set([peptide.sequence for peptide in self.peptideslist]))
+            ps = list(set([peptide.sequence.replace('|', '') for peptide in self.peptideslist]))
             SSRCalc_RTs = SSRCalc.calculate_RH(ps[:], pore_size=100, ion_pairing_agent='FA')
 
         for peptide in self.peptideslist:
             if RTtype == 'achrom':
                 peptide.RT_predicted = achrom.calculate_RT(peptide.modified_sequence, self.RC, raise_no_mod=False)
             elif RTtype == 'ssrcalc':
-                SSRCalc_RT = SSRCalc_RTs[peptide.sequence]
+                SSRCalc_RT = SSRCalc_RTs[peptide.sequence.replace('|', '')]
                 if SSRCalc_RT is not None:
                     peptide.RT_predicted = float(SSRCalc_RT) * calibrate_coeff[0] + calibrate_coeff[1]
                 else:
                     peptide.RT_predicted = 0
                     print 'SSRCalc error'
+            elif RTtype == 'biolccc':
+                peptide.RT_predicted = biolccc.calculateRT(peptide.sequence.replace('|', ''), biolccc.rpAcnTfaChain, biolccc.standardChromoConditions)
             else:
                 print 'RT_type error'
 
@@ -263,17 +265,10 @@ class PeptideList:
                     self.peptideslist.pop(j)
             j -= 1
 
-    def filter_modifications(self):
+    def filter_modifications(self, RT_type=None):
         j = len(self.peptideslist) - 1
         while j >= 0:
-            if (self.peptideslist[j].modified_code.count('[') - self.peptideslist[j].modified_code.count('[160]')) != 0:
-                self.peptideslist.pop(j)
-            j -= 1
-
-    def filter_modifications_test(self):
-        j = len(self.peptideslist) - 1
-        while j >= 0:
-            if self.peptideslist[j].modified_code.count('[') != 0:
+            if self.peptideslist[j].modified_code.count('[') - sum(self.peptideslist[j].modified_code.count('[%s]' % (x, )) for x in ([160, 181, 166, 243] if RT_type=='biolccc' else [160, ]) ) != 0:
                 self.peptideslist.pop(j)
             j -= 1
 
@@ -281,13 +276,6 @@ class PeptideList:
         j = len(self.peptideslist) - 1
         while j >= 0:
             if self.peptideslist[j].note == 'decoy':
-                self.peptideslist.pop(j)
-            j -= 1
-
-    def filter_titin(self):
-        j = len(self.peptideslist) - 1
-        while j >= 0:
-            if any([prot.dbname == 'Q8WZ42' for prot in self.peptideslist[j].parentproteins]):
                 self.peptideslist.pop(j)
             j -= 1
 
