@@ -1,5 +1,6 @@
 import sys
 import re
+import functools
 from string import punctuation, lowercase
 from pyteomics import parser
 from pyteomics.parser import cleave, expasy_rules
@@ -91,6 +92,18 @@ class PeptideList:
         self.pepxml_type = ''
         self.RC = False
         self.settings = settings
+        self.modification_list = {}
+        fmods = self.settings.get('modifications', 'fixed')
+        if fmods:
+            for mod in re.split(r'[,;]\s*', fmods):
+                m, aa = parser._split_label(mod)
+                self.modification_list[str(int(mass.std_aa_mass[aa] + settings.getfloat('modifications', m)))] = m
+        vmods = settings.get('modifications', 'variable')
+        if vmods:
+            mods = [parser._split_label(l) for l in re.split(r',\s*', vmods)]
+            for (mod, aa), char in zip(mods, punctuation):
+                self.modification_list[str(int(mass.std_aa_mass[aa] + settings.getfloat('modifications', mod)))] = mod
+
 
     def get_from_pepxmlfile(self, pepxmlfile, min_charge=1, max_charge=0, max_rank=1):
         for line in open(pepxmlfile, 'r'):
@@ -135,7 +148,7 @@ class PeptideList:
                             pcharge = record['assumed_charge']
                             mass_exp = record['precursor_neutral_mass']
 
-                            pept = Peptide(sequence=sequence, settings=self.settings, modified_code=modified_code, evalue=evalue, massdiff=massdiff, spectrum=spectrum, rank=rank, pcharge=pcharge, mass_exp=mass_exp, hyperscore=hyperscore, nextscore=nextscore, prev_aa=prev_aa, next_aa=next_aa, start_scan=start_scan, modifications=modifications)
+                            pept = Peptide(sequence=sequence, settings=self.settings, modified_code=modified_code, evalue=evalue, massdiff=massdiff, spectrum=spectrum, rank=rank, pcharge=pcharge, mass_exp=mass_exp, hyperscore=hyperscore, nextscore=nextscore, prev_aa=prev_aa, next_aa=next_aa, start_scan=start_scan, modifications=modifications, modification_list=self.modification_list)
                             try:
                                 pept.RT_exp = float(record['retention_time_sec']) / 60
                             except:
@@ -177,7 +190,7 @@ class PeptideList:
 
     def modified_peptides(self):
         for peptide in self.peptideslist:
-            peptide.modified_peptide()
+            peptide.modified_peptide(self.settings, modifications)
 
     def get_RC(self):
         seqs = [pept.modified_sequence for pept in self.peptideslist]
@@ -354,11 +367,12 @@ class Protein:
 
 
 class Peptide:
-    def __init__(self, sequence, settings, modified_code='', pcharge=0, RT_exp=False, evalue=0, protein='Unkonwn', massdiff=0, note='unknown', spectrum='', rank=1, mass_exp=0, hyperscore=0, nextscore=0, prev_aa='X', next_aa='X', start_scan=0, modifications=[]):
+    def __init__(self, sequence, settings, modified_code='', pcharge=0, RT_exp=False, evalue=0, protein='Unkonwn', massdiff=0, note='unknown', spectrum='', rank=1, mass_exp=0, hyperscore=0, nextscore=0, prev_aa='X', next_aa='X', start_scan=0, modifications=[], modification_list={}):
         self.sequence = sequence
         self.modified_code = modified_code
         self.modified_sequence = sequence
         self.modifications = modifications
+        self.modification_list = modification_list
         self.pcharge = int(pcharge)
         self.nomodifications = 0
         self.unknown_mods_counter = 0 
@@ -477,51 +491,34 @@ class Peptide:
         return (self.massdiff - round(self.massdiff, 0) * 1.0033548378) / (self.pmass - round(self.massdiff, 0) * 1.0033548378) * 1e6
 
     def modified_peptide(self, settings):
-        modifications = {}
-        fmods = settings.get('modifications', 'fixed')
-        if fmods:
-            for mod in re.split(r'[,;]\s*', fmods):
-                m, aa = parser._split_label(mod)
-                modifications[str(int(mass.std_aa_mass[aa] + settings.getfloat('modifications', m)))] = m
-        vmods = settings.get('modifications', 'variable')
-        if vmods:
-            mods = [parser._split_label(l) for l in re.split(r',\s*', vmods)]
-            for (mod, aa), char in zip(mods, punctuation):
-                modifications[str(int(mass.std_aa_mass[aa] + settings.getfloat('modifications', mod)))] = mod
-        i = 0
-        start = 0
-        end = 0
-        self.modified_sequence = str(self.modified_code)
-        while i <= len(self.modified_sequence) - 1:
-            if self.modified_sequence[i] == '[':
-                start = i
-            elif self.modified_sequence[i] == ']':
-                end = i
-                if self.modified_sequence[start + 1:end] not in modifications.keys():
-                    self.missed_modifications.append(self.modified_sequence[start + 1:end])
-                    mod_label = 'u'
-                    while mod_label in modifications.values():
-                        mod_label += 'u'
-                    mod_label = ''
-                    temp_val = int(self.modified_sequence[start + 1:end])
-                    maxV = len(lowercase)
-                    while temp_val > maxV:
-                        mod_label += lowercase[-1]
-                        temp_val -= maxV
-                    mod_label += lowercase[temp_val - 1]
-                        
-                    modifications[self.modified_sequence[start + 1:end]] = mod_label
-                    for md_mass in self.modifications:
-                        if int(md_mass['mass']) == int(self.modified_sequence[start + 1:end]):
-                            temp_mass = md_mass['mass']
-                            break
-                    char = mod_label + self.modified_sequence[start-1]
-                    mass.std_aa_mass[char] = temp_mass
-                    modifications[int(temp_mass)] = mod_label
-                    label = mod_label
-                    self.unknown_mods_counter += 1
-                else:
-                    label = modifications[self.modified_sequence[start + 1:end]]
-                self.modified_sequence = self.modified_sequence[:start - 1] + label + self.modified_sequence[start - 1] + self.modified_sequence[end + 1:]
-                i = 0
-            i += 1
+        def add_modification(arg):
+            i = 0
+            while i != -1:
+                for x in lowercase:
+                    if i * lowercase[0] + x not in self.modification_list.values():
+                        self.modification_list[arg] = i * lowercase[0] + x
+                        i = -2
+                        break
+                i += 1
+
+        def get_modification(arg):
+            if arg.isdigit():
+                try:
+                    return self.modification_list[arg]
+                except:
+                    add_modification(arg)
+                    return self.modification_list[arg]
+            else:
+                return arg
+
+        stack = []
+        for elem in ''.join(map(get_modification, re.split('\[|\]', self.modified_code)))[::-1]:
+            if elem.islower():
+                stack.append(elem)
+            else:
+                self.modified_sequence += elem
+                while stack:
+                    self.modified_sequence += stack.pop(0)
+        while stack:
+            self.modified_sequence += stack.pop(0)
+        self.modified_sequence = self.modified_sequence[::-1]

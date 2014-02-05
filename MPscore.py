@@ -195,7 +195,7 @@ def handle(q, q_output, settings, protsL, numprots, numpeptides, expasy, proteas
                     print 'protein %s is missed in fasta, 5000 length is used for normalization' % (protein.dbname, )
                     if peptide.protscore2 < float(prots_dict[protein.dbname]) / 5000 * 500:
                         peptide.protscore2 = float(prots_dict[protein.dbname]) / 5000 * 500
-        copy_peptides = PeptideList()
+        copy_peptides = PeptideList(peptides.settings)
         copy_peptides.peptideslist = list(peptides.peptideslist)
         copy_peptides.pepxml_type = peptides.pepxml_type
         threshold0, _ = copy_peptides.filter_evalue_new(FDR=FDR, useMP=False)
@@ -288,7 +288,7 @@ def handle(q, q_output, settings, protsL, numprots, numpeptides, expasy, proteas
                     j -= 1
 
 
-            copy_peptides = PeptideList()
+            copy_peptides = PeptideList(peptides.settings)
             copy_peptides.peptideslist = list(peptides.peptideslist)
             copy_peptides.pepxml_type = peptides.pepxml_type
             copy_peptides.filter_evalue_new(FDR=FDR, useMP=False)
@@ -440,7 +440,7 @@ def PSMs_info(peptides, valid_proteins, printresults=True, tofile=False, curfile
 def plot_histograms(descriptors, peptides, FDR):
     fig = plt.figure(figsize=(16, 12))
     ox, oy = find_optimal_xy(descriptors)
-    copy_peptides = PeptideList()
+    copy_peptides = PeptideList(peptides.settings)
     copy_peptides.peptideslist = list(peptides.peptideslist)
     copy_peptides.pepxml_type = peptides.pepxml_type
     copy_peptides.filter_evalue_new(FDR=FDR, useMP=False)
@@ -497,7 +497,7 @@ def plot_histograms(descriptors, peptides, FDR):
 
 def plot_MP(descriptors, peptides, fig, FDR, valid_proteins, k=0, threshold0=False, curfile=False):
     ox, oy = find_optimal_xy(descriptors)
-    copy_peptides = PeptideList()
+    copy_peptides = PeptideList(peptides.settings)
     copy_peptides.peptideslist = list(peptides.peptideslist)
     copy_peptides.pepxml_type = peptides.pepxml_type
     threshold1, threshold2 = copy_peptides.filter_evalue_new(FDR=FDR, useMP=True, k=k)
