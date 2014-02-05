@@ -7,6 +7,7 @@ from scipy.stats import percentileofscore, scoreatpercentile
 from os import path, listdir
 from pyteomics import mzml, fasta, auxiliary, mgf, parser
 import operator
+from Queue import Empty
 import multiprocessing
 from time import sleep
 
@@ -15,13 +16,12 @@ curfile = None
 protsC = {}
 manager = multiprocessing.Manager()
 protsL = manager.dict()
-#protsL = {}
 
 def handle(q, q_output, settings, protsL, numprots, numpeptides, expasy, proteases, file_folder):
     while 1:
-        if q.qsize():
-            filename = q.get()
-        else:
+        try:
+            filename = q.get(timeout=1)
+        except Empty:
             q_output.put('1')
             print 'done'
             break
@@ -75,8 +75,6 @@ def handle(q, q_output, settings, protsL, numprots, numpeptides, expasy, proteas
         else:
             valid_proteins = []
 
-
-
         line = curfile
         numprots_true, numpeptides_true = 0, 0
 
@@ -122,22 +120,9 @@ def handle(q, q_output, settings, protsL, numprots, numpeptides, expasy, proteas
         print 'mgf is processing'
         if mgffile:
             spectra = mgf.read(mgffile)
-    #            spectrum = spectra.next()
             spectra_name_type = 'Valid'
-    #            if len(spectrum['params']['title'].split(',')) > 1:
-    #                spectra_name_type = 'Bruker mgf'
-    #                spectra_dict[int(spectrum['params']['title'].split(',')[0].split('Cmpd ')[1])] = spectrum['m/z array']
-    #            elif len(spectrum['params']['title'].split('.')) > 1 and spectrum['params']['title'].split('.')[1] == spectrum['params']['title'].split('.')[2]:
-    #                spectra_name_type = 'TPP'
-    #                spectra_dict[int(spectrum['params']['title'].split('.')[1])] = spectrum['m/z array']
-    #            else:
-    #                print 'Unknown spectra name type in mgf file, you have to turn off fragment mass tolerance error calculation!'
             for spectrum in spectra:
                 spectra_dict[spectrum['params']['title'].strip()] = spectrum['m/z array']
-    #                if spectra_name_type == 'Bruker mgf':
-    #                    spectra_dict[int(spectrum['params']['title'].split(',')[0].split('Cmpd ')[1])] = spectrum['m/z array']
-    #                elif spectra_name_type == 'TPP':
-    #                    spectra_dict[int(spectrum['params']['title'].split('.')[1])] = spectrum['m/z array']
 
         print 'total number of PSMs = %d' % (len(peptides.peptideslist),)
 
@@ -154,7 +139,7 @@ def handle(q, q_output, settings, protsL, numprots, numpeptides, expasy, proteas
                     prots_dict[protein.dbname] += 1
                 except:
                     prots_dict[protein.dbname] = 1
-                if protein.dbname not in valid_proteins and peptide.note == 'decoy': #### OR REPLACED AND
+                if peptide.note == 'decoy':
                     protein.note = 'W'
                     if peptide.note2 != 'tr' or peptide.note == 'decoy':
                         peptide.note2 = 'wr'
@@ -173,15 +158,7 @@ def handle(q, q_output, settings, protsL, numprots, numpeptides, expasy, proteas
 
         if settings.getint('descriptors', 'fragment mass tolerance, Da'):
             for peptide in peptides.peptideslist:
-                """
-                try:
-                    spN = peptide.spectrum.split('Cmpd ')[1].split(',')[0]
-                except:
-                    spN = str(int(peptide.spectrum.split('scan=')[1].split('"')[0]) - 1)
-        #            print spN
-                """
                 if spectra_dict:
-        #            try:
                     if spectra_name_type == 'Valid':
                         peptide.spectrum_mz = spectra_dict[peptide.spectrum.split(' RTINSECONDS=')[0].strip()]
                     elif spectra_name_type == 'TPP':
@@ -190,9 +167,7 @@ def handle(q, q_output, settings, protsL, numprots, numpeptides, expasy, proteas
                         except:
                             spectra_name_type = 'Bruker mgf'
                             peptide.spectrum_mz = spectra_dict[int(peptide.spectrum.split(',')[0].split('Cmpd ')[1])]
-        #            except: 
                     elif spectra_name_type == 'Bruker mgf':
-        #                print peptide.spectrum
                         try:   
                             peptide.spectrum_mz = spectra_dict[int(peptide.spectrum.split(',')[0].split('Cmpd ')[1])]
                         except:
@@ -200,7 +175,7 @@ def handle(q, q_output, settings, protsL, numprots, numpeptides, expasy, proteas
                             peptide.spectrum_mz = spectra_dict[int(peptide.spectrum.split('.')[1])]
                 else:
                     print 'mgf file is missing'
-                peptide.get_fragment_mt(peptides.settings)
+                peptide.get_median_fragment_mt(peptides.settings)
                 
 
         for peptide in peptides.peptideslist:
@@ -232,16 +207,12 @@ def handle(q, q_output, settings, protsL, numprots, numpeptides, expasy, proteas
             if settings.getint('descriptors', dname.split(',')[0]):
                 protease1 = [x.strip() for x in settings.get('missed cleavages', 'protease1').split(',')]
                 expasy1 = '|'.join((parser.expasy_rules[protease] if protease in parser.expasy_rules.keys() else protease for protease in protease1))
-        #        descriptors.append(Descriptor(name=dname, formula='peptide.get_missed_cleavages(%s)' % ('"'+protease+'"', ), group='A', binsize=1))
                 descriptors.append(Descriptor(name=dname, formula='peptide.get_missed_cleavages(%s)' % ('"'+expasy1+'"', ), group='A', binsize=1))
             dname = 'missed cleavages, protease 2'
             if settings.getint('descriptors', dname.split(',')[0]):
                 protease2 = [x.strip() for x in settings.get('missed cleavages', 'protease2').split(',')]
                 expasy2 = '|'.join((parser.expasy_rules[protease] if protease in parser.expasy_rules.keys() else protease for protease in protease2))
                 if protease2[0]:
-                    print protease2
-                    print expasy2
-        #        descriptors.append(Descriptor(name=dname, formula='peptide.get_missed_cleavages(%s)' % ('"'+protease+'"', ), group='A', binsize=1))
                     descriptors.append(Descriptor(name=dname, formula='peptide.get_missed_cleavages(%s)' % ('"'+expasy2+'"', ), group='A', binsize=1))
 
             dname = 'charge states'
@@ -253,7 +224,7 @@ def handle(q, q_output, settings, protsL, numprots, numpeptides, expasy, proteas
                 temp = settings.get('modifications', 'variable')
                 if temp:
                     for mod in temp.split(', '):
-                        descriptors.append(Descriptor(name='%s, %s' % (dname, mod), formula="peptide.count_modifications_new(%s)" % ('"'+mod+'"', ), group='A', binsize='1'))
+                        descriptors.append(Descriptor(name='%s, %s' % (dname, mod), formula="peptide.count_modifications(%s)" % ('"'+mod+'"', ), group='A', binsize='1'))
             dname = 'isotopes mass difference, Da'
             if settings.getint('descriptors', dname):
                 descriptors.append(Descriptor(name=dname, formula='round(peptide.massdiff, 0)', group='A', binsize='1'))
@@ -268,7 +239,7 @@ def handle(q, q_output, settings, protsL, numprots, numpeptides, expasy, proteas
                 if not spectra_dict:
                     print 'mgf file is missing. Fragment mass tolerance descriptor is turned off.'
                 else:
-                    descriptors.append(Descriptor(name=dname, formula='peptide.get_fragment_mt()', group='A', binsize = 'auto'))
+                    descriptors.append(Descriptor(name=dname, formula='peptide.get_median_fragment_mt()', group='A', binsize = 'auto'))
             dname = 'PIF'
             if settings.getint('descriptors', dname):
                 descriptors.append(Descriptor(name=dname, formula='peptide.PIF', group='B'))
@@ -314,13 +285,10 @@ def handle(q, q_output, settings, protsL, numprots, numpeptides, expasy, proteas
             copy_peptides.peptideslist = list(peptides.peptideslist)
             copy_peptides.pepxml_type = peptides.pepxml_type
             copy_peptides.filter_evalue_new(FDR=FDR, useMP=False)
-    #            _, numpeptides_true, numprots_true = PSMs_info(copy_peptides, valid_proteins, printresults=False)
             descriptors = prepare_hist(descriptors, copy_peptides)
             jk = dict()
             for peptide in peptides.peptideslist:
                 jk = calc_peptscore(peptide, descriptors, jk)
-        #    print jk
-        #    plot_histograms(descriptors, copy_peptides)
             k = float(numprots_true) / numprots * float(numpeptides_true) / numpeptides
             print k, 'k factor'
             plot_MP(descriptors, peptides, fig, FDR, valid_proteins, k, threshold0, curfile)
@@ -361,16 +329,11 @@ def PSMs_info(peptides, valid_proteins, printresults=True, tofile=False, curfile
                         full_sequences.remove(peptide.sequence)
             tostay.add(protein[0])
             break
-#        print len(full_sequences), len(tostay)
-#    for group in proteins_groups:
-#        if any([prots[dbname]['Peptides'] > 1 for dbname in group]):
-#            print group
 
     prots = dict()
     prots_peptides = dict()
     peptides_added = set()
     true_prots = set()
-#    unique = set()
     todel = set()
     Total_prots = set()
     Total_prots_2 = set()
@@ -459,10 +422,8 @@ def PSMs_info(peptides, valid_proteins, printresults=True, tofile=False, curfile
     if printresults:
         print 'True PSMs: %s' % (len([1 for x in peptides.peptideslist if x.note2 == 'tr']), )
         print 'Peptides: %d' % (len(set(p.sequence for p in peptides.peptideslist)))
-#        print 'Wrong PSMs= %s' % (len([1 for x in peptides.peptideslist if x.note2 == 'wr']), )
         print 'Protein groups: %s' % (len(prots.values()))
         print 'Protein groups with >= 2 peptides: %s' % (len([v for v in prots.values() if v['Peptides'] >= 2]))
-    #    print 'Total_prots >=2 = %s' % (len(Total_prots_2), )
         if valid_proteins:
             print 'True Prots = %s' % (len(true_prots))
             print 'Real FDR = %s' % (100 * float(len([1 for x in peptides.peptideslist if not x.note3])) / len(peptides.peptideslist) )
@@ -483,7 +444,7 @@ def plot_histograms(descriptors, peptides, FDR):
 
     for idx, descriptor in enumerate(descriptors):
         ax = fig.add_subplot(ox, oy, idx + 1)
-        array_wrong = [eval(descriptor.formula) for peptide in peptides.peptideslist if peptide.note2 == 'wr']# and peptide.note == 'decoy']
+        array_wrong = [eval(descriptor.formula) for peptide in peptides.peptideslist if peptide.note2 == 'wr']
         array_valid = [eval(descriptor.formula) for peptide in peptides.peptideslist if peptide.note2 == 'tr']
         if descriptor.group == 'B':
             array_wrong = np.log10(array_wrong)
@@ -500,8 +461,6 @@ def plot_histograms(descriptors, peptides, FDR):
         if rbin_s and abs((rbin - rbin_s) / rbin_s) > 1.0:
             rbin = rbin_s * 1.05
         rbin += 1.5 * binsize
-#        if descriptor.name == 'fragment mass tolerance, Da':
-#            rbin = 0.05
         H1, _ = np.histogram(array_wrong, bins=np.arange(lbin, rbin, binsize))
         H2, _ = np.histogram(array_valid, bins=np.arange(lbin, rbin, binsize))
         if descriptor.group == 'B':
@@ -605,18 +564,6 @@ def calc_peptscore(peptide, descriptors, jk):
                     print descriptor.hist[0]
                     print descriptor.hist[1]
                     print descriptor_value, descriptor.hist[1][j], descriptor.hist[1][descriptor.hist[1].searchsorted(descriptor_value)], descriptor.hist[1].searchsorted(descriptor_value)
-                """
-                j = len(descriptor.hist[1]) - 2
-                if j > -1:
-                    while j >= -1:
-                        if j == -1:
-                            peptide.peptscore = 0
-                            break
-                        if descriptor.hist[1][j] <= descriptor_value:
-                            peptide.peptscore *= float(descriptor.hist[0][j]) / sum(descriptor.hist[0])
-                            break
-                        j -= 1
-                """
         elif descriptor.group == 'B':
             peptide.peptscore *= percentileofscore(descriptor.array, descriptor_value) / 100
 
@@ -656,7 +603,7 @@ def main(inputfile):
     if configfile:
         settings = get_settings(configfile)
     else:
-        settings = get_settings('default_allmod.cfg')
+        settings = get_settings('default.cfg')
 
     numprots, numpeptides = 0, 0
     proteases = [x.strip() for x in settings.get('missed cleavages', 'protease1').split(',')]
@@ -676,8 +623,6 @@ def main(inputfile):
                 protsL[x[0].split('|')[1]] = len(x[1])
 
             numprots += 1
-#            for peptide in parser.cleave(x[1], expasy, 2):
-#                numpeptides += 1
             numpeptides += len(parser.cleave(x[1], expasy, 2))
     
 
@@ -687,7 +632,6 @@ def main(inputfile):
     q_output = multiprocessing.Queue()
 
     for filename in files:
-#        handle(filename, settings, protsL, numprots, numpeptides, expasy, proteases, file_folder)
         q.put(filename)
     for i in range(nprocs):
         p = multiprocessing.Process(target=handle, args=(q, q_output, settings, protsL, numprots, numpeptides, expasy, proteases, file_folder))

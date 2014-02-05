@@ -1,7 +1,6 @@
 import sys
 import re
-import string
-from string import punctuation
+from string import punctuation, lowercase
 from pyteomics import parser
 from pyteomics.parser import cleave, expasy_rules
 from pyteomics import pepxml, electrochem, mass
@@ -18,7 +17,6 @@ except ImportError:
 
 def get_aa_mass(settings):
     aa_mass = mass.std_aa_mass.copy()
-#    print aa_mass
     fmods = settings.get('modifications', 'fixed')
     if fmods:
         for mod in re.split(r'[,;]\s*', fmods):
@@ -34,7 +32,6 @@ def get_aa_mass(settings):
 
 
 def get_settings(fname=None, default_name='default.cfg'):
-#os.path.join(os.path.dirname(os.path.abspath(__file__)), os.pardir, 'default.cfg')
     """Read a configuration file and return a :py:class:`RawConfigParser` object.
     """
     kw = {'inline_comment_prefixes': ('#', ';')
@@ -64,13 +61,6 @@ def FDbinSize(X):
     IQR = upperQuartile - lowerQuartile
     h = 2. * IQR / len(X) ** (1. / 3.)
     return h
-
-
-def get_descriptors(dictonary):
-    descriptors = []
-    for descr in dictonary.values():
-        descriptors.append(Descriptor(name=descr['name'], ))
-
 
 class Descriptor():
     def __init__(self, name, formula, group='A', binsize='auto'):
@@ -103,7 +93,7 @@ class PeptideList:
         self.settings = settings
 
     def get_from_pepxmlfile(self, pepxmlfile, min_charge=1, max_charge=0, max_rank=1):
-        for line in open(pepxmlfile, 'r').readlines():
+        for line in open(pepxmlfile, 'r'):
             if line.startswith('<search_summary') or line.startswith('    <search_summary'):
                 if "X! Tandem" in line:
                     self.pepxml_type = 'tandem'
@@ -288,18 +278,6 @@ class PeptideList:
                 self.peptideslist.pop(j)
             j -= 1
 
-#    def calculate_proteins_score(self):
-#        prots = {}
-#        for peptide in self.peptideslist:
-#            for prot in peptide.parentproteins:
-#                if prot.dbname in prots.keys():
-#                    prots[prot.dbname] += float(len(peptide.sequence))
-#                else:
-#                    prots[prot.dbname] = float(len(peptide.sequence))
-#        for peptide in self.peptideslist:
-#            for prot in peptide.parentproteins:
-#                prot.score = float(prots[prot.dbname]) / len(prot.sequence)
-
     def filter_evalue_new(self, FDR=1, useMP=True, k=0):
         "A function for filtering PSMs by e-value and MP-score with some FDR"
         target_evalues, decoy_evalues = np.array([]), np.array([])
@@ -401,7 +379,6 @@ class Peptide:
 
         for mod in self.modifications:
             if mod['position'] == 0:
-#                self.modified_code = '[' + str(int(mod['mass'])) + ']' + self.modified_code
                 self.sequence = '|' + self.sequence
                 break
 
@@ -415,17 +392,6 @@ class Peptide:
         self.parentprotein = protein
         self.parentproteins = []
         self.massdiff = float(mass_exp) - float(self.pmass)
-        """
-        if float(massdiff) != 0:
-            self.massdiff = float(massdiff)
-        else:
-            if float(mass_exp) - float(self.pmass) < 0.01:
-                self.massdiff = float(mass_exp) - float(self.pmass)
-            else:
-                self.massdiff = float(mass_exp) - float(self.pmass)
-
-#                self.massdiff = 0
-        """
         self.num_missed_cleavages = dict()
         self.note = note
         self.note2 = ''
@@ -448,7 +414,6 @@ class Peptide:
 
     def theor_spectrum(self, types=('b', 'y'), maxcharge=None, **kwargs):
         peaks = {}
-    #    maxcharge = 3
         maxcharge = self.pcharge
         for ion_type in types:
             ms = []
@@ -469,19 +434,10 @@ class Peptide:
 
     def get_missed_cleavages(self, protease='trypsin'):
         if protease not in self.num_missed_cleavages.keys():
-#            self.num_missed_cleavages = len(cleave(self.sequence, expasy_rules[protease], 0)) - 1
             self.num_missed_cleavages[protease] = len(cleave(self.sequence, protease, 0)) - 1
         return self.num_missed_cleavages[protease]
 
-    def count_modifications(self, labels):
-        nmods = 0
-        for mod in labels:
-#            print mod
-            nmods += self.modified_sequence.count(mod)
-        return nmods
-
-    def count_modifications_new(self, label):
-#        print label
+    def count_modifications(self, label):
         nmods = self.modified_sequence.count(label)
         naa = self.modified_sequence.count(parser._split_label(label)[1])
         if naa:
@@ -489,16 +445,12 @@ class Peptide:
         else:
             return -1.0
 
-    def get_fragment_mt(self, settings=None):
+    def get_median_fragment_mt(self, settings=None):
         if not self.fragment_mt and len(self.spectrum_mz) > 1:
             temp = settings.get('fragment mass', 'ion types')
             ion_types = (x.strip() for x in temp.split(','))
             acc = settings.getfloat('fragment mass', 'mass accuracy')
-#            acc = fragment_mass_acc
-#            acc = 0.5
             spectrum_mz = copy(self.spectrum_mz)
-#            idx = np.nonzero(spectrum_mz >= 150)
-#            spectrum_mz = spectrum_mz[idx]
             theor = self.theor_spectrum(types=ion_types, aa_mass=get_aa_mass(settings))
             spectrum_KDTree = cKDTree(spectrum_mz.reshape((spectrum_mz.size, 1)))
 
@@ -508,41 +460,6 @@ class Peptide:
                 dist, ind = spectrum_KDTree.query(fragments.reshape((n, 1)),
                     distance_upper_bound=acc)
                 mask = (dist != np.inf)
-                dist_total = np.append(dist_total, dist[dist != np.inf])
-            if dist_total.size:
-                self.fragment_mt = np.median(dist_total)
-#                self.fragment_mt = float(scoreatpercentile(dist_total, 75) - scoreatpercentile(dist_total, 25))
-#                 self.fragment_mt = scoreatpercentile(dist_total, 80)
-            else:
-                self.fragment_mt = acc
-        return self.fragment_mt
-
-    def get_fragment_mt_ppm(self, settings=None):
-        if not self.fragment_mt:
-            temp = settings.get('fragment mass', 'ion types')
-            ion_types = (x.strip() for x in temp.split(','))
-            acc = settings.getfloat('fragment mass', 'mass accuracy')
-#            acc = fragment_mass_acc
-#            acc = 0.5
-            spectrum_mz = copy(self.spectrum_mz)
-#            idx = np.nonzero(spectrum_mz >= 150)
-#            spectrum_mz = spectrum_mz[idx]
-            theor = self.theor_spectrum(types=ion_types, aa_mass=get_aa_mass(settings))
-            spectrum_KDTree = cKDTree(spectrum_mz.reshape((spectrum_mz.size, 1)))
-
-            dist_total = np.array([])
-            for fragments in theor.values():
-                n = fragments.size
-                dist, ind = spectrum_KDTree.query(fragments.reshape((n, 1)),
-                    distance_upper_bound=acc)
-                mask = (dist != np.inf)
-#                temp = copy(dist[dist != np.inf])
-                for j, v in enumerate(dist):
-                    if v != np.inf:
-#                        print j
-    #                    print dist[j], '!'
-                        dist[j] = float(dist[j]) * 1e6 / fragments[j]
-    #                    print dist[j], '!!'
                 dist_total = np.append(dist_total, dist[dist != np.inf])
             if dist_total.size:
                 self.fragment_mt = np.median(dist_total)
@@ -577,18 +494,16 @@ class Peptide:
                 end = i
                 if self.modified_sequence[start + 1:end] not in modifications.keys():
                     self.missed_modifications.append(self.modified_sequence[start + 1:end])
-#                    print 'missed modification with mass = %s' % (float(self.modified_sequence[start + 1:end]), )
                     mod_label = 'u'
-#                    print modifications.values()
                     while mod_label in modifications.values():
                         mod_label += 'u'
                     mod_label = ''
                     temp_val = int(self.modified_sequence[start + 1:end])
-                    maxV = len(string.lowercase)
+                    maxV = len(lowercase)
                     while temp_val > maxV:
-                        mod_label += string.lowercase[-1]
+                        mod_label += lowercase[-1]
                         temp_val -= maxV
-                    mod_label += string.lowercase[temp_val - 1]
+                    mod_label += lowercase[temp_val - 1]
                         
                     modifications[self.modified_sequence[start + 1:end]] = mod_label
                     for md_mass in self.modifications:
@@ -596,17 +511,12 @@ class Peptide:
                             temp_mass = md_mass['mass']
                             break
                     char = mod_label + self.modified_sequence[start-1]
-#                    print mass.std_aa_mass
                     mass.std_aa_mass[char] = temp_mass
-#                    print mass.std_aa_mass
                     modifications[int(temp_mass)] = mod_label
-#                    print char, temp_mass, mod_label, '!@#!#@!$!@$!@$!@$!$@!$@!$@!@'
                     label = mod_label
-                    #label = ''
                     self.unknown_mods_counter += 1
                 else:
                     label = modifications[self.modified_sequence[start + 1:end]]
-#                    print label, 'ok'
                 self.modified_sequence = self.modified_sequence[:start - 1] + label + self.modified_sequence[start - 1] + self.modified_sequence[end + 1:]
                 i = 0
             i += 1
