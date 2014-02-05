@@ -451,6 +451,11 @@ class Peptide:
             ion_types = (x.strip() for x in temp.split(','))
             acc = settings.getfloat('fragment mass', 'mass accuracy')
             spectrum_mz = copy(self.spectrum_mz)
+            int_array = copy(self.spectrum_i)
+            int_array = int_array / int_array.max() * 100
+            i = int_array > int_array.max() / 100
+            int_array = int_array[i]
+            spectrum_mz = spectrum_mz[i]
             theor = self.theor_spectrum(types=ion_types, aa_mass=get_aa_mass(settings))
             spectrum_KDTree = cKDTree(spectrum_mz.reshape((spectrum_mz.size, 1)))
 

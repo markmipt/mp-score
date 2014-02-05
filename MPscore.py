@@ -89,6 +89,7 @@ def handle(q, q_output, settings, protsL, numprots, numpeptides, expasy, proteas
 
         Fragment_intensities = {}
         spectra_dict = dict()
+        spectra_dict_intensities = dict()
 
         if txmlfile and 0:
             txmlf = open(txmlfile, 'r')
@@ -123,6 +124,7 @@ def handle(q, q_output, settings, protsL, numprots, numpeptides, expasy, proteas
             spectra_name_type = 'Valid'
             for spectrum in spectra:
                 spectra_dict[spectrum['params']['title'].strip()] = spectrum['m/z array']
+                spectra_dict_intensities[spectrum['params']['title'].strip()] = spectrum['intensity array']
 
         print 'total number of PSMs = %d' % (len(peptides.peptideslist),)
 
@@ -161,18 +163,23 @@ def handle(q, q_output, settings, protsL, numprots, numpeptides, expasy, proteas
                 if spectra_dict:
                     if spectra_name_type == 'Valid':
                         peptide.spectrum_mz = spectra_dict[peptide.spectrum.split(' RTINSECONDS=')[0].strip()]
+                        peptide.spectrum_i = spectra_dict_intensities[peptide.spectrum.split(' RTINSECONDS=')[0].strip()]
                     elif spectra_name_type == 'TPP':
                         try:
                             peptide.spectrum_mz = spectra_dict[int(peptide.spectrum.split('.')[1])]
+                            peptide.spectrum_i = spectra_dict_intensities[int(peptide.spectrum.split('.')[1])]
                         except:
                             spectra_name_type = 'Bruker mgf'
                             peptide.spectrum_mz = spectra_dict[int(peptide.spectrum.split(',')[0].split('Cmpd ')[1])]
+                            peptide.spectrum_i = spectra_dict_intensities[int(peptide.spectrum.split(',')[0].split('Cmpd ')[1])]
                     elif spectra_name_type == 'Bruker mgf':
                         try:   
                             peptide.spectrum_mz = spectra_dict[int(peptide.spectrum.split(',')[0].split('Cmpd ')[1])]
+                            peptide.spectrum_i = spectra_dict_intensities[int(peptide.spectrum.split(',')[0].split('Cmpd ')[1])]
                         except:
                             spectra_name_type = 'TPP'
                             peptide.spectrum_mz = spectra_dict[int(peptide.spectrum.split('.')[1])]
+                            peptide.spectrum_i = spectra_dict_intensities[int(peptide.spectrum.split('.')[1])]
                 else:
                     print 'mgf file is missing'
                 peptide.get_median_fragment_mt(peptides.settings)
