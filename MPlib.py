@@ -414,7 +414,7 @@ class Peptide:
 
     def theor_spectrum(self, types=('b', 'y'), maxcharge=None, **kwargs):
         peaks = {}
-        maxcharge = self.pcharge
+        maxcharge = max(self.pcharge, 1)
         for ion_type in types:
             ms = []
             for i in range(1, len(self.sequence) - 1):
