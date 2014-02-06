@@ -27,6 +27,7 @@ def handle(q, q_output, settings, protsL, numprots, numpeptides, expasy, proteas
             break
         print 'inputfile = %s' % (filename, )
         FDR = settings.getfloat('options', 'FDR')
+        FDR_type = settings.get('options', 'FDR_type')
 
         RT_type = settings.get('retention time', 'model')
 
@@ -78,15 +79,6 @@ def handle(q, q_output, settings, protsL, numprots, numpeptides, expasy, proteas
         line = curfile
         numprots_true, numpeptides_true = 0, 0
 
-        peptides = PeptideList(settings)
-        peptides.get_from_pepxmlfile(line, min_charge=min_charge, max_charge=max_charge, max_rank=1)
-#        peptides.filter_modifications(RT_type='biolccc')
-        missed_modifications = set()
-        for peptide in peptides.peptideslist:
-            for mod in peptide.missed_modifications:
-                missed_modifications.add(mod)
-        for mod in missed_modifications:
-            print 'modification with mass = %s is missed in parameters' % (mod)
 
         Fragment_intensities = {}
         spectra_dict = dict()
@@ -119,13 +111,16 @@ def handle(q, q_output, settings, protsL, numprots, numpeptides, expasy, proteas
                 psm.I = Ip
                 psm.PIF = PIF
 
-        print 'mgf is processing'
         if mgffile:
+            print 'mgf is processing'
             spectra = mgf.read(mgffile)
             spectra_name_type = 'Valid'
             for spectrum in spectra:
                 spectra_dict[spectrum['params']['title'].strip()] = spectrum['m/z array']
                 spectra_dict_intensities[spectrum['params']['title'].strip()] = spectrum['intensity array']
+
+        peptides = PeptideList(settings)
+        peptides.get_from_pepxmlfile(line, min_charge=min_charge, max_charge=max_charge, max_rank=1)
 
         print 'total number of PSMs = %d' % (len(peptides.peptideslist),)
 
@@ -152,6 +147,27 @@ def handle(q, q_output, settings, protsL, numprots, numpeptides, expasy, proteas
                     true_prots.add(protein.dbname)
                     protein.note = 'Valid'
                     peptide.note2 = 'tr'
+
+        if FDR_type == 'peptide':
+            peptidesdict = dict()
+            for peptide in peptides.peptideslist:
+                if peptide.sequence not in peptidesdict.keys():
+                    peptidesdict[peptide.sequence] = [peptide.spectrum, peptide.evalue]
+                elif peptide.evalue < peptidesdict[peptide.sequence][1]:
+                    peptidesdict[peptide.sequence] = [peptide.spectrum, peptide.evalue]
+            passed = [x[0] for x in peptidesdict.values()]
+            j = len(peptides.peptideslist) - 1
+            while j >= 0:
+                if peptides.peptideslist[j].spectrum not in passed:
+                    peptides.peptideslist.pop(j)
+                j -= 1
+
+        missed_modifications = set()
+        for peptide in peptides.peptideslist:
+            for mod in peptide.missed_modifications:
+                missed_modifications.add(mod)
+        for mod in missed_modifications:
+            print 'modification with mass = %s is missed in parameters' % (mod)
 
         for peptide in peptides.peptideslist:
             try:
