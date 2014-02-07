@@ -12,7 +12,6 @@ import multiprocessing
 from time import sleep
 
 inputfile = str(argv[1])
-curfile = None
 protsC = {}
 manager = multiprocessing.Manager()
 protsL = manager.dict()
@@ -20,12 +19,12 @@ protsL = manager.dict()
 def handle(q, q_output, settings, protsL, numprots, numpeptides, expasy, proteases, file_folder):
     while 1:
         try:
-            filename = q.get(timeout=1)
+            filenames = q.get(timeout=1)
         except Empty:
             q_output.put('1')
             print 'done'
             break
-        print 'inputfile = %s' % (filename, )
+        print 'inputfile = %s' % (','.join(filenames), )
         FDR = settings.getfloat('options', 'FDR')
         FDR_type = settings.get('options', 'FDR_type')
 
@@ -34,34 +33,6 @@ def handle(q, q_output, settings, protsL, numprots, numpeptides, expasy, proteas
         min_charge = settings.getint('charges', 'min charge')
         max_charge = settings.getint('charges', 'max charge')
 
-        curfile = filename
-        basename = path.splitext(path.splitext(path.basename(curfile))[0])[0]
-        txmlfile = None
-        mzmlfile = None
-        mgffile = None
-
-        for arg in argv:
-            if path.splitext(arg)[-1] == '.xml':
-                if path.splitext(path.splitext(arg)[0])[-1] == '.t':
-                    txmlfile = arg
-            elif path.splitext(arg)[-1] == '.mzml':
-                mzmlfile = arg
-            elif path.splitext(arg)[-1] == '.mgf':
-                mgffile = arg
-            elif path.splitext(arg)[-1] == '.fasta':
-                fastafile = arg
-            elif path.splitext(arg)[-1] == '.cfg':
-                configfile = arg
-
-        if not txmlfile:
-            if path.isfile(file_folder + basename + path.extsep + 't' + path.extsep + 'xml'):
-                txmlfile = file_folder + basename + path.extsep + 't' + path.extsep + 'xml'
-        if not mzmlfile:
-            if path.isfile(file_folder + basename + path.extsep + 'mzml'):
-                mzmlfile = file_folder + basename + path.extsep + 'mzml'
-        if not mgffile:
-            if path.isfile(file_folder + basename + path.extsep + 'mgf'):
-                mgffile = file_folder + basename + path.extsep + 'mgf'
         valid_proteins = []
         valid_proteins_input = settings.get('options', 'valid proteins')
         if path.isfile(valid_proteins_input):
@@ -76,51 +47,77 @@ def handle(q, q_output, settings, protsL, numprots, numpeptides, expasy, proteas
         else:
             valid_proteins = []
 
-        line = curfile
-        numprots_true, numpeptides_true = 0, 0
-
-
         Fragment_intensities = {}
         spectra_dict = dict()
         spectra_dict_intensities = dict()
 
-        if txmlfile and 0:
-            txmlf = open(txmlfile, 'r')
-            for x in txmlf:
-                if x.startswith('<group id='):
-                    Fragment_intensities[int(x.split('<group id="')[1].split('"')[0])] = 10**float(x.split('sumI="')[1].split('"')[0])
-            txmlf.close()
-
-        if mzmlfile:
-            isolation_window = settings.getfloat('precursor ion fraction', 'isolation window')
-            mass_acc = settings.getfloat('precursor ion fraction', 'mass accuracy')
-            spectra = [x for x in mzml.read(mzmlfile) if x['ms level'] == 1]
-            for psm in peptides.peptideslist:
-                j = len(spectra) - 1
-                while spectra[j]['scanList']['scan'][0]['scan start time'] > psm.RT_exp:
-                    j -= 1
-                basemz = spectra[j]
-                I = []
-                Ip = 0
-                for idx, mz in enumerate(spectra[j]['m/z array']):
-                    if abs(mz - (float(psm.mass_exp + 1.007825 * psm.pcharge) / psm.pcharge)) <= isolation_window:
-                        if any(abs(mz - (float(psm.mass_exp + k + 1.007825 * psm.pcharge) / psm.pcharge)) <= mz * mass_acc * 1e-6 for k in [-2, -1, 0, 1, 2]):
-                            Ip += float(spectra[j]['intensity array'][idx])
-                        I.append(float(spectra[j]['intensity array'][idx]))
-                PIF = Ip / sum(I) * 100
-                psm.I = Ip
-                psm.PIF = PIF
-
-        if mgffile:
-            print 'mgf is processing'
-            spectra = mgf.read(mgffile)
-            spectra_name_type = 'Valid'
-            for spectrum in spectra:
-                spectra_dict[spectrum['params']['title'].strip()] = spectrum['m/z array']
-                spectra_dict_intensities[spectrum['params']['title'].strip()] = spectrum['intensity array']
 
         peptides = PeptideList(settings)
-        peptides.get_from_pepxmlfile(line, min_charge=min_charge, max_charge=max_charge, max_rank=1)
+        for filename in filenames:
+            curfile = filename
+            basename = path.splitext(path.splitext(path.basename(curfile))[0])[0]
+            txmlfile = None
+            mzmlfile = None
+            mgffile = None
+
+            for arg in argv:
+                if path.splitext(arg)[-1] == '.xml':
+                    if path.splitext(path.splitext(arg)[0])[-1] == '.t':
+                        txmlfile = arg
+                elif path.splitext(arg)[-1] == '.mzml':
+                    mzmlfile = arg
+                elif path.splitext(arg)[-1] == '.mgf':
+                    mgffile = arg
+                elif path.splitext(arg)[-1] == '.fasta':
+                    fastafile = arg
+                elif path.splitext(arg)[-1] == '.cfg':
+                    configfile = arg
+
+            if not txmlfile:
+                if path.isfile(file_folder + basename + path.extsep + 't' + path.extsep + 'xml'):
+                    txmlfile = file_folder + basename + path.extsep + 't' + path.extsep + 'xml'
+            if not mzmlfile:
+                if path.isfile(file_folder + basename + path.extsep + 'mzml'):
+                    mzmlfile = file_folder + basename + path.extsep + 'mzml'
+            if not mgffile:
+                if path.isfile(file_folder + basename + path.extsep + 'mgf'):
+                    mgffile = file_folder + basename + path.extsep + 'mgf'
+
+            if txmlfile and 0:
+                txmlf = open(txmlfile, 'r')
+                for x in txmlf:
+                    if x.startswith('<group id='):
+                        Fragment_intensities[int(x.split('<group id="')[1].split('"')[0])] = 10**float(x.split('sumI="')[1].split('"')[0])
+                txmlf.close()
+
+            if mzmlfile:
+                isolation_window = settings.getfloat('precursor ion fraction', 'isolation window')
+                mass_acc = settings.getfloat('precursor ion fraction', 'mass accuracy')
+                spectra = [x for x in mzml.read(mzmlfile) if x['ms level'] == 1]
+                for psm in peptides.peptideslist:
+                    j = len(spectra) - 1
+                    while spectra[j]['scanList']['scan'][0]['scan start time'] > psm.RT_exp:
+                        j -= 1
+                    basemz = spectra[j]
+                    I = []
+                    Ip = 0
+                    for idx, mz in enumerate(spectra[j]['m/z array']):
+                        if abs(mz - (float(psm.mass_exp + 1.007825 * psm.pcharge) / psm.pcharge)) <= isolation_window:
+                            if any(abs(mz - (float(psm.mass_exp + k + 1.007825 * psm.pcharge) / psm.pcharge)) <= mz * mass_acc * 1e-6 for k in [-2, -1, 0, 1, 2]):
+                                Ip += float(spectra[j]['intensity array'][idx])
+                            I.append(float(spectra[j]['intensity array'][idx]))
+                    PIF = Ip / sum(I) * 100
+                    psm.I = Ip
+                    psm.PIF = PIF
+
+            if mgffile:
+                print 'mgf is processing'
+                spectra = mgf.read(mgffile)
+                for spectrum in spectra:
+                    spectra_dict[spectrum['params']['title'].strip()] = spectrum['m/z array']
+                    spectra_dict_intensities[spectrum['params']['title'].strip()] = spectrum['intensity array']
+
+            peptides.get_from_pepxmlfile(curfile, min_charge=min_charge, max_charge=max_charge, max_rank=1)
 
         print 'total number of PSMs = %d' % (len(peptides.peptideslist),)
 
@@ -178,25 +175,12 @@ def handle(q, q_output, settings, protsL, numprots, numpeptides, expasy, proteas
         if settings.getint('descriptors', 'fragment mass tolerance, Da'):
             for peptide in peptides.peptideslist:
                 if spectra_dict:
-                    if spectra_name_type == 'Valid':
+                    try:
                         peptide.spectrum_mz = spectra_dict[peptide.spectrum.split(' RTINSECONDS=')[0].strip()]
                         peptide.spectrum_i = spectra_dict_intensities[peptide.spectrum.split(' RTINSECONDS=')[0].strip()]
-                    elif spectra_name_type == 'TPP':
-                        try:
-                            peptide.spectrum_mz = spectra_dict[int(peptide.spectrum.split('.')[1])]
-                            peptide.spectrum_i = spectra_dict_intensities[int(peptide.spectrum.split('.')[1])]
-                        except:
-                            spectra_name_type = 'Bruker mgf'
-                            peptide.spectrum_mz = spectra_dict[int(peptide.spectrum.split(',')[0].split('Cmpd ')[1])]
-                            peptide.spectrum_i = spectra_dict_intensities[int(peptide.spectrum.split(',')[0].split('Cmpd ')[1])]
-                    elif spectra_name_type == 'Bruker mgf':
-                        try:   
-                            peptide.spectrum_mz = spectra_dict[int(peptide.spectrum.split(',')[0].split('Cmpd ')[1])]
-                            peptide.spectrum_i = spectra_dict_intensities[int(peptide.spectrum.split(',')[0].split('Cmpd ')[1])]
-                        except:
-                            spectra_name_type = 'TPP'
-                            peptide.spectrum_mz = spectra_dict[int(peptide.spectrum.split('.')[1])]
-                            peptide.spectrum_i = spectra_dict_intensities[int(peptide.spectrum.split('.')[1])]
+                    except:
+                        peptide.spectrum_mz = spectra_dict[peptide.spectrum.strip()]
+                        peptide.spectrum_i = spectra_dict_intensities[peptide.spectrum.strip()]
                 else:
                     print 'mgf file is missing'
                 peptide.get_median_fragment_mt(peptides.settings)
@@ -399,12 +383,17 @@ def PSMs_info(peptides, valid_proteins, printresults=True, tofile=False, curfile
         if (dbname not in tostay and loop) or 'Peptides' not in prots[dbname].keys():
             del prots[dbname]
     if tofile:
-        output_proteins = open('%s/Results_new_%s_proteins.csv' % (path.dirname(path.realpath(curfile)), path.splitext(path.splitext(path.basename(curfile))[0])[0]), 'w')
-        output_peptides = open('%s/Results_new_%s_PSMs.csv' % (path.dirname(path.realpath(curfile)), path.splitext(path.splitext(path.basename(curfile))[0])[0]), 'w')
-        output_peptides_detailed = open('%s/%s_peptides.csv' % (path.dirname(path.realpath(curfile)), path.splitext(path.splitext(path.basename(curfile))[0])[0]), 'w')
+        ffolder = path.dirname(path.realpath(curfile))
+        if peptides.settings.get('options', 'files') == 'union':
+            fname = 'union'
+        else:
+            fname = path.splitext(path.splitext(path.basename(curfile))[0])[0]
+        output_proteins = open('%s/Results_new_%s_proteins.csv' % (ffolder, fname), 'w')
+        output_peptides = open('%s/Results_new_%s_PSMs.csv' % (ffolder, fname), 'w')
+        output_peptides_detailed = open('%s/%s_peptides.csv' % (ffolder, fname), 'w')
         output_peptides_detailed.write('sequence\tmodified_sequence\te-value\tMPscore\tspectrum_title\tproteins\n')
         if protsC:
-            output_proteins_valid = open('%s/Results_new_%s_proteins_valid.csv' % (path.dirname(path.realpath(curfile)), path.splitext(path.splitext(path.basename(curfile))[0])[0]), 'w')
+            output_proteins_valid = open('%s/Results_new_%s_proteins_valid.csv' % (ffolder, fname), 'w')
             temp_data = []
         for k, v in prots.items():
             if protsC and k in valid_proteins:
@@ -461,10 +450,6 @@ def plot_histograms(descriptors, peptides, FDR):
     copy_peptides.peptideslist = list(peptides.peptideslist)
     copy_peptides.pepxml_type = peptides.pepxml_type
     copy_peptides.filter_evalue_new(FDR=FDR, useMP=False)
-
-    for peptide in copy_peptides.peptideslist:
-        if peptide.mass_diff() < -10:
-            print peptide.spectrum
 
     for idx, descriptor in enumerate(descriptors):
         ax = fig.add_subplot(ox, oy, idx + 1)
@@ -545,7 +530,11 @@ def plot_MP(descriptors, peptides, fig, FDR, valid_proteins, k=0, threshold0=Fal
         ax.axvline(threshold0, color='red')
     ax.set_ylim(min(x[1] for x in PSMs_true) - 1, max(x[1] for x in PSMs_true) + 1)
     fig.tight_layout()
-    plt.savefig('%s/Results_new_%s.png' % (path.dirname(path.realpath(curfile)), path.splitext(path.splitext(path.basename(curfile))[0])[0]))
+    if peptides.settings.get('options', 'files') == 'union':
+        fname = 'union'
+    else:
+        fname = path.splitext(path.splitext(path.basename(curfile))[0])[0]
+    plt.savefig('%s/Results_new_%s.png' % (path.dirname(path.realpath(curfile)), fname))
 
 def prepare_hist(descriptors, copy_peptides, first=False):
     for descriptor in descriptors:
@@ -651,12 +640,16 @@ def main(inputfile):
     
 
     procs = []
-    nprocs = 4
+    nprocs = 1
     q = multiprocessing.Queue()
     q_output = multiprocessing.Queue()
 
-    for filename in files:
-        q.put(filename)
+    files_processing = settings.get('options', 'files')
+    if files_processing == 'union':
+        q.put(files)
+    else:
+        for filename in files:
+            q.put([filename, ])
     for i in range(nprocs):
         p = multiprocessing.Process(target=handle, args=(q, q_output, settings, protsL, numprots, numpeptides, expasy, proteases, file_folder))
         procs.append(p)
