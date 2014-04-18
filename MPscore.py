@@ -129,6 +129,7 @@ def handle(q, q_output, settings, protsL, numprots, numpeptides, expasy, proteas
                         spectra_dict[spectrum['params']['title'].strip()] = spectrum['m/z array']
                         spectra_dict_intensities[spectrum['params']['title'].strip()] = spectrum['intensity array']
                     protsL['total spectra'] = len(spectra_dict)
+                    qpeptides.number_of_spectra = len(spectra_dict)
 
                 qpeptides.get_from_pepxmlfile(curfile, min_charge=min_charge, max_charge=max_charge, max_rank=1)
                 if settings.getint('descriptors', 'fragment mass tolerance, Da'):
@@ -151,9 +152,9 @@ def handle(q, q_output, settings, protsL, numprots, numpeptides, expasy, proteas
                     tmppeptides = qpeptides.peptideslist[:msize]
                     iq_output.put(tmppeptides)
                     qpeptides.peptideslist = qpeptides.peptideslist[msize:]
+                iq_output.put(qpeptides.number_of_spectra)
                 iq_output.put(None)
             print 'getpepxml done'
-
 
         for filename in filenames:
             iq.put(filename)
@@ -168,9 +169,15 @@ def handle(q, q_output, settings, protsL, numprots, numpeptides, expasy, proteas
         j = 0
         while j < len(filenames):
             for res_peptides in iter(iq_output.get, None):
-                peptides.peptideslist.extend(res_peptides)
+                if isinstance(res_peptides, int):
+                    peptides.number_of_spectra += res_peptides
+                elif isinstance(res_peptides, list):
+                    peptides.peptideslist.extend(res_peptides)
+                else:
+                    print 'wrong type of res_peptides in the output of getpepxml()'  # Add Exception
             j += 1
-        print 'point before termination, total number of PSMs = %d' % (len(peptides.peptideslist),)
+        peptides.total_number_of_PSMs = len(peptides.peptideslist)
+        print 'point before termination, total number of PSMs = %d' % (peptides.total_number_of_PSMs,)
 
         for p in iprocs:
             p.terminate()
@@ -504,7 +511,7 @@ def PSMs_info(peptides, valid_proteins, printresults=True, tofile=False, curfile
         new_peptides = peptides.remove_duplicate_sequences()
         # Add normal s, T calculation
         N = len(new_peptides.peptideslist)
-        s = protsL['total spectra']
+        s = new_peptides.get_number_of_spectra()
         T = protsL['total peptides']
         for peptide in new_peptides.peptideslist:
             if peptide.note2 == 'wr':

@@ -117,6 +117,8 @@ class PeptideList:
         self.RC = False
         self.settings = settings
         self.modification_list = {}
+        self.number_of_spectra = 0
+        self.total_number_of_PSMs = 0
         fmods = self.settings.get('modifications', 'fixed')
         if fmods:
             for mod in re.split(r'[,;]\s*', fmods):
@@ -128,6 +130,14 @@ class PeptideList:
             for (mod, aa), char in zip(mods, punctuation):
                 self.modification_list[str(int(mass.std_aa_mass[aa] + settings.getfloat('modifications', mod)))] = mod
 
+    def get_number_of_spectra(self):
+        """Returns the number of MS/MS spectra used for the search. If mgf file is not available,
+         returns number of identified PSMs as approximation.
+        """
+        if self.number_of_spectra:
+            return self.number_of_spectra
+        else:
+            return self.total_number_of_PSMs
 
     def get_from_pepxmlfile(self, pepxmlfile, min_charge=1, max_charge=0, max_rank=1):
         for line in open(pepxmlfile, 'r'):
@@ -376,9 +386,18 @@ class PeptideList:
 #        new_peptides.filter_decoy()
         return (new_peptides, best_cut_evalue, best_cut_peptscore)
 
-    def remove_duplicate_sequences(self):
+    def copy_empty(self):
         new_peptides = PeptideList(self.settings)
         new_peptides.pepxml_type = self.pepxml_type
+        new_peptides.number_of_spectra = self.number_of_spectra
+        new_peptides.total_number_of_PSMs = self.total_number_of_PSMs
+        new_peptides.calibrate_coeff = self.calibrate_coeff
+        new_peptides.RC = self.RC
+        new_peptides.modification_list = self.modification_list
+        return new_peptides
+
+    def remove_duplicate_sequences(self):
+        new_peptides = self.copy_empty()
         for peptide in self.peptideslist:
             if peptide.sequence not in set(p.sequence for p in new_peptides.peptideslist) and peptide.evalue == min([p.evalue for p in self.peptideslist if p.sequence == peptide.sequence]):
                 new_peptides.peptideslist.append(peptide)
