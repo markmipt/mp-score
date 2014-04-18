@@ -4,7 +4,8 @@ import SSRCalc
 from string import punctuation, lowercase
 from pyteomics import parser, biolccc
 from pyteomics.parser import cleave, expasy_rules
-from pyteomics import pepxml, electrochem, mass
+from pyteomics import electrochem, mass
+import pepxml_custom as pepxml
 from pyteomics.auxiliary import linear_regression
 from pyteomics import achrom
 import numpy as np
@@ -72,8 +73,12 @@ class Descriptor():
         self.normK = None
 
     def get_array(self, peptides):
-        code = """[%s for peptide in peptides.peptideslist]""" % (self.formula)
-        return eval(code)
+#        code = """[%s for peptide in peptides.peptideslist]""" % (self.formula)
+#        return eval(code)
+        tmp = np.array([self.formula(peptide) for peptide in peptides.peptideslist])
+        tmp.sort()
+        self.array = tmp
+        return tmp
 
     def get_binsize(self, peptides=None):
         if self.binsize == 'auto':
@@ -119,12 +124,13 @@ class PeptideList:
                 break
 
         for record in pepxml.read(pepxmlfile):
-            if 'search_hit' in record.keys():
+            if 'search_hit' in record:
                 if int(min_charge) <= int(record['assumed_charge']) and (int(record['assumed_charge']) <= int(max_charge) or not max_charge):
                     for k in range(min(len(record['search_hit']), max_rank)):
                         sequence = record['search_hit'][k]['peptide']
                         if all(aminoacid not in ['B', 'X', 'J', 'Z', 'U', 'O', '.'] for aminoacid in sequence):
                             start_scan = record['start_scan']
+                            num_tol_term = record['search_hit'][k]['proteins'][0]['num_tol_term']
                             modified_code = record['search_hit'][k]['modified_peptide']
                             modifications = record['search_hit'][k]['modifications']
                             prev_aa = record['search_hit'][k]['proteins'][0]['peptide_prev_aa']
@@ -159,7 +165,7 @@ class PeptideList:
                                     print 'RT_exp read error'
 
                             decoy_tags = [':reversed', 'DECOY_', 'rev_', 'Random sequence.']
-                            if any([all([all([key in protein.keys() and isinstance(protein[key], str) and not protein[key].startswith(tag) and not protein[key].endswith(tag) for key in ['protein', 'protein_descr']]) for tag in decoy_tags]) for protein in record['search_hit'][k]['proteins']]):
+                            if any([all([all([key in protein and isinstance(protein[key], str) and not protein[key].startswith(tag) and not protein[key].endswith(tag) for key in ['protein', 'protein_descr']]) for tag in decoy_tags]) for protein in record['search_hit'][k]['proteins']]):
                                 pept.note = 'target'
                             else:
                                 pept.note = 'decoy'
@@ -171,15 +177,15 @@ class PeptideList:
                                             if any(prot['protein_descr'].startswith(tag) for tag in ['SWISS-PROT:', 'TREMBL:']):
                                                 return prot['protein']
                                             if '|' not in prot['protein']:
-                                                return prot['protein']+' '+prot['protein_descr']
+                                                return str(prot['protein']+' '+prot['protein_descr']).replace('DECOY_', '')
                                             else:
-                                                return prot['protein']+'>'+prot['protein_descr']
+                                                return str(prot['protein']+'>'+prot['protein_descr']).replace('DECOY_', '')
                                         else:
-                                            return prot['protein'].split('|')[1]
+                                            return str(prot['protein'].split('|')[1]).replace('DECOY_', '')
                                     except:
-                                        return prot['protein'].split('_')[0]
+                                        return str(prot['protein'].split('_')[0]).replace('DECOY_', '')
                                 else:
-                                    return prot['protein_descr'].split('|')[1]
+                                    return str(prot['protein_descr'].split('|')[1]).replace('DECOY_', '')
 
                             for prot in record['search_hit'][k]['proteins']:
                                 if get_dbname(prot, self.pepxml_type) not in [protein.dbname for protein in pept.parentproteins]:
@@ -210,7 +216,7 @@ class PeptideList:
             if x[1] == None:
                 x[1] = x[0] * a + b
             RC_dict['aa'][key] = x[1]
-        if 'C' not in RC_dict['aa'].keys():
+        if 'C' not in RC_dict['aa']:
             RC_dict['aa']['C'] = RC_dict['aa']['C*']
         self.RC = RC_dict
 
@@ -245,11 +251,27 @@ class PeptideList:
         peptides = []
         peptides_added = {}
         for peptide in self.peptideslist:
-            if peptide.sequence not in peptides_added.keys():
+            if peptide.sequence not in peptides_added:
                 peptides_added[peptide.sequence] = [peptide.RT_exp, ]
                 peptides.append([peptide.RT_predicted, peptide.RT_exp])
             else:
                 if any(abs(peptide.RT_exp - v) < 2 for v in peptides_added[peptide.sequence]):
+                    pass
+                else:
+                    peptides_added[peptide.sequence].append(peptide.RT_exp)
+                    peptides.append([peptide.RT_predicted, peptide.RT_exp])
+        aux_RT = linear_regression([val[0] for val in peptides], [val[1] for val in peptides])
+        return aux_RT
+
+    def get_calibrate_coeff_new(self):
+        peptides = []
+        peptides_added = {}
+        for peptide in self.peptideslist:
+            if peptide.sequence not in peptides_added:
+                peptides_added[peptide.sequence] = [peptide.RT_exp, ]
+                peptides.append([peptide.RT_predicted, peptide.RT_exp])
+            else:
+                if any(abs(peptide.RT_exp - v) < 10 for v in peptides_added[peptide.sequence]):
                     pass
                 else:
                     peptides_added[peptide.sequence].append(peptide.RT_exp)
@@ -281,12 +303,14 @@ class PeptideList:
 
     def filter_evalue_new(self, FDR=1, useMP=True, k=0):
         "A function for filtering PSMs by e-value and MP-score with some FDR"
-        target_evalues, decoy_evalues = np.array([]), np.array([])
+        target_evalues, decoy_evalues = [], []#np.array([]), np.array([])
         for peptide in self.peptideslist:
             if peptide.note == 'target':
-                target_evalues = np.append(target_evalues, float(peptide.evalue))
+                target_evalues.append(float(peptide.evalue))
             elif peptide.note == 'decoy':
-                decoy_evalues = np.append(decoy_evalues, float(peptide.evalue))
+                decoy_evalues.append(float(peptide.evalue))
+        target_evalues = np.array(target_evalues)
+        decoy_evalues = np.array(decoy_evalues)
         target_evalues.sort()
         best_cut_evalue = None
         real_FDR = 0
@@ -302,13 +326,15 @@ class PeptideList:
 
         best_cut_peptscore = 1
         if useMP:
-            target_peptscores, decoy_peptscores = np.array([]), np.array([])
+            target_peptscores, decoy_peptscores = [], []#np.array([]), np.array([])
             for peptide in self.peptideslist:
                 if peptide.evalue >= best_cut_evalue:
                     if peptide.note == 'target':
-                        target_peptscores = np.append(target_peptscores, float(peptide.peptscore))
+                        target_peptscores.append(float(peptide.peptscore))
                     elif peptide.note == 'decoy':
-                        decoy_peptscores = np.append(decoy_peptscores, float(peptide.peptscore))
+                        decoy_peptscores.append(float(peptide.peptscore))
+            target_peptscores = np.array(target_peptscores)
+            decoy_peptscores = np.array(decoy_peptscores)
             target_peptscores = np.sort(target_peptscores)[::-1]
             real_FDR = 0
             for cut_peptscore in target_peptscores:
@@ -318,29 +344,40 @@ class PeptideList:
                     best_cut_peptscore = cut_peptscore
                     real_FDR = round(float(counter_decoy) / float(counter_target) * 100, 1)
             print real_FDR, best_cut_peptscore, 'MP score'
-        j = len(self.peptideslist) - 1
-        while j >= 0:
-            if not useMP or self.peptideslist[j].peptscore < best_cut_peptscore:
-                if self.peptideslist[j].evalue > best_cut_evalue:
-                    self.peptideslist.pop(j)
-            j -= 1
-        self.filter_decoy()
-        return (best_cut_evalue, best_cut_peptscore)
+        new_peptides = PeptideList(self.settings)
+        new_peptides.pepxml_type = self.pepxml_type
+#        j = len(self.peptideslist) - 1
+#        while j >= 0:
+        for peptide in self.peptideslist:
+            if peptide.evalue <= best_cut_evalue or (useMP and peptide.peptscore >= best_cut_peptscore):
+                new_peptides.peptideslist.append(peptide)
+#            j -= 1
 
+#       vvvvvvvv BE CAREFULL HERE vvvvvvv
+#        new_peptides.filter_decoy()
+        return (new_peptides, best_cut_evalue, best_cut_peptscore)
+
+    def remove_duplicate_sequences(self):
+        new_peptides = PeptideList(self.settings)
+        new_peptides.pepxml_type = self.pepxml_type
+        for peptide in self.peptideslist:
+            if peptide.sequence not in set(p.sequence for p in new_peptides.peptideslist) and peptide.evalue == min([p.evalue for p in self.peptideslist if p.sequence == peptide.sequence]):
+                new_peptides.peptideslist.append(peptide)
+        return new_peptides
 
 class Protein:
     def __init__(self, dbname, pcharge=0, description='Unknown', sequence='Unknown', note=''):
         self.dbname = dbname
-        self.pcharge = pcharge
-        self.description = description
-        self.PE = 0
-        self.sequence = sequence
-        self.peptides_exp = []
-        self.peptides_theor = []
-        self.pmass = 0
-        self.note = note
-        self.dbname2 = 'unknown'
-        self.score = 0
+#        self.pcharge = pcharge
+#        self.description = description
+#        self.PE = 0
+#        self.sequence = sequence
+#        self.peptides_exp = []
+#        self.peptides_theor = []
+#        self.pmass = 0
+#        self.note = note
+#        self.dbname2 = 'unknown'
+#        self.score = 0
 
     def get_mass(self):
         if self.sequence != 'Unknown':
@@ -363,8 +400,8 @@ class Peptide:
         self.modification_list = modification_list
         self.pcharge = int(pcharge)
         self.nomodifications = 0
-        self.unknown_mods_counter = 0 
-        self.missed_modifications = []
+#        self.unknown_mods_counter = 0 
+#        self.missed_modifications = []
 
         self.pmass = float(mass.calculate_mass(sequence=self.sequence, charge=0))
         for modif in self.modifications:
@@ -377,7 +414,7 @@ class Peptide:
                     self.pmass -= 1.00782503207
                 else:
                     self.pmass -= 17.002739651629998
-        self.pI = electrochem.pI(self.sequence)
+#        self.pI = electrochem.pI(self.sequence)
 
         for mod in self.modifications:
             if mod['position'] == 0:
@@ -390,8 +427,8 @@ class Peptide:
         self.RT_exp = RT_exp
         self.RT_predicted = False
         self.evalue = float(evalue)
-        self.start_scan = int(start_scan)
-        self.parentprotein = protein
+#        self.start_scan = int(start_scan)
+#        self.parentprotein = protein
         self.parentproteins = []
         self.massdiff = float(mass_exp) - float(self.pmass)
         self.num_missed_cleavages = dict()
@@ -399,20 +436,20 @@ class Peptide:
         self.note2 = ''
         self.note3 = ''
         self.possible_mass = []
-        self.protscore = 1
+#        self.protscore = 1
         self.protscore2 = 1
         self.peptscore = 1
         self.peptscore2 = 1
         self.spectrum = spectrum
         self.spectrum_mz = None
         self.fragment_mt = None
-        self.rank = rank
-        self.concentration = 1
-        self.solubility = 0
-        self.hyperscore = float(hyperscore)
-        self.nextscore = float(nextscore)
-        self.prev_aa = prev_aa
-        self.next_aa = next_aa
+#        self.rank = rank
+#        self.concentration = 1
+#        self.solubility = 0
+#        self.hyperscore = float(hyperscore)
+#        self.nextscore = float(nextscore)
+#        self.prev_aa = prev_aa
+#        self.next_aa = next_aa
 
     def theor_spectrum(self, types=('b', 'y'), maxcharge=None, **kwargs):
         peaks = {}
@@ -435,7 +472,7 @@ class Peptide:
         return peaks
 
     def get_missed_cleavages(self, protease='trypsin'):
-        if protease not in self.num_missed_cleavages.keys():
+        if protease not in self.num_missed_cleavages:
             self.num_missed_cleavages[protease] = len(cleave(self.sequence, protease, 0)) - 1
         return self.num_missed_cleavages[protease]
 
