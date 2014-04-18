@@ -2,10 +2,9 @@ import sys
 import re
 import SSRCalc
 from string import punctuation, lowercase
-from pyteomics import parser, biolccc
+from pyteomics import parser, biolccc, pepxml
 from pyteomics.parser import cleave, expasy_rules
 from pyteomics import electrochem, mass
-import pepxml_custom as pepxml
 from pyteomics.auxiliary import linear_regression
 from pyteomics import achrom
 import numpy as np
@@ -32,6 +31,26 @@ def get_aa_mass(settings):
     aa_mass['|'] = 42.0106
     return aa_mass
 
+def filter_evalue_prots(prots, FDR=1.0):
+    target_evalues = np.array([v['expect'] for k, v in prots.iteritems() if not k.startswith('L')])
+    decoy_evalues = np.array([v['expect'] for k, v in prots.iteritems() if k.startswith('L')])
+    target_evalues.sort()
+    best_cut_evalue = None
+    real_FDR = 0
+    for cut_evalue in target_evalues:
+        counter_target = target_evalues[target_evalues <= cut_evalue].size
+        counter_decoy = decoy_evalues[decoy_evalues <= cut_evalue].size
+        if counter_target and (float(counter_decoy) / float(counter_target)) * 100 <= float(FDR):
+            best_cut_evalue = cut_evalue
+            real_FDR = round(float(counter_decoy) / float(counter_target) * 100, 1)
+    if not best_cut_evalue:
+        best_cut_evalue = 0
+    print real_FDR, best_cut_evalue, 'protein e-value'
+    new_prots = {}
+    for k, v in prots.iteritems():
+        if v['expect'] <= best_cut_evalue and not k.startswith('L'):
+            new_prots[k] = v
+    return new_prots
 
 def get_settings(fname=None, default_name='default.cfg'):
     """Read a configuration file and return a :py:class:`RawConfigParser` object.
@@ -196,7 +215,7 @@ class PeptideList:
 
     def modified_peptides(self):
         for peptide in self.peptideslist:
-            peptide.modified_peptide(self.settings, modifications)
+            peptide.modified_peptide(self.settings, self.modifications)
 
     def get_RC(self):
         seqs = [pept.modified_sequence for pept in self.peptideslist]

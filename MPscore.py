@@ -1,4 +1,4 @@
-from MPlib_stable import PeptideList, Descriptor, get_settings
+from MPlib import PeptideList, Descriptor, get_settings, filter_evalue_prots
 from sys import argv
 import matplotlib.pyplot as plt
 import numpy as np
@@ -495,28 +495,6 @@ def PSMs_info(peptides, valid_proteins, printresults=True, tofile=False, curfile
         expect += n * np.log10(beta) + (s - n) * np.log10(1 - beta) - np.log10(s) - (n - 1) * np.log10(N)
         return expect
 
-    def filter_evalue_prots(prots, FDR=1.0):
-        target_evalues = np.array([v['expect'] for k, v in prots.iteritems() if not k.startswith('L')])
-        decoy_evalues = np.array([v['expect'] for k, v in prots.iteritems() if k.startswith('L')])
-        target_evalues.sort()
-        best_cut_evalue = None
-        real_FDR = 0
-        for cut_evalue in target_evalues:
-            counter_target = target_evalues[target_evalues <= cut_evalue].size
-            counter_decoy = decoy_evalues[decoy_evalues <= cut_evalue].size
-            if counter_target and (float(counter_decoy) / float(counter_target)) * 100 <= float(FDR):
-                best_cut_evalue = cut_evalue
-                real_FDR = round(float(counter_decoy) / float(counter_target) * 100, 1)
-        if not best_cut_evalue:
-            best_cut_evalue = 0
-        print real_FDR, best_cut_evalue, 'protein e-value'
-        new_prots = {}
-        for k, v in prots.iteritems():
-            if v['expect'] <= best_cut_evalue:# and k not startswith('L'):
-                new_prots[k] = v
-        return new_prots
-        
-
     print 'PSMs_info, point 3: %s' % ((time() - stime) / 60)
     for dbname in list(prots.keys()):
         if (dbname not in tostay and loop) or 'Peptides' not in prots[dbname]:
@@ -548,7 +526,7 @@ def PSMs_info(peptides, valid_proteins, printresults=True, tofile=False, curfile
             if peptide.sequence not in peptides_best_evalues or peptide.evalue < peptides_best_evalues[peptide.sequence]:
                 peptides_best_evalues[peptide.sequence] = peptide.evalue
 
-        protFDR = 1.0#peptides.settings.getfloat('options', 'protFDR')
+        protFDR = peptides.settings.getfloat('options', 'protFDR')
         prots = filter_evalue_prots(prots, FDR=protFDR)
         ffolder = path.dirname(path.realpath(curfile))
         if peptides.settings.get('options', 'files') == 'union':
