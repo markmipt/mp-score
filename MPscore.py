@@ -305,7 +305,8 @@ def handle(q, q_output, settings, protsL, numprots, numpeptides, expasy, proteas
                 if RT_type == 'achrom':
                     copy_peptides.get_RC()
                     peptides.RC = copy_peptides.RC
-                    pickle.dump(peptides.RC, open('RC.pickle', 'w'))
+                    if peptides.settings.getint('advanced options', 'saveRC'):
+                        pickle.dump(peptides.RC, open('RC.pickle', 'w'))
                     copy_peptides.calc_RT(RTtype=RT_type)
                     print copy_peptides.get_calibrate_coeff()
                     peptides.calc_RT(RTtype=RT_type)
