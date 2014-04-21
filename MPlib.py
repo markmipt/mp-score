@@ -117,8 +117,10 @@ class PeptideList:
         self.RC = False
         self.settings = settings
         self.modification_list = {}
-        self.number_of_spectra = 0
         self.total_number_of_PSMs = 0
+        self.total_number_of_peptides_in_searchspace = 0
+        self.total_number_of_proteins_in_searchspace = 0
+        self.total_number_of_spectra = 0
         fmods = self.settings.get('modifications', 'fixed')
         if fmods:
             for mod in re.split(r'[,;]\s*', fmods):
@@ -134,8 +136,8 @@ class PeptideList:
         """Returns the number of MS/MS spectra used for the search. If mgf file is not available,
          returns number of identified PSMs as approximation.
         """
-        if self.number_of_spectra:
-            return self.number_of_spectra
+        if self.total_number_of_spectra:
+            return self.total_number_of_spectra
         else:
             return self.total_number_of_PSMs
 
@@ -151,6 +153,11 @@ class PeptideList:
                 else:
                     print "Unknown search_engine"
                 break
+
+        pepxml_params = {k: v for d in pepxml.iterfind(pepxmlfile, 'parameter name') for k, v in d.items()}
+        self.total_number_of_peptides_in_searchspace = int(pepxml_params.get('modelling, total peptides used', self.total_number_of_peptides_in_searchspace))
+        self.total_number_of_proteins_in_searchspace = int(pepxml_params.get('modelling, total proteins used', self.total_number_of_proteins_in_searchspace))
+        self.total_number_of_spectra = int(pepxml_params.get('modelling, total spectra used', self.total_number_of_spectra))
 
         for record in pepxml.read(pepxmlfile):
             if 'search_hit' in record:
@@ -222,6 +229,7 @@ class PeptideList:
 
                             if len(pept.parentproteins):
                                 self.peptideslist.append(pept)
+
 
     def modified_peptides(self):
         for peptide in self.peptideslist:
@@ -330,9 +338,9 @@ class PeptideList:
                 self.peptideslist.pop(j)
             j -= 1
 
-    def filter_evalue_new(self, FDR=1, useMP=True, k=0):
+    def filter_evalue_new(self, FDR=1, useMP=True, k=0, drop_decoy=True):
         "A function for filtering PSMs by e-value and MP-score with some FDR"
-        target_evalues, decoy_evalues = [], []#np.array([]), np.array([])
+        target_evalues, decoy_evalues = [], []
         for peptide in self.peptideslist:
             if peptide.note == 'target':
                 target_evalues.append(float(peptide.evalue))
@@ -373,8 +381,9 @@ class PeptideList:
                     best_cut_peptscore = cut_peptscore
                     real_FDR = round(float(counter_decoy) / float(counter_target) * 100, 1)
             print real_FDR, best_cut_peptscore, 'MP score'
-        new_peptides = PeptideList(self.settings)
-        new_peptides.pepxml_type = self.pepxml_type
+        new_peptides = self.copy_empty()
+#        new_peptides = PeptideList(self.settings)
+#        new_peptides.pepxml_type = self.pepxml_type
 #        j = len(self.peptideslist) - 1
 #        while j >= 0:
         for peptide in self.peptideslist:
@@ -383,18 +392,34 @@ class PeptideList:
 #            j -= 1
 
 #       vvvvvvvv BE CAREFULL HERE vvvvvvv
-#        new_peptides.filter_decoy()
+        if drop_decoy:
+            new_peptides.filter_decoy()
         return (new_peptides, best_cut_evalue, best_cut_peptscore)
 
     def copy_empty(self):
         new_peptides = PeptideList(self.settings)
         new_peptides.pepxml_type = self.pepxml_type
-        new_peptides.number_of_spectra = self.number_of_spectra
+        new_peptides.total_number_of_spectra = self.total_number_of_spectra
         new_peptides.total_number_of_PSMs = self.total_number_of_PSMs
+        new_peptides.total_number_of_proteins_in_searchspace = self.total_number_of_proteins_in_searchspace
+        new_peptides.total_number_of_peptides_in_searchspace = self.total_number_of_peptides_in_searchspace
         new_peptides.calibrate_coeff = self.calibrate_coeff
         new_peptides.RC = self.RC
         new_peptides.modification_list = self.modification_list
         return new_peptides
+
+    def update(self, new_peptides):
+        self.pepxml_type = new_peptides.pepxml_type
+        self.settings = new_peptides.settings
+        self.pepxml_type = new_peptides.pepxml_type
+        self.total_number_of_spectra = new_peptides.total_number_of_spectra
+        self.total_number_of_PSMs = new_peptides.total_number_of_PSMs
+        self.total_number_of_proteins_in_searchspace = max(new_peptides.total_number_of_proteins_in_searchspace, self.total_number_of_proteins_in_searchspace)
+        self.total_number_of_peptides_in_searchspace = max(new_peptides.total_number_of_peptides_in_searchspace, self.total_number_of_peptides_in_searchspace)
+        self.calibrate_coeff = new_peptides.calibrate_coeff
+        self.RC = new_peptides.RC
+        self.modification_list = new_peptides.modification_list
+        self.peptideslist.extend(new_peptides.peptideslist)
 
     def remove_duplicate_sequences(self):
         new_peptides = self.copy_empty()

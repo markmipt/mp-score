@@ -122,6 +122,9 @@ def handle(q, q_output, settings, protsL, numprots, numpeptides, expasy, proteas
                         psm.PIF = PIF
 
                 print 'point 2: %s' % ((time() - stime) / 60)
+
+                qpeptides.get_from_pepxmlfile(curfile, min_charge=min_charge, max_charge=max_charge, max_rank=1)
+
                 if mgffile:
                     print 'mgf is processing'
                     spectra = mgf.read(mgffile)
@@ -129,9 +132,9 @@ def handle(q, q_output, settings, protsL, numprots, numpeptides, expasy, proteas
                         spectra_dict[spectrum['params']['title'].strip()] = spectrum['m/z array']
                         spectra_dict_intensities[spectrum['params']['title'].strip()] = spectrum['intensity array']
                     protsL['total spectra'] = len(spectra_dict)
-                    qpeptides.number_of_spectra = len(spectra_dict)
+                    if not qpeptides.total_number_of_spectra:
+                        qpeptides.total_number_of_spectra = len(spectra_dict)
 
-                qpeptides.get_from_pepxmlfile(curfile, min_charge=min_charge, max_charge=max_charge, max_rank=1)
                 if settings.getint('descriptors', 'fragment mass tolerance, Da'):
                     for peptide in qpeptides.peptideslist:
                         if spectra_dict:
@@ -147,12 +150,14 @@ def handle(q, q_output, settings, protsL, numprots, numpeptides, expasy, proteas
                         peptide.spectrum_mz = None
                         peptide.spectrum_i = None
 
+                tmp_peptides = qpeptides.copy_empty()
                 msize = 10000
                 while len(qpeptides.peptideslist):
-                    tmppeptides = qpeptides.peptideslist[:msize]
-                    iq_output.put(tmppeptides)
+#                    tmppeptides = qpeptides.peptideslist[:msize]
+                    tmp_peptides.peptideslist = qpeptides.peptideslist[:msize]
+                    iq_output.put(tmp_peptides)
                     qpeptides.peptideslist = qpeptides.peptideslist[msize:]
-                iq_output.put(qpeptides.number_of_spectra)
+#                iq_output.put(qpeptides.total_number_of_spectra)
                 iq_output.put(None)
             print 'getpepxml done'
 
@@ -169,12 +174,7 @@ def handle(q, q_output, settings, protsL, numprots, numpeptides, expasy, proteas
         j = 0
         while j < len(filenames):
             for res_peptides in iter(iq_output.get, None):
-                if isinstance(res_peptides, int):
-                    peptides.number_of_spectra += res_peptides
-                elif isinstance(res_peptides, list):
-                    peptides.peptideslist.extend(res_peptides)
-                else:
-                    print 'wrong type of res_peptides in the output of getpepxml()'  # Add Exception
+                peptides.update(res_peptides)
             j += 1
         peptides.total_number_of_PSMs = len(peptides.peptideslist)
         print 'point before termination, total number of PSMs = %d' % (peptides.total_number_of_PSMs,)
@@ -490,17 +490,27 @@ def PSMs_info(peptides, valid_proteins, printresults=True, tofile=False, curfile
 
     def calc_expect_log(es, s, N, T):
         n = len(es)
+        es_new = []
         for x in es:
             if x > 1:
                 x = 1
-            if x == 0:
+            elif x == 0:
                 x = 1e-15
+            es_new.append(x)
+        es = list(es_new)
         if n == 1:
             return np.log10(es[0])
+        print es
         expect = sum([np.log10(x) for x in es])
+        print expect
         beta = float(N) / T
+        print beta
+        print 's', s
+        print 'n', n
         expect += sum([np.log10((s - i) / (n - i)) for i in range(n)])
+        print expect
         expect += n * np.log10(beta) + (s - n) * np.log10(1 - beta) - np.log10(s) - (n - 1) * np.log10(N)
+        print expect
         return expect
 
     print 'PSMs_info, point 3: %s' % ((time() - stime) / 60)
@@ -535,7 +545,10 @@ def PSMs_info(peptides, valid_proteins, printresults=True, tofile=False, curfile
                 peptides_best_evalues[peptide.sequence] = peptide.evalue
 
         protFDR = peptides.settings.getfloat('options', 'protFDR')
-        prots = filter_evalue_prots(prots, FDR=protFDR)
+        if protFDR >= 0:
+            prots = filter_evalue_prots(prots, FDR=protFDR)
+        else:
+            peptides.filter_decoy()
         ffolder = path.dirname(path.realpath(curfile))
         if peptides.settings.get('options', 'files') == 'union':
             fname = 'union'
@@ -586,10 +599,11 @@ def PSMs_info(peptides, valid_proteins, printresults=True, tofile=False, curfile
 
         output_proteins.close()
     if printresults:
-        print 'True PSMs: %s' % (len([1 for x in peptides.peptideslist if x.note2 == 'tr']), )
-        print 'Peptides: %d' % (len(set(p.sequence for p in peptides.peptideslist)))
-        print 'Protein groups: %s' % (len(prots.values()))
-        print 'Protein groups with >= 2 peptides: %s' % (len([v for v in prots.values() if v['Peptides'] >= 2]))
+        print 'PSMs: %s' % (len([1 for x in peptides.peptideslist if x.note2 == 'tr']), )
+        print 'Peptides: %d' % (len(set(p.sequence for p in peptides.peptideslist if p.note2 == 'tr')))
+        print 'Protein groups: %s' % (sum(1 for k in prots if not k.startswith('L')))
+#        print prots
+        print 'Protein groups with >= 2 peptides: %s' % (sum([1 for k, v in prots.iteritems() if v['Peptides'] >= 2 and not k.startswith('L')]))
         if valid_proteins:
             print 'True Prots = %s' % (len(true_prots))
             print 'Real FDR = %s' % (100 * float(len([1 for x in peptides.peptideslist if not x.note3])) / len(peptides.peptideslist) )
@@ -651,7 +665,7 @@ def plot_histograms(descriptors, peptides, FDR):
 
 def plot_MP(descriptors, peptides, fig, FDR, valid_proteins, k=0, threshold0=False, curfile=False):
     ox, oy = find_optimal_xy(descriptors)
-    copy_peptides, threshold1, threshold2 = peptides.filter_evalue_new(FDR=FDR, useMP=True, k=k)
+    copy_peptides, threshold1, threshold2 = peptides.filter_evalue_new(FDR=FDR, useMP=True, k=k, drop_decoy=False)
 
     threshold1 = -np.log(threshold1)
     try:
