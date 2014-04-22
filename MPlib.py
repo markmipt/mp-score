@@ -118,6 +118,7 @@ class PeptideList:
         self.settings = settings
         self.modification_list = {}
         self.total_number_of_PSMs = 0
+        self.total_number_of_PSMs_decoy = 0
         self.total_number_of_peptides_in_searchspace = 0
         self.total_number_of_proteins_in_searchspace = 0
         self.total_number_of_spectra = 0
@@ -131,6 +132,12 @@ class PeptideList:
             mods = [parser._split_label(l) for l in re.split(r',\s*', vmods)]
             for (mod, aa), char in zip(mods, punctuation):
                 self.modification_list[str(int(mass.std_aa_mass[aa] + settings.getfloat('modifications', mod)))] = mod
+
+    def __len__(self):
+        return len(self.peptideslist)
+
+    def get_number_of_peptides(self):
+        return len(set(p.sequence for p in self.peptideslist))
 
     def get_number_of_spectra(self):
         """Returns the number of MS/MS spectra used for the search. If mgf file is not available,
@@ -338,7 +345,7 @@ class PeptideList:
                 self.peptideslist.pop(j)
             j -= 1
 
-    def filter_evalue_new(self, FDR=1, useMP=True, k=0, drop_decoy=True):
+    def filter_evalue_new(self, FDR=1, FDR2=1, useMP=True, drop_decoy=True, toprint=False):
         "A function for filtering PSMs by e-value and MP-score with some FDR"
         target_evalues, decoy_evalues = [], []
         for peptide in self.peptideslist:
@@ -363,7 +370,7 @@ class PeptideList:
 
         best_cut_peptscore = 1
         if useMP:
-            target_peptscores, decoy_peptscores = [], []#np.array([]), np.array([])
+            target_peptscores, decoy_peptscores = [], []
             for peptide in self.peptideslist:
                 if peptide.evalue >= best_cut_evalue:
                     if peptide.note == 'target':
@@ -377,21 +384,14 @@ class PeptideList:
             for cut_peptscore in target_peptscores:
                 counter_target = target_peptscores[target_peptscores >= cut_peptscore].size
                 counter_decoy = decoy_peptscores[decoy_peptscores >= cut_peptscore].size
-                if counter_target and (float(counter_decoy) / float(counter_target)) * 100 <= float(FDR) / (1 + k):
+                if counter_target and (float(counter_decoy) / float(counter_target)) * 100 <= float(FDR2):
                     best_cut_peptscore = cut_peptscore
                     real_FDR = round(float(counter_decoy) / float(counter_target) * 100, 1)
             print real_FDR, best_cut_peptscore, 'MP score'
         new_peptides = self.copy_empty()
-#        new_peptides = PeptideList(self.settings)
-#        new_peptides.pepxml_type = self.pepxml_type
-#        j = len(self.peptideslist) - 1
-#        while j >= 0:
         for peptide in self.peptideslist:
             if peptide.evalue <= best_cut_evalue or (useMP and peptide.peptscore >= best_cut_peptscore):
                 new_peptides.peptideslist.append(peptide)
-#            j -= 1
-
-#       vvvvvvvv BE CAREFULL HERE vvvvvvv
         if drop_decoy:
             new_peptides.filter_decoy()
         return (new_peptides, best_cut_evalue, best_cut_peptscore)
@@ -401,6 +401,7 @@ class PeptideList:
         new_peptides.pepxml_type = self.pepxml_type
         new_peptides.total_number_of_spectra = self.total_number_of_spectra
         new_peptides.total_number_of_PSMs = self.total_number_of_PSMs
+        new_peptides.total_number_of_PSMs_decoy = self.total_number_of_PSMs_decoy
         new_peptides.total_number_of_proteins_in_searchspace = self.total_number_of_proteins_in_searchspace
         new_peptides.total_number_of_peptides_in_searchspace = self.total_number_of_peptides_in_searchspace
         new_peptides.calibrate_coeff = self.calibrate_coeff
@@ -414,6 +415,7 @@ class PeptideList:
         self.pepxml_type = new_peptides.pepxml_type
         self.total_number_of_spectra = new_peptides.total_number_of_spectra
         self.total_number_of_PSMs = new_peptides.total_number_of_PSMs
+        self.total_number_of_PSMs_decoy = new_peptides.total_number_of_PSMs_decoy
         self.total_number_of_proteins_in_searchspace = max(new_peptides.total_number_of_proteins_in_searchspace, self.total_number_of_proteins_in_searchspace)
         self.total_number_of_peptides_in_searchspace = max(new_peptides.total_number_of_peptides_in_searchspace, self.total_number_of_peptides_in_searchspace)
         self.calibrate_coeff = new_peptides.calibrate_coeff

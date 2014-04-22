@@ -208,6 +208,7 @@ def handle(q, q_output, settings, protsL, numprots, numpeptides, expasy, proteas
                     true_prots.add(protein.dbname)
                     protein.note = 'Valid'
                     peptide.note2 = 'tr'
+        peptides.total_number_of_PSMs_decoy = sum(1 for pept in peptides.peptideslist if pept.note2 == 'wr')
 
         print 'point 4: %s' % ((time() - stime) / 60)
 
@@ -408,10 +409,22 @@ def handle(q, q_output, settings, protsL, numprots, numpeptides, expasy, proteas
             for p in cprocs:
                 p.terminate()
 
-            k = float(numprots_true) / numprots * float(numpeptides_true) / numpeptides
+            k_temp = []
+            while len(k_temp) < 3 or k_temp[-1] != k_temp[-3]:
+                if not k_temp:
+                    copy_peptides = peptides.filter_evalue_new(FDR=FDR, useMP=False)[0]
+                else:
+                    FDR_new = (((FDR / 100 - float(peptides.total_number_of_PSMs_decoy) / numPSMs_true * k)) / (1 - k)) * 100
+                    copy_peptides = peptides.filter_evalue_new(FDR=FDR, FDR2=FDR_new, useMP=True)[0]
+
+                numPSMs_true = len(copy_peptides)
+                k = float(copy_peptides.get_number_of_peptides()) / peptides.total_number_of_peptides_in_searchspace
+                FDR_new = (((FDR / 100 - float(peptides.total_number_of_PSMs_decoy) / numPSMs_true * k)) / (1 - k)) * 100
+                k_temp.append(float(k))
             print k, 'k factor'
+
             curfile = filenames[-1]
-            plot_MP(descriptors, peptides, fig, FDR, valid_proteins, k, threshold0, curfile)
+            plot_MP(descriptors, peptides, fig, FDR, FDR_new, valid_proteins, threshold0, curfile)
 
 
 def find_optimal_xy(descriptors):
@@ -500,17 +513,10 @@ def PSMs_info(peptides, valid_proteins, printresults=True, tofile=False, curfile
         es = list(es_new)
         if n == 1:
             return np.log10(es[0])
-        print es
         expect = sum([np.log10(x) for x in es])
-        print expect
         beta = float(N) / T
-        print beta
-        print 's', s
-        print 'n', n
         expect += sum([np.log10((s - i) / (n - i)) for i in range(n)])
-        print expect
         expect += n * np.log10(beta) + (s - n) * np.log10(1 - beta) - np.log10(s) - (n - 1) * np.log10(N)
-        print expect
         return expect
 
     print 'PSMs_info, point 3: %s' % ((time() - stime) / 60)
@@ -663,9 +669,9 @@ def plot_histograms(descriptors, peptides, FDR):
     return fig
 
 
-def plot_MP(descriptors, peptides, fig, FDR, valid_proteins, k=0, threshold0=False, curfile=False):
+def plot_MP(descriptors, peptides, fig, FDR, FDR2, valid_proteins, threshold0=False, curfile=False):
     ox, oy = find_optimal_xy(descriptors)
-    copy_peptides, threshold1, threshold2 = peptides.filter_evalue_new(FDR=FDR, useMP=True, k=k, drop_decoy=False)
+    copy_peptides, threshold1, threshold2 = peptides.filter_evalue_new(FDR=FDR, FDR2=FDR2, useMP=True, drop_decoy=False)
 
     threshold1 = -np.log(threshold1)
     try:
