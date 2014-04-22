@@ -56,7 +56,7 @@ def handle(q, q_output, settings, protsL, numprots, numpeptides, expasy, proteas
         peptides = PeptideList(settings)
 
         iprocs = []
-        inprocs = 12
+        inprocs = peptides.settings.getint('options', 'threads')
         iq = multiprocessing.Queue()
         iq_output = multiprocessing.Queue()
 
@@ -331,7 +331,7 @@ def handle(q, q_output, settings, protsL, numprots, numpeptides, expasy, proteas
             if len(copy_peptides.peptideslist) > 100:
                 jk = manager.dict()
                 cprocs = []
-                cnprocs = 6
+                cnprocs = peptides.settings.getint('options', 'threads')
                 cq = multiprocessing.Queue()
                 cq_output = multiprocessing.Queue()
                 cq_finish = multiprocessing.Queue()
@@ -376,7 +376,7 @@ def handle(q, q_output, settings, protsL, numprots, numpeptides, expasy, proteas
 
             jk = manager.dict()
             cprocs = []
-            cnprocs = 6
+            cnprocs = peptides.settings.getint('options', 'threads')
             cq = multiprocessing.Queue()
             cq_output = multiprocessing.Queue()
             cq_finish = multiprocessing.Queue()
