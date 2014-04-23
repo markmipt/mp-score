@@ -17,7 +17,7 @@ protsL = manager.dict()
 stime = time()
 
 
-def handle(q, q_output, settings, protsL, numprots, numpeptides, expasy, proteases, file_folder):
+def handle(q, q_output, settings, protsL, numprots, numpeptides, expasy, proteases):
     while 1:
         print 'point 1: %s' % ((time() - stime) / 60)
         try:
@@ -26,7 +26,7 @@ def handle(q, q_output, settings, protsL, numprots, numpeptides, expasy, proteas
             q_output.put('1')
             print 'subprocess done'
             break
-        print 'inputfile = %s' % (','.join(filenames), )
+        print 'inputfile = %s' % (','.join(f['.pep'] for f in filenames), )
         FDR = settings.getfloat('options', 'FDR')
         FDR_type = settings.get('options', 'FDR_type')
 
@@ -62,38 +62,11 @@ def handle(q, q_output, settings, protsL, numprots, numpeptides, expasy, proteas
 
         files_processing = settings.get('options', 'files')
 
-        def getpepxml(iq, iq_output, settings, file_folder):
+        def getpepxml(iq, iq_output, settings):
             for curfile in iter(iq.get, None):
                 qpeptides = PeptideList(settings)
-                basename = path.splitext(path.splitext(path.basename(curfile))[0])[0]
-                txmlfile = None
-                mzmlfile = None
-                mgffile = None
 
-                for arg in argv:
-                    if path.splitext(arg)[-1] == '.xml':
-                        if path.splitext(path.splitext(arg)[0])[-1] == '.t':
-                            txmlfile = arg
-                    elif path.splitext(arg)[-1] == '.mzml':
-                        mzmlfile = arg
-                    elif path.splitext(arg)[-1] == '.mgf':
-                        mgffile = arg
-                    elif path.splitext(arg)[-1] == '.fasta':
-                        fastafile = arg
-                    elif path.splitext(arg)[-1] == '.cfg':
-                        configfile = arg
-
-                if not txmlfile:
-                    if path.isfile(file_folder + basename + path.extsep + 't' + path.extsep + 'xml'):
-                        txmlfile = file_folder + basename + path.extsep + 't' + path.extsep + 'xml'
-                if not mzmlfile:
-                    if path.isfile(file_folder + basename + path.extsep + 'mzml'):
-                        mzmlfile = file_folder + basename + path.extsep + 'mzml'
-                if not mgffile:
-                    print file_folder + basename + path.extsep + 'mgf'
-                    if path.isfile(file_folder + basename + path.extsep + 'mgf'):
-                        mgffile = file_folder + basename + path.extsep + 'mgf'
-
+                txmlfile = curfile.get('.t', None)
                 if txmlfile and 0:
                     txmlf = open(txmlfile, 'r')
                     for x in txmlf:
@@ -101,6 +74,7 @@ def handle(q, q_output, settings, protsL, numprots, numpeptides, expasy, proteas
                             Fragment_intensities[int(x.split('<group id="')[1].split('"')[0])] = 10**float(x.split('sumI="')[1].split('"')[0])
                     txmlf.close()
 
+                mzmlfile = curfile.get('.mzml', None)
                 if mzmlfile:
                     isolation_window = settings.getfloat('precursor ion fraction', 'isolation window')
                     mass_acc = settings.getfloat('precursor ion fraction', 'mass accuracy')
@@ -123,8 +97,9 @@ def handle(q, q_output, settings, protsL, numprots, numpeptides, expasy, proteas
 
                 print 'point 2: %s' % ((time() - stime) / 60)
 
-                qpeptides.get_from_pepxmlfile(curfile, min_charge=min_charge, max_charge=max_charge, max_rank=1)
+                qpeptides.get_from_pepxmlfile(curfile['.pep'], min_charge=min_charge, max_charge=max_charge, max_rank=1)
 
+                mgffile = curfile.get('.mgf', None)
                 if mgffile:
                     print 'mgf is processing'
                     spectra = mgf.read(mgffile)
@@ -134,17 +109,17 @@ def handle(q, q_output, settings, protsL, numprots, numpeptides, expasy, proteas
                     protsL['total spectra'] = len(spectra_dict)
                     if not qpeptides.total_number_of_spectra:
                         qpeptides.total_number_of_spectra = len(spectra_dict)
-
-                if settings.getint('descriptors', 'fragment mass tolerance, Da'):
+                if not spectra_dict:
+                    qpeptides.settings.set('descriptors', 'fragment mass tolerance, Da', 0)
+                    print 'fragment mass tolerance was turned off due to missed mgf file'
+                if qpeptides.settings.getint('descriptors', 'fragment mass tolerance, Da'):
                     for peptide in qpeptides.peptideslist:
-                        if spectra_dict:
-                            try:
-                                peptide.spectrum_mz = spectra_dict[peptide.spectrum.split(' RTINSECONDS=')[0].strip()]
-                                peptide.spectrum_i = spectra_dict_intensities[peptide.spectrum.split(' RTINSECONDS=')[0].strip()]
-                            except:
-                                peptide.spectrum_mz = spectra_dict[peptide.spectrum.strip()]
-                                peptide.spectrum_i = spectra_dict_intensities[peptide.spectrum.strip()]
-                if settings.getint('descriptors', 'fragment mass tolerance, Da'):
+                        try:
+                            peptide.spectrum_mz = spectra_dict[peptide.spectrum.split(' RTINSECONDS=')[0].strip()]
+                            peptide.spectrum_i = spectra_dict_intensities[peptide.spectrum.split(' RTINSECONDS=')[0].strip()]
+                        except:
+                            peptide.spectrum_mz = spectra_dict[peptide.spectrum.strip()]
+                            peptide.spectrum_i = spectra_dict_intensities[peptide.spectrum.strip()]
                     for peptide in qpeptides.peptideslist:
                         peptide.get_median_fragment_mt(qpeptides.settings)
                         peptide.spectrum_mz = None
@@ -167,7 +142,7 @@ def handle(q, q_output, settings, protsL, numprots, numpeptides, expasy, proteas
             iq.put(None)
 
         for i in range(inprocs):
-            p = multiprocessing.Process(target=getpepxml, args=(iq, iq_output, settings, file_folder))
+            p = multiprocessing.Process(target=getpepxml, args=(iq, iq_output, settings))
             iprocs.append(p)
             p.start()
 
@@ -259,47 +234,47 @@ def handle(q, q_output, settings, protsL, numprots, numpeptides, expasy, proteas
         if numPSMs > 4:
             descriptors = []
             dname = 'RT difference, min'
-            if settings.getint('descriptors', dname):
+            if peptides.settings.getint('descriptors', dname):
                 descriptors.append(Descriptor(name=dname, formula=lambda peptide: peptide.RT_exp - peptide.RT_predicted, group='A', binsize='auto'))
             dname = 'precursor mass difference, ppm'
-            if settings.getint('descriptors', dname):
+            if peptides.settings.getint('descriptors', dname):
                 descriptors.append(Descriptor(name=dname, formula=lambda peptide: peptide.mass_diff(), group='A', binsize='auto'))
             dname = 'missed cleavages, protease 1'
-            if settings.getint('descriptors', dname.split(',')[0]):
+            if peptides.settings.getint('descriptors', dname.split(',')[0]):
                 protease1 = [x.strip() for x in settings.get('missed cleavages', 'protease1').split(',')]
                 expasy1 = '|'.join((parser.expasy_rules[protease] if protease in parser.expasy_rules else protease for protease in protease1))
                 descriptors.append(Descriptor(name=dname, formula=lambda peptide: peptide.get_missed_cleavages(expasy1), group='A', binsize=1))
             dname = 'missed cleavages, protease 2'
-            if settings.getint('descriptors', dname.split(',')[0]):
+            if peptides.settings.getint('descriptors', dname.split(',')[0]):
                 protease2 = [x.strip() for x in settings.get('missed cleavages', 'protease2').split(',')]
                 expasy2 = '|'.join((parser.expasy_rules[protease] if protease in parser.expasy_rules else protease for protease in protease2))
                 if protease2[0]:
                     descriptors.append(Descriptor(name=dname, formula=lambda peptide: peptide.get_missed_cleavages(expasy2), group='A', binsize=1))
 
             dname = 'charge states'
-            if settings.getint('descriptors', dname):
+            if peptides.settings.getint('descriptors', dname):
                 descriptors.append(Descriptor(name=dname, formula=lambda peptide: peptide.pcharge, group='A', binsize='1'))
             dname = 'potential modifications'
-            if settings.getint('descriptors', dname):
+            if peptides.settings.getint('descriptors', dname):
                 labeldict = dict()
                 temp = settings.get('modifications', 'variable')
                 if temp:
                     for mod in temp.split(', '):
                         descriptors.append(Descriptor(name='%s, %s' % (dname, mod), formula=lambda peptide: peptide.count_modifications(mod), group='A', binsize='1'))
             dname = 'isotopes mass difference, Da'
-            if settings.getint('descriptors', dname):
+            if peptides.settings.getint('descriptors', dname):
                 descriptors.append(Descriptor(name=dname, formula=lambda peptide: round(peptide.massdiff, 0), group='A', binsize='1'))
             dname = 'PSMs per protein'
-            if settings.getint('descriptors', dname):
+            if peptides.settings.getint('descriptors', dname):
                 descriptors.append(Descriptor(name=dname, formula=lambda peptide: peptide.protscore2, group='B'))
             dname = 'PSM count'
-            if settings.getint('descriptors', dname):
+            if peptides.settings.getint('descriptors', dname):
                 descriptors.append(Descriptor(name=dname, formula=lambda peptide: peptide.peptscore2, group='B'))
             dname = 'fragment mass tolerance, Da'
-            if settings.getint('descriptors', dname):
+            if peptides.settings.getint('descriptors', dname):
                 descriptors.append(Descriptor(name=dname, formula=lambda peptide: peptide.get_median_fragment_mt(), group='A', binsize = 'auto'))
             dname = 'PIF'
-            if settings.getint('descriptors', dname):
+            if peptides.settings.getint('descriptors', dname):
                 descriptors.append(Descriptor(name=dname, formula=lambda peptide: peptide.PIF, group='B'))
 
             if 'RT difference, min' in [d.name for d in descriptors]:
@@ -423,7 +398,7 @@ def handle(q, q_output, settings, protsL, numprots, numpeptides, expasy, proteas
                 k_temp.append(float(k))
             print k, 'k factor'
 
-            curfile = filenames[-1]
+            curfile = filenames[-1]['.pep']
             plot_MP(descriptors, peptides, fig, FDR, FDR_new, valid_proteins, threshold0, curfile)
 
 
@@ -762,28 +737,42 @@ def calc_peptscore(cq, cq_output, descriptors, jk, cq_finish):
 
 
 def main(inputfile):
-    files = []
-    if path.isdir(inputfile):    
-        file_folder = inputfile
-        for filename in listdir(inputfile):
-            if path.splitext(filename)[-1] == '.xml':
-                if path.splitext(path.splitext(filename)[0])[-1] == '.pep':
-                    files.append(path.join(file_folder, filename))
-    else:
-        file_folder = path.dirname(path.abspath(inputfile)) + path.sep
-        print file_folder
-        if path.splitext(inputfile)[-1] == '.xml':
-            if path.splitext(path.splitext(inputfile)[0])[-1] == '.pep':
-                files.append(inputfile)
-
+    files = {}
     fastafile = None
     configfile = None
+
+    def update_dict(inputdict, path_to_file=None):
+        if path_to_file:
+            extension = path.splitext(path_to_file)[-1]
+            if extension == '.xml':
+                extension = path.splitext(path.splitext(path_to_file)[0])[-1]
+                filename = path.basename(path.splitext(path.splitext(path_to_file)[0])[0])
+            else:
+                filename = path.basename(path.splitext(path_to_file)[0])
+            inputdict.setdefault(filename, {})[extension] = path_to_file
+        else:
+            for k, v in inputdict.items():
+                if '.pep' not in v:
+                    del inputdict[k]
+                else:
+                    for ext in ('.mgf', '.t', '.mzml'):
+                        if ext not in v:
+                            path_to_file = path.join(path.dirname(v['.pep']), k) + (ext if not ext == '.t' else ext + '.xml')
+                            if path.isfile(path_to_file):
+                                inputdict[k][ext] = path_to_file
+        return inputdict
+
     for arg in argv:
         if path.splitext(arg)[-1] == '.fasta':
             fastafile = arg
         elif path.splitext(arg)[-1] == '.cfg':
             configfile = arg
-
+        elif path.isdir(arg):
+            for filename in listdir(inputfile):
+                files = update_dict(files, path.join(arg, filename))
+        else:
+            files = update_dict(files, arg)
+    files = update_dict(files)
 
     if configfile:
         settings = get_settings(configfile)
@@ -800,7 +789,6 @@ def main(inputfile):
     fnprocs = 12
     fq = multiprocessing.Queue()
     fq_output = multiprocessing.Queue()
-
 
     protsL['total proteins'] = 0
     protsL['total peptides'] = 0
@@ -848,12 +836,12 @@ def main(inputfile):
 
     files_processing = settings.get('options', 'files')
     if files_processing == 'union':
-        q.put(files)
+        q.put(files.values())
     else:
-        for filename in files:
+        for filename in files.itervalues():
             q.put([filename, ])
     for i in range(nprocs):
-        p = multiprocessing.Process(target=handle, args=(q, q_output, settings, protsL, numprots, numpeptides, expasy, proteases, file_folder))
+        p = multiprocessing.Process(target=handle, args=(q, q_output, settings, protsL, numprots, numpeptides, expasy, proteases))
         procs.append(p)
         p.start()
 
