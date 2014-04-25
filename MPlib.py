@@ -3,14 +3,14 @@ import re
 import SSRCalc
 from string import punctuation, lowercase
 from pyteomics import parser, biolccc, pepxml
-from pyteomics.parser import cleave, expasy_rules
-from pyteomics import electrochem, mass
+from pyteomics import mass
 from pyteomics.auxiliary import linear_regression
 from pyteomics import achrom
 import numpy as np
 from scipy.stats import scoreatpercentile
 from copy import copy
 from scipy.spatial import cKDTree
+
 try:
     from configparser import RawConfigParser
 except ImportError:
@@ -479,7 +479,6 @@ class Peptide:
                     self.pmass -= 1.00782503207
                 else:
                     self.pmass -= 17.002739651629998
-#        self.pI = electrochem.pI(self.sequence)
 
         for mod in self.modifications:
             if mod['position'] == 0:
@@ -538,7 +537,7 @@ class Peptide:
 
     def get_missed_cleavages(self, protease='trypsin'):
         if protease not in self.num_missed_cleavages:
-            self.num_missed_cleavages[protease] = len(cleave(self.sequence, protease, 0)) - 1
+            self.num_missed_cleavages[protease] = sum(1 for x in re.finditer(protease, self.sequence))
         return self.num_missed_cleavages[protease]
 
     def count_modifications(self, label):
