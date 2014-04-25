@@ -166,12 +166,13 @@ class PeptideList:
         self.total_number_of_proteins_in_searchspace = int(pepxml_params.get('modelling, total proteins used', self.total_number_of_proteins_in_searchspace))
         self.total_number_of_spectra = int(pepxml_params.get('modelling, total spectra used', self.total_number_of_spectra))
 
+        standard_aminoacids = set(k for k in mass.std_aa_comp if '-' not in k)
         for record in pepxml.read(pepxmlfile):
             if 'search_hit' in record:
                 if int(min_charge) <= int(record['assumed_charge']) and (int(record['assumed_charge']) <= int(max_charge) or not max_charge):
                     for k in range(min(len(record['search_hit']), max_rank)):
                         sequence = record['search_hit'][k]['peptide']
-                        if all(aminoacid not in ['B', 'X', 'J', 'Z', 'U', 'O', '.'] for aminoacid in sequence):
+                        if not set(sequence).difference(standard_aminoacids):
                             start_scan = record['start_scan']
                             num_tol_term = record['search_hit'][k]['proteins'][0]['num_tol_term']
                             modified_code = record['search_hit'][k]['modified_peptide']
@@ -323,14 +324,6 @@ class PeptideList:
         aux_RT = linear_regression([val[0] for val in peptides], [val[1] for val in peptides])
         return aux_RT
 
-    def filter_unknown_aminoacids(self):
-        j = len(self.peptideslist) - 1
-        while j >= 0:
-            if any(aminoacid in ['B', 'X', 'J', 'Z', 'U', 'O', '.']
-                for aminoacid in self.peptideslist[j].sequence):
-                    self.peptideslist.pop(j)
-            j -= 1
-
     def filter_modifications(self, RT_type=None):
         j = len(self.peptideslist) - 1
         while j >= 0:
@@ -444,18 +437,6 @@ class Protein:
 #        self.dbname2 = 'unknown'
 #        self.score = 0
 
-    def get_mass(self):
-        if self.sequence != 'Unknown':
-            if any(aminoacid in ['B', 'X', 'J', 'Z', 'U', 'O', '.']
-                for aminoacid in self.sequence):
-                    self.pmass = 0
-            else:
-                self.pmass = float(mass.calculate_mass(sequence=self.sequence, charge=self.pcharge))
-
-        else:
-            print 'Unknown sequence'
-
-
 class Peptide:
     def __init__(self, sequence, settings, modified_code='', pcharge=0, RT_exp=False, evalue=0, protein='Unkonwn', massdiff=0, note='unknown', spectrum='', rank=1, mass_exp=0, hyperscore=0, nextscore=0, prev_aa='X', next_aa='X', start_scan=0, modifications=[], modification_list={}):
         self.sequence = sequence
@@ -465,9 +446,6 @@ class Peptide:
         self.modification_list = modification_list
         self.pcharge = int(pcharge)
         self.nomodifications = 0
-#        self.unknown_mods_counter = 0 
-#        self.missed_modifications = []
-
         self.pmass = float(mass.calculate_mass(sequence=self.sequence, charge=0))
         for modif in self.modifications:
             self.pmass += modif['mass']
