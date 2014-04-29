@@ -9,6 +9,7 @@ from Queue import Empty
 import multiprocessing
 from time import sleep, time
 import pickle
+from copy import copy
 
 inputfile = str(argv[1])
 protsC = {}
@@ -130,7 +131,7 @@ def handle(q, q_output, settings, protsL, numprots, numpeptides, expasy, proteas
                 while len(qpeptides.peptideslist):
 #                    tmppeptides = qpeptides.peptideslist[:msize]
                     tmp_peptides.peptideslist = qpeptides.peptideslist[:msize]
-                    iq_output.put(tmp_peptides)
+                    iq_output.put(copy(tmp_peptides))
                     qpeptides.peptideslist = qpeptides.peptideslist[msize:]
 #                iq_output.put(qpeptides.total_number_of_spectra)
                 iq_output.put(None)
@@ -470,6 +471,7 @@ def PSMs_info(peptides, valid_proteins, printresults=True, tofile=False, curfile
                 true_prots.add(tmp_dbname)
         if peptide.sequence not in peptides_added:
             for protein in peptide.parentproteins:
+                tmp_dbname = add_label + protein.dbname
                 try:
                     prots[tmp_dbname]['Peptides'] += 1
                 except:
