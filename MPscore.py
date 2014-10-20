@@ -541,7 +541,7 @@ def PSMs_info(peptides, valid_proteins, printresults=True, tofile=False, curfile
         output_proteins = open('%s/%s_proteins.csv' % (ffolder, fname), 'w')
         output_proteins.write('dbname\tdescription\tPSMs\tpeptides\tlabel-free quantitation\tprotein e-value\n')
         output_PSMs = open('%s/%s_PSMs.csv' % (ffolder, fname), 'w')
-        output_PSMs.write('sequence\tmodified_sequence\tm/z experimental\tmissed cleavages\te-value\tMPscore\tRT_experimental\tspectrum\tby-product of label-free quantitation\n')
+        output_PSMs.write('sequence\tmodified_sequence\tm/z experimental\tmissed cleavages\te-value\tMPscore\tRT_experimental\tspectrum\tproteins\tproteins description\tby-product of label-free quantitation\n')
         output_peptides_detailed = open('%s/%s_peptides.csv' % (ffolder, fname), 'w')
         output_peptides_detailed.write('sequence\tmodified_sequence\te-value\tMPscore\tspectrum_title\tproteins\tby-product of label-free quantitation\n')
         if protsC:
@@ -555,7 +555,13 @@ def PSMs_info(peptides, valid_proteins, printresults=True, tofile=False, curfile
                 output_proteins.write('%s\t%s\t%s\t%s\t%s\t%s\n' % (k, v['description'], v['PSMs'], v['Peptides'], v['sumI'], v['expect']))
         for peptide in peptides.peptideslist:
             if any(protein.dbname in prots for protein in peptide.parentproteins):
-                output_PSMs.write('%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n' % (peptide.sequence, peptide.modified_sequence, peptide.mz, peptide.mc, peptide.evalue, peptide.peptscore, peptide.RT_exp, peptide.spectrum, peptide.sumI))
+                output_PSMs.write('%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t' % (peptide.sequence, peptide.modified_sequence, peptide.mz, peptide.mc, peptide.evalue, peptide.peptscore, peptide.RT_exp, peptide.spectrum))
+                for protein in peptide.parentproteins:
+                    output_PSMs.write('%s; ' % (protein.dbname, ))
+                output_PSMs.write('\t')
+                for protein in peptide.parentproteins:
+                    output_PSMs.write('%s; ' % (protein.description, ))
+                output_PSMs.write('\t%s\n' % (peptide.sumI, ))
 
         peptides_best = dict()
         peptides_best_sp = dict()
@@ -569,16 +575,13 @@ def PSMs_info(peptides, valid_proteins, printresults=True, tofile=False, curfile
                 peptides_best_sp[peptide.sequence] = peptide.spectrum
         for peptide in peptides.peptideslist:
             if peptide.spectrum == peptides_best_sp[peptide.sequence]:
-                output_peptides_detailed.write('%s\t%s\t%s\t%s\t%s\t' % (peptide.sequence, peptide.modified_sequence, peptide.evalue, peptide.peptscore, peptide.spectrum))
-                flag = 0
+                output_peptides_detailed.write('%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t' % (peptide.sequence, peptide.modified_sequence, peptide.mz, peptide.mc, peptide.evalue, peptide.peptscore, peptide.RT_exp, peptide.spectrum))
                 for protein in peptide.parentproteins:
-                    if flag == 0:
-                        output_peptides_detailed.write('"%s"' % (protein.dbname))
-                        flag = 1 
-                    else:
-                        output_peptides_detailed.write(',"%s"' % (protein.dbname))
-                output_peptides_detailed.write('\t%s' % (peptide.sumI))
-                output_peptides_detailed.write('\n')
+                    output_peptides_detailed.write('%s; ' % (protein.dbname, ))
+                output_peptides_detailed.write('\t')
+                for protein in peptide.parentproteins:
+                    output_peptides_detailed.write('%s; ' % (protein.description, ))
+                output_peptides_detailed.write('\t%s\n' % (peptide.sumI, ))
         if protsC:
             temp_sum = sum([x[0] for x in temp_data])
             temp_data = [[x[0] / temp_sum, x[1]] for x in temp_data]
