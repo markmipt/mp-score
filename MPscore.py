@@ -543,7 +543,7 @@ def PSMs_info(peptides, valid_proteins, printresults=True, tofile=False, curfile
         output_PSMs = open('%s/%s_PSMs.csv' % (ffolder, fname), 'w')
         output_PSMs.write('sequence\tmodified_sequence\tm/z experimental\tmissed cleavages\te-value\tMPscore\tRT_experimental\tspectrum\tproteins\tproteins description\tby-product of label-free quantitation\n')
         output_peptides_detailed = open('%s/%s_peptides.csv' % (ffolder, fname), 'w')
-        output_peptides_detailed.write('sequence\tmodified_sequence\te-value\tMPscore\tspectrum_title\tproteins\tby-product of label-free quantitation\n')
+        output_peptides_detailed.write('sequence\tmodified_sequence\tm/z experimental\tmissed cleavages\te-value\tMPscore\tRT_experimental\tspectrum\tproteins\tproteins description\tby-product of label-free quantitation\n')
         if protsC:
             output_proteins_valid = open('%s/%s_proteins_valid.csv' % (ffolder, fname), 'w')
             temp_data = []
