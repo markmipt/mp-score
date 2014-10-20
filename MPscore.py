@@ -15,10 +15,24 @@ inputfile = str(argv[1])
 protsC = {}
 manager = multiprocessing.Manager()
 protsL = manager.dict()
+protsS = manager.dict()
 stime = time()
 
 
-def handle(q, q_output, settings, protsL, numprots, numpeptides, expasy, proteases):
+def calc_sq(protein, peptides):
+    if not protein:
+        return 0
+    psq = [False for x in protein]
+    for pep in peptides:
+        csize = len(pep)
+        for j in range(len(protein)):
+            if protein[j:j+csize] == pep:
+                for y in range(csize):
+                    psq[j + y] = True
+    return float(sum(psq)) / len(psq) * 100
+
+
+def handle(q, q_output, settings, protsL, protsS, numprots, numpeptides, expasy, proteases):
     while 1:
         print 'point 1: %s' % ((time() - stime) / 60)
         try:
@@ -461,8 +475,10 @@ def PSMs_info(peptides, valid_proteins, printresults=True, tofile=False, curfile
             try:
                 prots[tmp_dbname]['PSMs'] += 1
                 prots[tmp_dbname]['sumI'] += peptide.sumI
+                prots[tmp_dbname]['pept'].add(peptide.sequence)
             except:
                 prots[tmp_dbname] = dict()
+                prots[tmp_dbname]['pept'] = set([peptide.sequence, ])
                 prots[tmp_dbname]['PSMs'] = 1
                 prots[tmp_dbname]['sumI'] = peptide.sumI
                 prots[tmp_dbname]['evalues'] = []
@@ -539,7 +555,7 @@ def PSMs_info(peptides, valid_proteins, printresults=True, tofile=False, curfile
         else:
             fname = path.splitext(path.splitext(path.basename(curfile))[0])[0]
         output_proteins = open('%s/%s_proteins.csv' % (ffolder, fname), 'w')
-        output_proteins.write('dbname\tdescription\tPSMs\tpeptides\tlabel-free quantitation\tprotein e-value\n')
+        output_proteins.write('dbname\tdescription\tPSMs\tpeptides\tsequence coverage\tlabel-free quantitation\tprotein e-value\n')
         output_PSMs = open('%s/%s_PSMs.csv' % (ffolder, fname), 'w')
         output_PSMs.write('sequence\tmodified_sequence\tm/z experimental\tmissed cleavages\te-value\tMPscore\tRT_experimental\tspectrum\tproteins\tproteins description\tby-product of label-free quantitation\n')
         output_peptides_detailed = open('%s/%s_peptides.csv' % (ffolder, fname), 'w')
@@ -552,7 +568,8 @@ def PSMs_info(peptides, valid_proteins, printresults=True, tofile=False, curfile
                 output_proteins_valid.write('%s,%s,%s,%s,%s\n' % (k, v['PSMs'], v['Peptides'], v['sumI'], protsC[k]))
                 temp_data.append([float(v['sumI']), protsC[k]])
             if int(v['Peptides']) > 0:#### <------------ 1 > 0
-                output_proteins.write('%s\t%s\t%s\t%s\t%s\t%s\n' % (k, v['description'], v['PSMs'], v['Peptides'], v['sumI'], v['expect']))
+                sqc = calc_sq(protsS.get(k, []), v['pept'])
+                output_proteins.write('%s\t%s\t%s\t%s\t%s\t%s\t%s\n' % (k, v['description'], v['PSMs'], v['Peptides'], sqc, v['sumI'], v['expect']))
         for peptide in peptides.peptideslist:
             if any(protein.dbname in prots for protein in peptide.parentproteins):
                 output_PSMs.write('%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t' % (peptide.sequence, peptide.modified_sequence, peptide.mz, peptide.mc, peptide.evalue, peptide.peptscore, peptide.RT_exp, peptide.spectrum))
@@ -801,7 +818,7 @@ def main(inputfile):
 
     protsL['total proteins'] = 0
     protsL['total peptides'] = 0
-    def protein_handle(fq, fq_output, protsL):
+    def protein_handle(fq, fq_output, protsL, protsS):
         while 1:
             try:
                 x = fq.get(timeout=1)
@@ -816,8 +833,12 @@ def main(inputfile):
                     else:
                         dbname = x[0].replace('>', ' ')
                     protsL[dbname] = len(x[1])
+                    if 'DECOY_' not in x[0]:
+                        protsS[dbname] = x[1]
                 else:
                     protsL[x[0].split('|')[1]] = len(x[1])
+                    if 'DECOY_' not in x[0]:
+                        protsS[x[0].split('|')[1]] = x[1]
 
                 protsL['total proteins'] += 1
                 protsL['total peptides'] += len(parser.cleave(x[1], expasy, 2))
@@ -829,7 +850,7 @@ def main(inputfile):
             fq.put(x)
 
     for i in range(fnprocs):
-        p = multiprocessing.Process(target=protein_handle, args=(fq, fq_output, protsL))
+        p = multiprocessing.Process(target=protein_handle, args=(fq, fq_output, protsL, protsS))
         fprocs.append(p)
         p.start()
 
@@ -853,7 +874,7 @@ def main(inputfile):
         for filename in files.itervalues():
             q.put([filename, ])
     for i in range(nprocs):
-        p = multiprocessing.Process(target=handle, args=(q, q_output, settings, protsL, numprots, numpeptides, expasy, proteases))
+        p = multiprocessing.Process(target=handle, args=(q, q_output, settings, protsL, protsS, numprots, numpeptides, expasy, proteases))
         procs.append(p)
         p.start()
 
