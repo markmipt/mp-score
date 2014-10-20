@@ -239,7 +239,7 @@ class PeptideList:
 
                             for prot in record['search_hit'][k]['proteins']:
                                 if get_dbname(prot, self.pepxml_type) not in [protein.dbname for protein in pept.parentproteins]:
-                                    pept.parentproteins.append(Protein(dbname=get_dbname(prot, self.pepxml_type)))
+                                    pept.parentproteins.append(Protein(dbname=get_dbname(prot, self.pepxml_type), description=prot.get('protein_descr', None)))
 
                             if len(pept.parentproteins):
                                 self.peptideslist.append(pept)
@@ -433,7 +433,7 @@ class Protein:
     def __init__(self, dbname, pcharge=0, description='Unknown', sequence='Unknown', note=''):
         self.dbname = dbname
 #        self.pcharge = pcharge
-#        self.description = description
+        self.description = description
 #        self.PE = 0
 #        self.sequence = sequence
 #        self.peptides_exp = []
@@ -585,6 +585,7 @@ class Peptide:
             else:
                 return arg
 
+        self.modified_sequence = ''
         stack = []
         for elem in ''.join(map(get_modification, re.split('\[|\]', self.modified_code)))[::-1]:
             if elem.islower():

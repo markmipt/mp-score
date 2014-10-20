@@ -467,6 +467,7 @@ def PSMs_info(peptides, valid_proteins, printresults=True, tofile=False, curfile
                 prots[tmp_dbname]['sumI'] = peptide.sumI
                 prots[tmp_dbname]['evalues'] = []
                 prots[tmp_dbname]['expect'] = 1
+                prots[tmp_dbname]['description'] = protein.description
             if tmp_dbname in valid_proteins and peptide.note != 'decoy':
                 true_prots.add(tmp_dbname)
         if peptide.sequence not in peptides_added:
@@ -538,7 +539,7 @@ def PSMs_info(peptides, valid_proteins, printresults=True, tofile=False, curfile
         else:
             fname = path.splitext(path.splitext(path.basename(curfile))[0])[0]
         output_proteins = open('%s/%s_proteins.csv' % (ffolder, fname), 'w')
-        output_proteins.write('dbname\tPSMs\tpeptides\tlabel-free quantitation\tprotein e-value\n')
+        output_proteins.write('dbname\tdescription\tPSMs\tpeptides\tlabel-free quantitation\tprotein e-value\n')
         output_PSMs = open('%s/%s_PSMs.csv' % (ffolder, fname), 'w')
         output_PSMs.write('sequence\tmodified_sequence\te-value\tMPscore\tRT_experimental\tspectrum\tby-product of label-free quantitation\n')
         output_peptides_detailed = open('%s/%s_peptides.csv' % (ffolder, fname), 'w')
@@ -551,7 +552,7 @@ def PSMs_info(peptides, valid_proteins, printresults=True, tofile=False, curfile
                 output_proteins_valid.write('%s,%s,%s,%s,%s\n' % (k, v['PSMs'], v['Peptides'], v['sumI'], protsC[k]))
                 temp_data.append([float(v['sumI']), protsC[k]])
             if int(v['Peptides']) > 0:#### <------------ 1 > 0
-                output_proteins.write('%s\t%s\t%s\t%s\t%s\n' % (k, v['PSMs'], v['Peptides'], v['sumI'], v['expect']))
+                output_proteins.write('%s\t%s\t%s\t%s\t%s\t%s\n' % (k, v['description'], v['PSMs'], v['Peptides'], v['sumI'], v['expect']))
         for peptide in peptides.peptideslist:
             if any(protein.dbname in prots for protein in peptide.parentproteins):
                 output_PSMs.write('%s\t%s\t%s\t%s\t%s\t%s\t%s\n' % (peptide.sequence, peptide.modified_sequence, peptide.evalue, peptide.peptscore, peptide.RT_exp, peptide.spectrum, peptide.sumI))
