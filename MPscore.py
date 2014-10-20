@@ -208,7 +208,7 @@ def handle(q, q_output, settings, protsL, numprots, numpeptides, expasy, proteas
             try:
                 peptide.sumI = Fragment_intensities[peptide.start_scan]
             except:
-                peptide.sumI = 0
+                pass
         Fragment_intensities = None
 
         print 'point 6: %s' % ((time() - stime) / 60)
@@ -537,22 +537,24 @@ def PSMs_info(peptides, valid_proteins, printresults=True, tofile=False, curfile
             fname = 'union'
         else:
             fname = path.splitext(path.splitext(path.basename(curfile))[0])[0]
-        output_proteins = open('%s/Results_new_%s_proteins.csv' % (ffolder, fname), 'w')
-        output_PSMs = open('%s/Results_new_%s_PSMs.csv' % (ffolder, fname), 'w')
+        output_proteins = open('%s/%s_proteins.csv' % (ffolder, fname), 'w')
+        output_proteins.write('dbname\tPSMs\tpeptides\tlabel-free quantitation\tprotein e-value\n')
+        output_PSMs = open('%s/%s_PSMs.csv' % (ffolder, fname), 'w')
+        output_PSMs.write('sequence\tmodified_sequence\te-value\tMPscore\tRT_experimental\tspectrum\tby-product of label-free quantitation\n')
         output_peptides_detailed = open('%s/%s_peptides.csv' % (ffolder, fname), 'w')
-        output_peptides_detailed.write('sequence\tmodified_sequence\te-value\tMPscore\tspectrum_title\tproteins\n')
+        output_peptides_detailed.write('sequence\tmodified_sequence\te-value\tMPscore\tspectrum_title\tproteins\tby-product of label-free quantitation\n')
         if protsC:
-            output_proteins_valid = open('%s/Results_new_%s_proteins_valid.csv' % (ffolder, fname), 'w')
+            output_proteins_valid = open('%s/%s_proteins_valid.csv' % (ffolder, fname), 'w')
             temp_data = []
         for k, v in prots.items():
             if protsC and k in valid_proteins:
                 output_proteins_valid.write('%s,%s,%s,%s,%s\n' % (k, v['PSMs'], v['Peptides'], v['sumI'], protsC[k]))
                 temp_data.append([float(v['sumI']), protsC[k]])
             if int(v['Peptides']) > 0:#### <------------ 1 > 0
-                output_proteins.write('%s\t%s\t%s\t%s\t%s\t%s\n' % (k, v['PSMs'], v['Peptides'], v['sumI'], ('+' if k in valid_proteins else '-'), v['expect']))
+                output_proteins.write('%s\t%s\t%s\t%s\t%s\n' % (k, v['PSMs'], v['Peptides'], v['sumI'], v['expect']))
         for peptide in peptides.peptideslist:
             if any(protein.dbname in prots for protein in peptide.parentproteins):
-                output_PSMs.write('%s\t%s\t%s\t%s\t%s\n' % (peptide.sequence, peptide.modified_sequence, peptide.evalue, peptide.RT_exp, peptide.spectrum))
+                output_PSMs.write('%s\t%s\t%s\t%s\t%s\t%s\t%s\n' % (peptide.sequence, peptide.modified_sequence, peptide.evalue, peptide.peptscore, peptide.RT_exp, peptide.spectrum, peptide.sumI))
 
         peptides_best = dict()
         peptides_best_sp = dict()
@@ -566,7 +568,7 @@ def PSMs_info(peptides, valid_proteins, printresults=True, tofile=False, curfile
                 peptides_best_sp[peptide.sequence] = peptide.spectrum
         for peptide in peptides.peptideslist:
             if peptide.spectrum == peptides_best_sp[peptide.sequence]:
-                output_peptides_detailed.write('%s\t%s\t%s\t%s\t%s\t' % (peptide.sequence, peptide.mass_diff(), peptide.evalue, peptide.peptscore, peptide.spectrum))
+                output_peptides_detailed.write('%s\t%s\t%s\t%s\t%s\t' % (peptide.sequence, peptide.modified_sequence, peptide.evalue, peptide.peptscore, peptide.spectrum))
                 flag = 0
                 for protein in peptide.parentproteins:
                     if flag == 0:
@@ -574,6 +576,7 @@ def PSMs_info(peptides, valid_proteins, printresults=True, tofile=False, curfile
                         flag = 1 
                     else:
                         output_peptides_detailed.write(',"%s"' % (protein.dbname))
+                output_peptides_detailed.write('\t%s' % (peptide.sumI))
                 output_peptides_detailed.write('\n')
         if protsC:
             temp_sum = sum([x[0] for x in temp_data])
@@ -681,7 +684,7 @@ def plot_MP(descriptors, peptides, fig, FDR, FDR2, valid_proteins, threshold0=Fa
         fname = 'union'
     else:
         fname = path.splitext(path.splitext(path.basename(curfile))[0])[0]
-    plt.savefig('%s/Results_new_%s.png' % (path.dirname(path.realpath(curfile)), fname))
+    plt.savefig('%s/%s.png' % (path.dirname(path.realpath(curfile)), fname))
 
 def prepare_hist(descriptors, copy_peptides, first=False):
     for descriptor in descriptors:
@@ -802,17 +805,20 @@ def main(inputfile):
                 fq_output.put('1')
                 break
 
-            if not any(x[0].startswith(tag) for tag in ['sp', 'tr', 'DECOY_sp', 'DECOY_tr']):
-                if any(tag in x[0] for tag in ['SWISS-PROT:', 'TREMBL:']):
-                    dbname = x[0].split(' ')[0]
+            try:
+                if not any(x[0].startswith(tag) for tag in ['sp', 'tr', 'DECOY_sp', 'DECOY_tr']):
+                    if any(tag in x[0] for tag in ['SWISS-PROT:', 'TREMBL:']):
+                        dbname = x[0].split(' ')[0]
+                    else:
+                        dbname = x[0].replace('>', ' ')
+                    protsL[dbname] = len(x[1])
                 else:
-                    dbname = x[0]
-                protsL[dbname] = len(x[1])
-            else:
-                protsL[x[0].split('|')[1]] = len(x[1])
+                    protsL[x[0].split('|')[1]] = len(x[1])
 
-            protsL['total proteins'] += 1
-            protsL['total peptides'] += len(parser.cleave(x[1], expasy, 2))
+                protsL['total proteins'] += 1
+                protsL['total peptides'] += len(parser.cleave(x[1], expasy, 2))
+            except:
+                pass
 
     if fastafile:
         for x in fasta.read(fastafile):

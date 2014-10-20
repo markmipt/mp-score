@@ -16,6 +16,25 @@ try:
 except ImportError:
     from ConfigParser import RawConfigParser
 
+
+def get_dbname(prot, pepxml_type='tandem'):
+    if pepxml_type != 'omssa':
+        try:
+            if not any(prot['protein'].startswith(tag) for tag in ['sp', 'tr', 'DECOY_sp', 'DECOY_tr']):
+                if any(prot['protein_descr'].startswith(tag) for tag in ['SWISS-PROT:', 'TREMBL:']):
+                    return prot['protein']
+                if '|' not in prot['protein']:
+                    return str(prot['protein']+' '+prot['protein_descr']).replace('DECOY_', '')
+                else:
+                    return str(prot['protein']+'>'+prot['protein_descr']).replace('DECOY_', '')
+            else:
+                return str(prot['protein'].split('|')[1]).replace('DECOY_', '')
+        except:
+            return str(prot['protein'].split('_')[0]).replace('DECOY_', '')
+    else:
+        return str(prot['protein_descr'].split('|')[1]).replace('DECOY_', '')
+
+
 def get_aa_mass(settings):
     aa_mass = mass.std_aa_mass.copy()
     fmods = settings.get('modifications', 'fixed')
@@ -187,6 +206,10 @@ class PeptideList:
                                 except IOError:
                                     'Cannot read e-value!'
                             try:
+                                sumI = record['search_hit'][k]['search_score']['sumI']
+                            except:
+                                sumI = 0
+                            try:
                                 hyperscore = record['search_hit'][k]['search_score']['hyperscore']
                                 nextscore = record['search_hit'][k]['search_score']['nextscore']
                             except:
@@ -198,7 +221,7 @@ class PeptideList:
                             pcharge = record['assumed_charge']
                             mass_exp = record['precursor_neutral_mass']
 
-                            pept = Peptide(sequence=sequence, settings=self.settings, modified_code=modified_code, evalue=evalue, massdiff=massdiff, spectrum=spectrum, rank=rank, pcharge=pcharge, mass_exp=mass_exp, hyperscore=hyperscore, nextscore=nextscore, prev_aa=prev_aa, next_aa=next_aa, start_scan=start_scan, modifications=modifications, modification_list=self.modification_list)
+                            pept = Peptide(sequence=sequence, settings=self.settings, modified_code=modified_code, evalue=evalue, massdiff=massdiff, spectrum=spectrum, rank=rank, pcharge=pcharge, mass_exp=mass_exp, hyperscore=hyperscore, nextscore=nextscore, prev_aa=prev_aa, next_aa=next_aa, start_scan=start_scan, modifications=modifications, modification_list=self.modification_list, sumI=sumI)
                             try:
                                 pept.RT_exp = float(record['retention_time_sec']) / 60
                             except:
@@ -213,23 +236,6 @@ class PeptideList:
                                 pept.note = 'target'
                             else:
                                 pept.note = 'decoy'
-
-                            def get_dbname(prot, pepxml_type='tandem'):
-                                if pepxml_type != 'omssa':
-                                    try:
-                                        if not any(prot['protein'].startswith(tag) for tag in ['sp', 'tr', 'DECOY_sp', 'DECOY_tr']):
-                                            if any(prot['protein_descr'].startswith(tag) for tag in ['SWISS-PROT:', 'TREMBL:']):
-                                                return prot['protein']
-                                            if '|' not in prot['protein']:
-                                                return str(prot['protein']+' '+prot['protein_descr']).replace('DECOY_', '')
-                                            else:
-                                                return str(prot['protein']+'>'+prot['protein_descr']).replace('DECOY_', '')
-                                        else:
-                                            return str(prot['protein'].split('|')[1]).replace('DECOY_', '')
-                                    except:
-                                        return str(prot['protein'].split('_')[0]).replace('DECOY_', '')
-                                else:
-                                    return str(prot['protein_descr'].split('|')[1]).replace('DECOY_', '')
 
                             for prot in record['search_hit'][k]['proteins']:
                                 if get_dbname(prot, self.pepxml_type) not in [protein.dbname for protein in pept.parentproteins]:
@@ -438,7 +444,7 @@ class Protein:
 #        self.score = 0
 
 class Peptide:
-    def __init__(self, sequence, settings, modified_code='', pcharge=0, RT_exp=False, evalue=0, protein='Unkonwn', massdiff=0, note='unknown', spectrum='', rank=1, mass_exp=0, hyperscore=0, nextscore=0, prev_aa='X', next_aa='X', start_scan=0, modifications=[], modification_list={}):
+    def __init__(self, sequence, settings, modified_code='', pcharge=0, RT_exp=False, evalue=0, protein='Unkonwn', massdiff=0, note='unknown', spectrum='', rank=1, mass_exp=0, hyperscore=0, nextscore=0, prev_aa='X', next_aa='X', start_scan=0, modifications=[], modification_list={}, sumI=0):
         self.sequence = sequence
         self.modified_code = modified_code
         self.modified_sequence = sequence
@@ -485,6 +491,7 @@ class Peptide:
         self.spectrum = spectrum
         self.spectrum_mz = None
         self.fragment_mt = None
+        self.sumI = sumI
 #        self.rank = rank
 #        self.concentration = 1
 #        self.solubility = 0
