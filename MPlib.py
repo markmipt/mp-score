@@ -192,6 +192,7 @@ class PeptideList:
                     for k in range(min(len(record['search_hit']), max_rank)):
                         sequence = record['search_hit'][k]['peptide']
                         if not set(sequence).difference(standard_aminoacids):
+                            mc = record['search_hit'][k]['num_missed_cleavages']
                             start_scan = record['start_scan']
                             num_tol_term = record['search_hit'][k]['proteins'][0]['num_tol_term']
                             modified_code = record['search_hit'][k]['modified_peptide']
@@ -221,7 +222,7 @@ class PeptideList:
                             pcharge = record['assumed_charge']
                             mass_exp = record['precursor_neutral_mass']
 
-                            pept = Peptide(sequence=sequence, settings=self.settings, modified_code=modified_code, evalue=evalue, massdiff=massdiff, spectrum=spectrum, rank=rank, pcharge=pcharge, mass_exp=mass_exp, hyperscore=hyperscore, nextscore=nextscore, prev_aa=prev_aa, next_aa=next_aa, start_scan=start_scan, modifications=modifications, modification_list=self.modification_list, sumI=sumI)
+                            pept = Peptide(sequence=sequence, settings=self.settings, modified_code=modified_code, evalue=evalue, massdiff=massdiff, spectrum=spectrum, rank=rank, pcharge=pcharge, mass_exp=mass_exp, hyperscore=hyperscore, nextscore=nextscore, prev_aa=prev_aa, next_aa=next_aa, start_scan=start_scan, modifications=modifications, modification_list=self.modification_list, sumI=sumI, mc=mc)
                             try:
                                 pept.RT_exp = float(record['retention_time_sec']) / 60
                             except:
@@ -444,7 +445,7 @@ class Protein:
 #        self.score = 0
 
 class Peptide:
-    def __init__(self, sequence, settings, modified_code='', pcharge=0, RT_exp=False, evalue=0, protein='Unkonwn', massdiff=0, note='unknown', spectrum='', rank=1, mass_exp=0, hyperscore=0, nextscore=0, prev_aa='X', next_aa='X', start_scan=0, modifications=[], modification_list={}, sumI=0):
+    def __init__(self, sequence, settings, modified_code='', pcharge=0, RT_exp=False, evalue=0, protein='Unkonwn', massdiff=0, note='unknown', spectrum='', rank=1, mass_exp=0, hyperscore=0, nextscore=0, prev_aa='X', next_aa='X', start_scan=0, modifications=[], modification_list={}, sumI=0, mc=None):
         self.sequence = sequence
         self.modified_code = modified_code
         self.modified_sequence = sequence
@@ -480,6 +481,7 @@ class Peptide:
         self.parentproteins = []
         self.massdiff = float(mass_exp) - float(self.pmass)
         self.num_missed_cleavages = dict()
+        self.mc = mc
         self.note = note
         self.note2 = ''
         self.note3 = ''
