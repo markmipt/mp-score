@@ -571,7 +571,7 @@ def PSMs_info(peptides, valid_proteins, printresults=True, tofile=False, curfile
                 temp_data.append([float(v['sumI']), protsC[k]])
             if int(v['Peptides']) > 0:#### <------------ 1 > 0
                 sqc = calc_sq(protsS.get(k, []), v['pept'])
-                output_proteins.write('%s\t%s\t%s\t%s\t%s\t%s\t%s\n' % (k, v['description'], v['PSMs'], v['Peptides'], sqc, v['sumI'], v['expect']))
+                output_proteins.write('%s\t%s\t%s\t%s\t{%0.1f}\t%s\t%s\n' % (k, v['description'], v['PSMs'], v['Peptides'], sqc, v['sumI'], v['expect']))
         for peptide in peptides.peptideslist:
             if any(protein.dbname in prots for protein in peptide.parentproteins):
                 output_PSMs.write('%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t' % (peptide.sequence, peptide.modified_sequence, peptide.mz, peptide.mc, peptide.evalue, peptide.peptscore, peptide.RT_exp, peptide.spectrum))
