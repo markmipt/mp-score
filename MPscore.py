@@ -1,5 +1,7 @@
 from MPlib import PeptideList, Descriptor, get_settings, filter_evalue_prots
 from sys import argv
+import matplotlib
+matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 import numpy as np
 from scipy.stats import scoreatpercentile
