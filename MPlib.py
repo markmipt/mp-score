@@ -186,13 +186,26 @@ class PeptideList:
         self.total_number_of_spectra = int(pepxml_params.get('modelling, total spectra used', self.total_number_of_spectra))
 
         standard_aminoacids = set(k for k in mass.std_aa_comp if '-' not in k)
+        first_psm = True
         for record in pepxml.read(pepxmlfile):
             if 'search_hit' in record:
                 if int(min_charge) <= int(record['assumed_charge']) and (int(record['assumed_charge']) <= int(max_charge) or not max_charge):
                     for k in range(min(len(record['search_hit']), max_rank)):
+                        if first_psm:
+                            if 'num_missed_cleavages' not in record['search_hit'][k]:
+                                print 'missed cleavages are missed in pepxml file, using 0 value for all peptides'
+                            try:
+                                float(record['retention_time_sec'])
+                            except:
+                                try:
+                                    float(record['spectrum'].split(',')[2].split()[0])
+                                except:
+                                    print 'RT experimental is missed in pepxml file, using 0 value for all peptides'
+                            first_psm = False
+
                         sequence = record['search_hit'][k]['peptide']
                         if not set(sequence).difference(standard_aminoacids):
-                            mc = record['search_hit'][k]['num_missed_cleavages']
+                            mc = record['search_hit'][k].get('num_missed_cleavages', 0)
                             start_scan = record['start_scan']
                             num_tol_term = record['search_hit'][k]['proteins'][0]['num_tol_term']
                             modified_code = record['search_hit'][k]['modified_peptide']
@@ -230,7 +243,6 @@ class PeptideList:
                                     pept.RT_exp = float(record['spectrum'].split(',')[2].split()[0])
                                 except:
                                     pept.RT_exp = 0
-                                    print 'RT_exp read error'
 
                             decoy_tags = [':reversed', 'DECOY_', 'rev_', 'Random sequence.']
                             if any([all([all([key in protein and isinstance(protein[key], str) and not protein[key].startswith(tag) and not protein[key].endswith(tag) for key in ['protein', 'protein_descr']]) for tag in decoy_tags]) for protein in record['search_hit'][k]['proteins']]):
