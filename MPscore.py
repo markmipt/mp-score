@@ -316,11 +316,57 @@ def handle(q, q_output, settings, protsL, protsS, numprots, numpeptides, expasy,
                     copy_peptides, _, _ = peptides.filter_evalue_new(FDR=FDR, useMP=False)
                     copy_peptides.calc_RT(calibrate_coeff=calibrate_coeff, RTtype=RT_type)
 
+            curfile = filenames[-1]['.pep']
+            if descriptors:
+                descriptors = prepare_hist(descriptors, copy_peptides, first=False)
+                fig = plot_histograms(descriptors, peptides, FDR)
 
-            descriptors = prepare_hist(descriptors, copy_peptides, first=False)
-            fig = plot_histograms(descriptors, peptides, FDR)
+                if len(copy_peptides.peptideslist) > 100:
+                    jk = manager.dict()
+                    cprocs = []
+                    cnprocs = peptides.settings.getint('options', 'threads')
+                    cq = multiprocessing.Queue()
+                    cq_output = multiprocessing.Queue()
+                    cq_finish = multiprocessing.Queue()
 
-            if len(copy_peptides.peptideslist) > 100:
+                    for i in range(cnprocs):
+                        p = multiprocessing.Process(target=calc_peptscore, args=(cq, cq_output, descriptors, jk, cq_finish))
+                        cprocs.append(p)
+                        p.start()
+
+                    counter = 0
+                    for idx, peptide in enumerate(peptides.peptideslist):
+                        if counter < 10000:
+                            cq.put([idx, peptide])
+                            counter += 1
+                        else:
+                            while counter != 0:
+                                ind, pscore = cq_output.get()
+                                peptides.peptideslist[ind].peptscore = float(pscore)
+                                counter -= 1
+                    while counter != 0:
+                        ind, pscore = cq_output.get()
+                        peptides.peptideslist[ind].peptscore = float(pscore)
+                        counter -= 1
+
+                    for i in range(cnprocs):
+                        cq.put(None)
+                    while cq_finish.qsize() != cnprocs:
+                        sleep(5)
+
+                    for p in cprocs:
+                        p.terminate()
+
+                    print jk
+                    j = len(peptides.peptideslist) - 1
+                    while j >= 0:
+                        if peptides.peptideslist[j].peptscore == 0:
+                            peptides.peptideslist.pop(j)
+                        j -= 1
+
+                copy_peptides, _, _ = peptides.filter_evalue_new(FDR=FDR, useMP=False)
+                descriptors = prepare_hist(descriptors, copy_peptides)
+
                 jk = manager.dict()
                 cprocs = []
                 cnprocs = peptides.settings.getint('options', 'threads')
@@ -347,7 +393,7 @@ def handle(q, q_output, settings, protsL, protsS, numprots, numpeptides, expasy,
                     ind, pscore = cq_output.get()
                     peptides.peptideslist[ind].peptscore = float(pscore)
                     counter -= 1
-                        
+
                 for i in range(cnprocs):
                     cq.put(None)
                 while cq_finish.qsize() != cnprocs:
@@ -356,67 +402,24 @@ def handle(q, q_output, settings, protsL, protsS, numprots, numpeptides, expasy,
                 for p in cprocs:
                     p.terminate()
 
-                print jk
-                j = len(peptides.peptideslist) - 1
-                while j >= 0:
-                    if peptides.peptideslist[j].peptscore == 0:
-                        peptides.peptideslist.pop(j)
-                    j -= 1
+                k_temp = []
+                while len(k_temp) < 3 or k_temp[-1] != k_temp[-3]:
+                    if not k_temp:
+                        copy_peptides = peptides.filter_evalue_new(FDR=FDR, useMP=False)[0]
+                    else:
+                        FDR_new = (((FDR / 100 - float(peptides.total_number_of_PSMs_decoy) / numPSMs_true * k)) / (1 - k)) * 100
+                        copy_peptides = peptides.filter_evalue_new(FDR=FDR, FDR2=FDR_new, useMP=True)[0]
 
-            copy_peptides, _, _ = peptides.filter_evalue_new(FDR=FDR, useMP=False)
-            descriptors = prepare_hist(descriptors, copy_peptides)
-
-            jk = manager.dict()
-            cprocs = []
-            cnprocs = peptides.settings.getint('options', 'threads')
-            cq = multiprocessing.Queue()
-            cq_output = multiprocessing.Queue()
-            cq_finish = multiprocessing.Queue()
-
-            for i in range(cnprocs):
-                p = multiprocessing.Process(target=calc_peptscore, args=(cq, cq_output, descriptors, jk, cq_finish))
-                cprocs.append(p)
-                p.start()
-
-            counter = 0
-            for idx, peptide in enumerate(peptides.peptideslist):
-                if counter < 10000:
-                    cq.put([idx, peptide])
-                    counter += 1
-                else:
-                    while counter != 0:
-                        ind, pscore = cq_output.get()
-                        peptides.peptideslist[ind].peptscore = float(pscore)
-                        counter -= 1
-            while counter != 0:
-                ind, pscore = cq_output.get()
-                peptides.peptideslist[ind].peptscore = float(pscore)
-                counter -= 1
-                    
-            for i in range(cnprocs):
-                cq.put(None)
-            while cq_finish.qsize() != cnprocs:
-                sleep(5)
-
-            for p in cprocs:
-                p.terminate()
-
-            k_temp = []
-            while len(k_temp) < 3 or k_temp[-1] != k_temp[-3]:
-                if not k_temp:
-                    copy_peptides = peptides.filter_evalue_new(FDR=FDR, useMP=False)[0]
-                else:
+                    numPSMs_true = len(copy_peptides)
+                    k = float(copy_peptides.get_number_of_peptides()) / peptides.total_number_of_peptides_in_searchspace
                     FDR_new = (((FDR / 100 - float(peptides.total_number_of_PSMs_decoy) / numPSMs_true * k)) / (1 - k)) * 100
-                    copy_peptides = peptides.filter_evalue_new(FDR=FDR, FDR2=FDR_new, useMP=True)[0]
+                    k_temp.append(float(k))
+                print k, 'k factor'
 
-                numPSMs_true = len(copy_peptides)
-                k = float(copy_peptides.get_number_of_peptides()) / peptides.total_number_of_peptides_in_searchspace
-                FDR_new = (((FDR / 100 - float(peptides.total_number_of_PSMs_decoy) / numPSMs_true * k)) / (1 - k)) * 100
-                k_temp.append(float(k))
-            print k, 'k factor'
-
-            curfile = filenames[-1]['.pep']
-            plot_MP(descriptors, peptides, fig, FDR, FDR_new, valid_proteins, threshold0, curfile)
+                plot_MP(descriptors, peptides, fig, FDR, FDR_new, valid_proteins, threshold0, curfile)
+            else:
+                fig = plt.figure(figsize=(16, 12))
+                plot_MP(descriptors, peptides, fig, FDR, 0, valid_proteins, threshold0, curfile)
 
 
 def find_optimal_xy(descriptors):

@@ -368,7 +368,7 @@ class PeptideList:
             best_cut_evalue = 0
         print real_FDR, best_cut_evalue, 'e-value'
 
-        best_cut_peptscore = 1
+        best_cut_peptscore = 1.1
         if useMP:
             target_peptscores, decoy_peptscores = [], []
             for peptide in self.peptideslist:
