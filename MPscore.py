@@ -554,6 +554,9 @@ def PSMs_info(peptides, valid_proteins, printresults=True, tofile=False, curfile
             prots = filter_evalue_prots(prots, FDR=protFDR)
         else:
             peptides.filter_decoy()
+            for k in prots.keys():
+                if k.startswith('L'):
+                    del prots[k]
         ffolder = path.dirname(path.realpath(curfile))
         if peptides.settings.get('options', 'files') == 'union':
             fname = 'union'
