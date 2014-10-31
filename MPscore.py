@@ -620,7 +620,9 @@ def PSMs_info(peptides, valid_proteins, printresults=True, tofile=False, curfile
 #        print prots
         print 'Protein groups with >= 2 peptides: %s' % (sum([1 for k, v in prots.iteritems() if v['Peptides'] >= 2 and not k.startswith('L')]))
         if valid_proteins:
-            print 'True Prots = %s' % (len(true_prots))
+            print 'PSMs_true: %s' % (len([1 for x in peptides.peptideslist if x.note3]), )
+            print 'Peptides_true: %d' % (len(set(x.sequence for x in peptides.peptideslist if x.note3)), )
+            print 'Protein groups_true: %s' % (len(true_prots), )
             print 'Real FDR = %s' % (100 * float(len([1 for x in peptides.peptideslist if not x.note3])) / len(peptides.peptideslist) )
         print '\n'
     return (len([1 for x in peptides.peptideslist if x.note2 == 'tr']), len(set(p.sequence for p in peptides.peptideslist)), len([v for v in prots.values() if v['Peptides'] > 1]))
