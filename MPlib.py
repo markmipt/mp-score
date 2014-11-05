@@ -109,6 +109,7 @@ class Descriptor():
         self.group = group
         self.binsize = binsize
         self.normK = None
+        self.array = None
 
     def get_array(self, peptides):
 #        code = """[%s for peptide in peptides.peptideslist]""" % (self.formula)
@@ -235,7 +236,7 @@ class PeptideList:
                             pcharge = record['assumed_charge']
                             mass_exp = record['precursor_neutral_mass']
 
-                            pept = Peptide(sequence=sequence, settings=self.settings, modified_code=modified_code, evalue=evalue, massdiff=massdiff, spectrum=spectrum, rank=rank, pcharge=pcharge, mass_exp=mass_exp, hyperscore=hyperscore, nextscore=nextscore, prev_aa=prev_aa, next_aa=next_aa, start_scan=start_scan, modifications=modifications, modification_list=self.modification_list, sumI=sumI, mc=mc)
+                            pept = Peptide(sequence=sequence, settings=self.settings, modified_code=modified_code, evalue=evalue, spectrum=spectrum, rank=rank, pcharge=pcharge, mass_exp=mass_exp, hyperscore=hyperscore, nextscore=nextscore, prev_aa=prev_aa, next_aa=next_aa, start_scan=start_scan, modifications=modifications, modification_list=self.modification_list, sumI=sumI, mc=mc)
                             try:
                                 pept.RT_exp = float(record['retention_time_sec']) / 60
                             except:
@@ -320,22 +321,6 @@ class PeptideList:
                 peptides.append([peptide.RT_predicted, peptide.RT_exp])
             else:
                 if any(abs(peptide.RT_exp - v) < 2 for v in peptides_added[peptide.sequence]):
-                    pass
-                else:
-                    peptides_added[peptide.sequence].append(peptide.RT_exp)
-                    peptides.append([peptide.RT_predicted, peptide.RT_exp])
-        aux_RT = linear_regression([val[0] for val in peptides], [val[1] for val in peptides])
-        return aux_RT
-
-    def get_calibrate_coeff_new(self):
-        peptides = []
-        peptides_added = {}
-        for peptide in self.peptideslist:
-            if peptide.sequence not in peptides_added:
-                peptides_added[peptide.sequence] = [peptide.RT_exp, ]
-                peptides.append([peptide.RT_predicted, peptide.RT_exp])
-            else:
-                if any(abs(peptide.RT_exp - v) < 10 for v in peptides_added[peptide.sequence]):
                     pass
                 else:
                     peptides_added[peptide.sequence].append(peptide.RT_exp)
@@ -443,21 +428,12 @@ class PeptideList:
         return new_peptides
 
 class Protein:
-    def __init__(self, dbname, pcharge=0, description='Unknown', sequence='Unknown', note=''):
+    def __init__(self, dbname, description='Unknown'):
         self.dbname = dbname
-#        self.pcharge = pcharge
         self.description = description
-#        self.PE = 0
-#        self.sequence = sequence
-#        self.peptides_exp = []
-#        self.peptides_theor = []
-#        self.pmass = 0
-#        self.note = note
-#        self.dbname2 = 'unknown'
-#        self.score = 0
 
 class Peptide:
-    def __init__(self, sequence, settings, modified_code='', pcharge=0, RT_exp=False, evalue=0, protein='Unkonwn', massdiff=0, note='unknown', spectrum='', rank=1, mass_exp=0, hyperscore=0, nextscore=0, prev_aa='X', next_aa='X', start_scan=0, modifications=[], modification_list={}, sumI=0, mc=None):
+    def __init__(self, sequence, settings, modified_code='', pcharge=0, RT_exp=False, evalue=0, note='unknown', spectrum='', rank=1, mass_exp=0, hyperscore=0, nextscore=0, prev_aa='X', next_aa='X', start_scan=0, modifications=[], modification_list={}, sumI=0, mc=None):
         self.sequence = sequence
         self.modified_code = modified_code
         self.modified_sequence = sequence
@@ -488,8 +464,6 @@ class Peptide:
         self.RT_exp = RT_exp
         self.RT_predicted = False
         self.evalue = float(evalue)
-#        self.start_scan = int(start_scan)
-#        self.parentprotein = protein
         self.parentproteins = []
         self.massdiff = float(mass_exp) - float(self.pmass)
         self.num_missed_cleavages = dict()
@@ -498,7 +472,6 @@ class Peptide:
         self.note2 = ''
         self.note3 = ''
         self.possible_mass = []
-#        self.protscore = 1
         self.protscore2 = 1
         self.peptscore = 1
         self.peptscore2 = 1
@@ -506,13 +479,6 @@ class Peptide:
         self.spectrum_mz = None
         self.fragment_mt = None
         self.sumI = sumI
-#        self.rank = rank
-#        self.concentration = 1
-#        self.solubility = 0
-#        self.hyperscore = float(hyperscore)
-#        self.nextscore = float(nextscore)
-#        self.prev_aa = prev_aa
-#        self.next_aa = next_aa
 
     def theor_spectrum(self, types=('b', 'y'), maxcharge=None, **kwargs):
         peaks = {}
