@@ -893,4 +893,5 @@ def main(inputfile):
     for p in procs:
         p.terminate()
 
-main(inputfile)
+if __name__ == '__main__':
+    main(inputfile)
