@@ -109,6 +109,7 @@ class Descriptor():
         self.group = group
         self.binsize = binsize
         self.normK = None
+        self.array = None
 
     def get_array(self, peptides):
 #        code = """[%s for peptide in peptides.peptideslist]""" % (self.formula)
@@ -167,7 +168,7 @@ class PeptideList:
         else:
             return self.total_number_of_PSMs
 
-    def get_from_pepxmlfile(self, pepxmlfile, min_charge=1, max_charge=0, max_rank=1):
+    def get_from_pepxmlfile(self, pepxmlfile, min_charge=1, max_charge=0):
         for line in open(pepxmlfile, 'r'):
             if line.startswith('<search_summary') or line.startswith('    <search_summary'):
                 if "X! Tandem" in line:
@@ -190,72 +191,59 @@ class PeptideList:
         for record in pepxml.read(pepxmlfile):
             if 'search_hit' in record:
                 if int(min_charge) <= int(record['assumed_charge']) and (int(record['assumed_charge']) <= int(max_charge) or not max_charge):
-                    for k in range(min(len(record['search_hit']), max_rank)):
-                        if first_psm:
-                            if 'num_missed_cleavages' not in record['search_hit'][k]:
-                                print 'missed cleavages are missed in pepxml file, using 0 value for all peptides'
+                    if first_psm:
+                        if 'num_missed_cleavages' not in record['search_hit'][0]:
+                            print 'missed cleavages are missed in pepxml file, using 0 value for all peptides'
+                        try:
+                            float(record['retention_time_sec'])
+                        except:
                             try:
-                                float(record['retention_time_sec'])
+                                float(record['spectrum'].split(',')[2].split()[0])
                             except:
-                                try:
-                                    float(record['spectrum'].split(',')[2].split()[0])
-                                except:
-                                    print 'RT experimental is missed in pepxml file, using 0 value for all peptides'
-                            first_psm = False
+                                print 'RT experimental is missed in pepxml file, using 0 value for all peptides'
+                        first_psm = False
 
-                        sequence = record['search_hit'][k]['peptide']
-                        if not set(sequence).difference(standard_aminoacids):
-                            mc = record['search_hit'][k].get('num_missed_cleavages', 0)
-                            start_scan = record['start_scan']
-                            num_tol_term = record['search_hit'][k]['proteins'][0]['num_tol_term']
-                            modified_code = record['search_hit'][k]['modified_peptide']
-                            modifications = record['search_hit'][k]['modifications']
-                            prev_aa = record['search_hit'][k]['proteins'][0]['peptide_prev_aa']
-                            next_aa = record['search_hit'][k]['proteins'][0]['peptide_next_aa']
+                    sequence = record['search_hit'][0]['peptide']
+                    if not set(sequence).difference(standard_aminoacids):
+                        mc = record['search_hit'][0].get('num_missed_cleavages', 0)
+                        modified_code = record['search_hit'][0]['modified_peptide']
+                        modifications = record['search_hit'][0]['modifications']
+                        try:
+                            evalue = record['search_hit'][0]['search_score']['expect']
+                        except:
                             try:
-                                evalue = record['search_hit'][k]['search_score']['expect']
-                            except:
-                                try:
-                                    evalue = 1.0 / float(record['search_hit'][k]['search_score']['ionscore'])
-                                except IOError:
-                                    'Cannot read e-value!'
+                                evalue = 1.0 / float(record['search_hit'][0]['search_score']['ionscore'])
+                            except IOError:
+                                'Cannot read e-value!'
+                        try:
+                            sumI = record['search_hit'][0]['search_score']['sumI']
+                        except:
+                            sumI = 0
+                        spectrum = record['spectrum']
+                        pcharge = record['assumed_charge']
+                        mass_exp = record['precursor_neutral_mass']
+
+                        pept = Peptide(sequence=sequence, settings=self.settings, modified_code=modified_code, evalue=evalue, spectrum=spectrum, pcharge=pcharge, mass_exp=mass_exp, modifications=modifications, modification_list=self.modification_list, sumI=sumI, mc=mc)
+                        try:
+                            pept.RT_exp = float(record['retention_time_sec']) / 60
+                        except:
                             try:
-                                sumI = record['search_hit'][k]['search_score']['sumI']
+                                pept.RT_exp = float(record['spectrum'].split(',')[2].split()[0])
                             except:
-                                sumI = 0
-                            try:
-                                hyperscore = record['search_hit'][k]['search_score']['hyperscore']
-                                nextscore = record['search_hit'][k]['search_score']['nextscore']
-                            except:
-                                hyperscore = 1
-                                nextscore = 1
-                            massdiff = record['search_hit'][k]['massdiff']
-                            spectrum = record['spectrum']
-                            rank = k + 1
-                            pcharge = record['assumed_charge']
-                            mass_exp = record['precursor_neutral_mass']
+                                pept.RT_exp = 0
 
-                            pept = Peptide(sequence=sequence, settings=self.settings, modified_code=modified_code, evalue=evalue, massdiff=massdiff, spectrum=spectrum, rank=rank, pcharge=pcharge, mass_exp=mass_exp, hyperscore=hyperscore, nextscore=nextscore, prev_aa=prev_aa, next_aa=next_aa, start_scan=start_scan, modifications=modifications, modification_list=self.modification_list, sumI=sumI, mc=mc)
-                            try:
-                                pept.RT_exp = float(record['retention_time_sec']) / 60
-                            except:
-                                try:
-                                    pept.RT_exp = float(record['spectrum'].split(',')[2].split()[0])
-                                except:
-                                    pept.RT_exp = 0
+                        decoy_tags = [':reversed', 'DECOY_', 'rev_', 'Random sequence.']
+                        if any([all([all([key in protein and isinstance(protein[key], str) and not protein[key].startswith(tag) and not protein[key].endswith(tag) for key in ['protein', 'protein_descr']]) for tag in decoy_tags]) for protein in record['search_hit'][0]['proteins']]):
+                            pept.note = 'target'
+                        else:
+                            pept.note = 'decoy'
 
-                            decoy_tags = [':reversed', 'DECOY_', 'rev_', 'Random sequence.']
-                            if any([all([all([key in protein and isinstance(protein[key], str) and not protein[key].startswith(tag) and not protein[key].endswith(tag) for key in ['protein', 'protein_descr']]) for tag in decoy_tags]) for protein in record['search_hit'][k]['proteins']]):
-                                pept.note = 'target'
-                            else:
-                                pept.note = 'decoy'
+                        for prot in record['search_hit'][0]['proteins']:
+                            if get_dbname(prot, self.pepxml_type) not in [protein.dbname for protein in pept.parentproteins]:
+                                pept.parentproteins.append(Protein(dbname=get_dbname(prot, self.pepxml_type), description=prot.get('protein_descr', None)))
 
-                            for prot in record['search_hit'][k]['proteins']:
-                                if get_dbname(prot, self.pepxml_type) not in [protein.dbname for protein in pept.parentproteins]:
-                                    pept.parentproteins.append(Protein(dbname=get_dbname(prot, self.pepxml_type), description=prot.get('protein_descr', None)))
-
-                            if len(pept.parentproteins):
-                                self.peptideslist.append(pept)
+                        if len(pept.parentproteins):
+                            self.peptideslist.append(pept)
 
 
     def modified_peptides(self):
@@ -320,22 +308,6 @@ class PeptideList:
                 peptides.append([peptide.RT_predicted, peptide.RT_exp])
             else:
                 if any(abs(peptide.RT_exp - v) < 2 for v in peptides_added[peptide.sequence]):
-                    pass
-                else:
-                    peptides_added[peptide.sequence].append(peptide.RT_exp)
-                    peptides.append([peptide.RT_predicted, peptide.RT_exp])
-        aux_RT = linear_regression([val[0] for val in peptides], [val[1] for val in peptides])
-        return aux_RT
-
-    def get_calibrate_coeff_new(self):
-        peptides = []
-        peptides_added = {}
-        for peptide in self.peptideslist:
-            if peptide.sequence not in peptides_added:
-                peptides_added[peptide.sequence] = [peptide.RT_exp, ]
-                peptides.append([peptide.RT_predicted, peptide.RT_exp])
-            else:
-                if any(abs(peptide.RT_exp - v) < 10 for v in peptides_added[peptide.sequence]):
                     pass
                 else:
                     peptides_added[peptide.sequence].append(peptide.RT_exp)
@@ -443,21 +415,12 @@ class PeptideList:
         return new_peptides
 
 class Protein:
-    def __init__(self, dbname, pcharge=0, description='Unknown', sequence='Unknown', note=''):
+    def __init__(self, dbname, description='Unknown'):
         self.dbname = dbname
-#        self.pcharge = pcharge
         self.description = description
-#        self.PE = 0
-#        self.sequence = sequence
-#        self.peptides_exp = []
-#        self.peptides_theor = []
-#        self.pmass = 0
-#        self.note = note
-#        self.dbname2 = 'unknown'
-#        self.score = 0
 
 class Peptide:
-    def __init__(self, sequence, settings, modified_code='', pcharge=0, RT_exp=False, evalue=0, protein='Unkonwn', massdiff=0, note='unknown', spectrum='', rank=1, mass_exp=0, hyperscore=0, nextscore=0, prev_aa='X', next_aa='X', start_scan=0, modifications=[], modification_list={}, sumI=0, mc=None):
+    def __init__(self, sequence, settings, modified_code='', pcharge=0, RT_exp=False, evalue=0, note='unknown', spectrum='', mass_exp=0, modifications=[], modification_list={}, sumI=0, mc=None):
         self.sequence = sequence
         self.modified_code = modified_code
         self.modified_sequence = sequence
@@ -488,8 +451,6 @@ class Peptide:
         self.RT_exp = RT_exp
         self.RT_predicted = False
         self.evalue = float(evalue)
-#        self.start_scan = int(start_scan)
-#        self.parentprotein = protein
         self.parentproteins = []
         self.massdiff = float(mass_exp) - float(self.pmass)
         self.num_missed_cleavages = dict()
@@ -498,7 +459,6 @@ class Peptide:
         self.note2 = ''
         self.note3 = ''
         self.possible_mass = []
-#        self.protscore = 1
         self.protscore2 = 1
         self.peptscore = 1
         self.peptscore2 = 1
@@ -506,13 +466,6 @@ class Peptide:
         self.spectrum_mz = None
         self.fragment_mt = None
         self.sumI = sumI
-#        self.rank = rank
-#        self.concentration = 1
-#        self.solubility = 0
-#        self.hyperscore = float(hyperscore)
-#        self.nextscore = float(nextscore)
-#        self.prev_aa = prev_aa
-#        self.next_aa = next_aa
 
     def theor_spectrum(self, types=('b', 'y'), maxcharge=None, **kwargs):
         peaks = {}
