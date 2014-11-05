@@ -13,13 +13,6 @@ from time import sleep, time
 import pickle
 from copy import copy
 
-inputfile = str(argv[1])
-protsC = {}
-manager = multiprocessing.Manager()
-protsL = manager.dict()
-protsS = manager.dict()
-stime = time()
-
 
 def calc_sq(protein, peptides):
     if not protein:
@@ -894,4 +887,10 @@ def main(inputfile):
         p.terminate()
 
 if __name__ == '__main__':
+    inputfile = str(argv[1])
+    protsC = {}
+    manager = multiprocessing.Manager()
+    protsL = manager.dict()
+    protsS = manager.dict()
+    stime = time()
     main(inputfile)
