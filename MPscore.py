@@ -34,7 +34,7 @@ def calc_sq(protein, peptides):
     return float(sum(psq)) / len(psq) * 100
 
 
-def handle(q, q_output, settings, protsL, protsS, numprots, numpeptides, expasy, proteases):
+def handle(q, q_output, settings, protsL):
     while 1:
         print 'point 1: %s' % ((time() - stime) / 60)
         try:
@@ -815,7 +815,6 @@ def main(inputfile):
     else:
         settings = get_settings('default.cfg')
 
-    numprots, numpeptides = 0, 0
     proteases = [x.strip() for x in settings.get('missed cleavages', 'protease1').split(',')]
     proteases.extend([x.strip() for x in settings.get('missed cleavages', 'protease2').split(',')])
     expasy = '|'.join((parser.expasy_rules[protease] if protease in parser.expasy_rules else protease for protease in proteases))
@@ -869,9 +868,6 @@ def main(inputfile):
     for p in fprocs:
         p.terminate()
 
-    numprots = protsL['total proteins']
-    numpeptides = protsL['total peptides']
-
     procs = []
     nprocs = 1
     q = multiprocessing.Queue()
@@ -884,7 +880,7 @@ def main(inputfile):
         for filename in files.itervalues():
             q.put([filename, ])
     for i in range(nprocs):
-        p = multiprocessing.Process(target=handle, args=(q, q_output, settings, protsL, protsS, numprots, numpeptides, expasy, proteases))
+        p = multiprocessing.Process(target=handle, args=(q, q_output, settings, protsL))
         procs.append(p)
         p.start()
 
