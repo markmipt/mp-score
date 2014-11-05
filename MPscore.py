@@ -107,7 +107,7 @@ def handle(q, q_output, settings, protsL):
 
                 print 'point 2: %s' % ((time() - stime) / 60)
 
-                qpeptides.get_from_pepxmlfile(curfile['.pep'], min_charge=min_charge, max_charge=max_charge, max_rank=1)
+                qpeptides.get_from_pepxmlfile(curfile['.pep'], min_charge=min_charge, max_charge=max_charge)
 
                 mgffile = curfile.get('.mgf', None)
                 if mgffile:
