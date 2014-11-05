@@ -887,7 +887,7 @@ def main(inputfile):
         p.terminate()
 
 if __name__ == '__main__':
-    inputfile = str(argv[1])
+    inputfile = argv[1]
     protsC = {}
     manager = multiprocessing.Manager()
     protsL = manager.dict()
