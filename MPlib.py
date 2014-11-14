@@ -115,8 +115,6 @@ class Descriptor():
         self.array = None
 
     def get_array(self, peptides):
-#        code = """[%s for peptide in peptides.peptideslist]""" % (self.formula)
-#        return eval(code)
         tmp = np.array([self.formula(peptide) for peptide in peptides.peptideslist])
         tmp.sort()
         self.array = tmp
@@ -515,7 +513,6 @@ class Peptide:
             int_array = copy(self.spectrum_i)
             int_array = int_array / int_array.max() * 100
             i = int_array > int_array.max() / 100
-            int_array = int_array[i]
             spectrum_mz = spectrum_mz[i]
             theor = self.theor_spectrum(types=ion_types, aa_mass=get_aa_mass(settings))
             spectrum_KDTree = cKDTree(spectrum_mz.reshape((spectrum_mz.size, 1)))
@@ -525,7 +522,6 @@ class Peptide:
                 n = fragments.size
                 dist, ind = spectrum_KDTree.query(fragments.reshape((n, 1)),
                     distance_upper_bound=acc)
-                mask = (dist != np.inf)
                 dist_total = np.append(dist_total, dist[dist != np.inf])
             if dist_total.size:
                 self.fragment_mt = np.median(dist_total)

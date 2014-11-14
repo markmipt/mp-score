@@ -29,12 +29,10 @@ def calc_sq(protein, peptides):
 
 def handle(q, q_output, settings, protsL):
     while 1:
-        print 'point 1: %s' % ((time() - stime) / 60)
         try:
             filenames = q.get(timeout=1)
         except Empty:
             q_output.put('1')
-            print 'subprocess done'
             break
         print 'inputfile = %s' % (','.join(f['.pep'] for f in filenames), )
         FDR = settings.getfloat('options', 'FDR')
@@ -70,8 +68,6 @@ def handle(q, q_output, settings, protsL):
         iq = multiprocessing.Queue()
         iq_output = multiprocessing.Queue()
 
-        files_processing = settings.get('options', 'files')
-
         def getpepxml(iq, iq_output, settings):
             for curfile in iter(iq.get, None):
                 qpeptides = PeptideList(settings)
@@ -105,8 +101,6 @@ def handle(q, q_output, settings, protsL):
                         psm.I = Ip
                         psm.PIF = PIF
 
-                print 'point 2: %s' % ((time() - stime) / 60)
-
                 qpeptides.get_from_pepxmlfile(curfile['.pep'], min_charge=min_charge, max_charge=max_charge)
 
                 mgffile = curfile.get('.mgf', None)
@@ -138,13 +132,10 @@ def handle(q, q_output, settings, protsL):
                 tmp_peptides = qpeptides.copy_empty()
                 msize = 10000
                 while len(qpeptides.peptideslist):
-#                    tmppeptides = qpeptides.peptideslist[:msize]
                     tmp_peptides.peptideslist = qpeptides.peptideslist[:msize]
                     iq_output.put(copy(tmp_peptides))
                     qpeptides.peptideslist = qpeptides.peptideslist[msize:]
-#                iq_output.put(qpeptides.total_number_of_spectra)
                 iq_output.put(None)
-            print 'getpepxml done'
 
         for filename in filenames:
             iq.put(filename)
@@ -162,13 +153,12 @@ def handle(q, q_output, settings, protsL):
                 peptides.update(res_peptides)
             j += 1
         peptides.total_number_of_PSMs = len(peptides.peptideslist)
-        print 'point before termination, total number of PSMs = %d' % (peptides.total_number_of_PSMs,)
 
         for p in iprocs:
             p.terminate()
 
         print 'total number of PSMs = %d' % (len(peptides.peptideslist),)
-        print 'point 3: %s' % ((time() - stime) / 60)
+        print 'Total number of peptides: %s' % (len(set(pept.sequence for pept in peptides.peptideslist)), )
 
         true_prots = set()
         prots_dict = {}
@@ -195,8 +185,6 @@ def handle(q, q_output, settings, protsL):
                     peptide.note2 = 'tr'
         peptides.total_number_of_PSMs_decoy = sum(1 for pept in peptides.peptideslist if pept.note2 == 'wr')
 
-        print 'point 4: %s' % ((time() - stime) / 60)
-
         if FDR_type == 'peptide':
             peptidesdict = dict()
             for peptide in peptides.peptideslist:
@@ -210,8 +198,6 @@ def handle(q, q_output, settings, protsL):
                 if peptides.peptideslist[j].spectrum not in passed:
                     peptides.peptideslist.pop(j)
                 j -= 1
-        print 'Number of peptides: %s' % (len(peptides.peptideslist), )
-        print 'point 5: %s' % ((time() - stime) / 60)
 
         for peptide in peptides.peptideslist:
             try:
@@ -219,10 +205,6 @@ def handle(q, q_output, settings, protsL):
             except:
                 pass
         Fragment_intensities = None
-
-        print 'point 6: %s' % ((time() - stime) / 60)
-
-        print 'point 7: %s' % ((time() - stime) / 60)
 
         for peptide in peptides.peptideslist:
             peptide.peptscore2 = pepts_dict[peptide.sequence]
@@ -238,7 +220,6 @@ def handle(q, q_output, settings, protsL):
         prots_dict = None
         copy_peptides, threshold0, _ = peptides.filter_evalue_new(FDR=FDR, useMP=False)
 
-        print 'point 8: %s' % ((time() - stime) / 60)
         print 'Default filtering:'
         numPSMs, numpeptides_true, numprots_true = PSMs_info(copy_peptides, valid_proteins)
         if numPSMs > 4:
@@ -431,7 +412,6 @@ def PSMs_info(peptides, valid_proteins, printresults=True, tofile=False, curfile
     full_sequences = set()
     added = set()
     tostay = set()
-    print 'PSMs_info, point 1: %s' % ((time() - stime) / 60)
     for peptide in peptides.peptideslist:
         full_sequences.add(peptide.sequence)
     prots = dict()
@@ -456,12 +436,9 @@ def PSMs_info(peptides, valid_proteins, printresults=True, tofile=False, curfile
         bestprot = max(prots.iterkeys(), key=(lambda key: len(prots[key])))
         tostay.add(bestprot)
         full_sequences.difference_update(prots[bestprot])
-    print 'PSMs_info, point 2: %s' % ((time() - stime) / 60)
     prots = dict()
-    prots_peptides = dict()
     peptides_added = set()
     true_prots = set()
-    todel = set()
     Total_prots = set()
     for peptide in peptides.peptideslist:
         if peptide.note2 == 'wr':
@@ -513,11 +490,9 @@ def PSMs_info(peptides, valid_proteins, printresults=True, tofile=False, curfile
         expect += n * np.log10(beta) + (s - n) * np.log10(1 - beta) - np.log10(s) - (n - 1) * np.log10(N)
         return expect
 
-    print 'PSMs_info, point 3: %s' % ((time() - stime) / 60)
     for dbname in list(prots.keys()):
         if (dbname not in tostay and loop) or 'Peptides' not in prots[dbname]:
             del prots[dbname]
-    print 'PSMs_info, point 4: %s' % ((time() - stime) / 60)
     if tofile:
         new_peptides = peptides.remove_duplicate_sequences()
         # Add normal s, T calculation
@@ -535,9 +510,6 @@ def PSMs_info(peptides, valid_proteins, printresults=True, tofile=False, curfile
                     prots[tmp_dbname]['evalues'].append(peptide.evalue)
         for k in prots:
             prots[k]['expect'] = calc_expect_log(prots[k]['evalues'], s, N, T)
-
-        print len(tostay), ' number of tostay'
-        print len(prots), ' number of prots'
 
         peptides_best_evalues = dict()
         for peptide in peptides.peptideslist:
@@ -570,7 +542,7 @@ def PSMs_info(peptides, valid_proteins, printresults=True, tofile=False, curfile
             if protsC and k in valid_proteins:
                 output_proteins_valid.write('%s,%s,%s,%s,%s\n' % (k, v['PSMs'], v['Peptides'], v['sumI'], protsC[k]))
                 temp_data.append([float(v['sumI']), protsC[k]])
-            if int(v['Peptides']) > 0:#### <------------ 1 > 0
+            if int(v['Peptides']) > 0:
                 sqc = calc_sq(protsS.get(k, []), v['pept'])
                 output_proteins.write('%s\t%s\t%s\t%s\t%0.1f\t%s\t%s\n' % (k, v['description'], v['PSMs'], v['Peptides'], sqc, v['sumI'], v['expect']))
         for peptide in peptides.peptideslist:
@@ -612,7 +584,6 @@ def PSMs_info(peptides, valid_proteins, printresults=True, tofile=False, curfile
         print 'PSMs: %s' % (len([1 for x in peptides.peptideslist if x.note2 == 'tr']), )
         print 'Peptides: %d' % (len(set(p.sequence for p in peptides.peptideslist if p.note2 == 'tr')))
         print 'Protein groups: %s' % (sum(1 for k in prots if not k.startswith('L')))
-#        print prots
         print 'Protein groups with >= 2 peptides: %s' % (sum([1 for k, v in prots.iteritems() if v['Peptides'] >= 2 and not k.startswith('L')]))
         if valid_proteins:
             print 'PSMs_true: %s' % (len([1 for x in peptides.peptideslist if x.note3]), )
@@ -813,7 +784,6 @@ def main(inputfile):
     proteases = [x.strip() for x in settings.get('missed cleavages', 'protease1').split(',')]
     proteases.extend([x.strip() for x in settings.get('missed cleavages', 'protease2').split(',')])
     expasy = '|'.join((parser.expasy_rules[protease] if protease in parser.expasy_rules else protease for protease in proteases))
-    print 'point 0: %s' % ((time() - stime) / 60)
 
     fprocs = []
     fnprocs = 12
