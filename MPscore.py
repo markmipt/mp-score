@@ -468,7 +468,6 @@ def PSMs_info(peptides, valid_proteins, printresults=True, tofile=False, curfile
             add_label = 'L'
         else:
             add_label = ''
-        peptide.sequence = peptide.sequence.replace('|','')
 
         for protein in peptide.parentproteins:
             tmp_dbname = add_label + protein.dbname

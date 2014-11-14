@@ -16,7 +16,6 @@ try:
 except ImportError:
     from ConfigParser import RawConfigParser
 
-
 def get_dbname(prot, pepxml_type='tandem'):
     if pepxml_type != 'omssa':
         try:
@@ -44,10 +43,14 @@ def get_aa_mass(settings):
             aa_mass[aa] += settings.getfloat('modifications', m)
     vmods = settings.get('modifications', 'variable')
     if vmods:
-        mods = [parser._split_label(l) for l in re.split(r',\s*', vmods)]
+        mods = [(l[:-1], l[-1]) for l in re.split(r',\s*', vmods)]
         for (mod, aa), char in zip(mods, punctuation):
-            aa_mass[char] = aa_mass[aa] + settings.getfloat('modifications', mod)
-    aa_mass['|'] = 42.0106
+            if aa == '[':
+                aa_mass[mod + '-'] = settings.getfloat('modifications', mod) + settings.getfloat('modifications', 'protein nterm cleavage')
+            elif aa == ']':
+                aa_mass['-' + mod] = settings.getfloat('modifications', mod) + settings.getfloat('modifications', 'protein cterm cleavage')
+            else:
+                aa_mass[mod + aa] = aa_mass[aa] + settings.getfloat('modifications', mod)
     return aa_mass
 
 def filter_evalue_prots(prots, FDR=1.0):
@@ -142,6 +145,8 @@ class PeptideList:
         self.total_number_of_peptides_in_searchspace = 0
         self.total_number_of_proteins_in_searchspace = 0
         self.total_number_of_spectra = 0
+        self.nterm_mass = self.settings.getfloat('modifications', 'protein nterm cleavage')
+        self.cterm_mass = self.settings.getfloat('modifications', 'protein cterm cleavage')
         fmods = self.settings.get('modifications', 'fixed')
         if fmods:
             for mod in re.split(r'[,;]\s*', fmods):
@@ -149,9 +154,14 @@ class PeptideList:
                 self.modification_list[str(int(mass.std_aa_mass[aa] + settings.getfloat('modifications', m)))] = m
         vmods = settings.get('modifications', 'variable')
         if vmods:
-            mods = [parser._split_label(l) for l in re.split(r',\s*', vmods)]
+            mods = [(l[:-1], l[-1]) for l in re.split(r',\s*', vmods)]
             for (mod, aa), char in zip(mods, punctuation):
-                self.modification_list[str(int(mass.std_aa_mass[aa] + settings.getfloat('modifications', mod)))] = mod
+                if aa == '[':
+                    self.modification_list[str(int(self.nterm_mass + settings.getfloat('modifications', mod)))] = mod + '-'
+                elif aa == ']':
+                    self.modification_list[str(int(self.cterm_mass + settings.getfloat('modifications', mod)))] = '-' + mod
+                else:
+                    self.modification_list[str(int(mass.std_aa_mass[aa] + settings.getfloat('modifications', mod)))] = mod
 
     def __len__(self):
         return len(self.peptideslist)
@@ -248,7 +258,7 @@ class PeptideList:
 
     def modified_peptides(self):
         for peptide in self.peptideslist:
-            peptide.modified_peptide(self.settings, self.modifications)
+            peptide.modified_peptide()
 
     def get_RC(self):
         seqs = [pept.modified_sequence for pept in self.peptideslist]
@@ -274,21 +284,21 @@ class PeptideList:
 
     def calc_RT(self, calibrate_coeff=(1, 0, 0, 0), RTtype='achrom'):
         if RTtype == 'ssrcalc':
-            ps = list(set([peptide.sequence.replace('|', '') for peptide in self.peptideslist]))
+            ps = list(set([peptide.sequence for peptide in self.peptideslist]))
             SSRCalc_RTs = SSRCalc.calculate_RH(ps[:], pore_size=100, ion_pairing_agent='FA')
 
         for peptide in self.peptideslist:
             if RTtype == 'achrom':
                 peptide.RT_predicted = achrom.calculate_RT(peptide.modified_sequence, self.RC, raise_no_mod=False)
             elif RTtype == 'ssrcalc':
-                SSRCalc_RT = SSRCalc_RTs[peptide.sequence.replace('|', '')]
+                SSRCalc_RT = SSRCalc_RTs[peptide.sequence]
                 if SSRCalc_RT is not None:
                     peptide.RT_predicted = float(SSRCalc_RT) * calibrate_coeff[0] + calibrate_coeff[1]
                 else:
                     peptide.RT_predicted = 0
                     print 'SSRCalc error'
             elif RTtype == 'biolccc':
-                peptide.RT_predicted = biolccc.calculateRT(peptide.sequence.replace('|', ''), biolccc.rpAcnTfaChain, biolccc.standardChromoConditions)
+                peptide.RT_predicted = biolccc.calculateRT(peptide.sequence, biolccc.rpAcnTfaChain, biolccc.standardChromoConditions)
             else:
                 print 'RT_type error'
 
@@ -440,14 +450,9 @@ class Peptide:
                 else:
                     self.pmass -= 17.002739651629998
 
-        for mod in self.modifications:
-            if mod['position'] == 0:
-                self.sequence = '|' + self.sequence
-                break
-
         self.mz = (mass_exp + pcharge * 1.007276) / pcharge
         self.mass_exp = mass_exp
-        self.modified_peptide(settings)
+        self.modified_peptide()
         self.RT_exp = RT_exp
         self.RT_predicted = False
         self.evalue = float(evalue)
@@ -472,16 +477,17 @@ class Peptide:
         maxcharge = max(self.pcharge, 1)
         for ion_type in types:
             ms = []
-            for i in range(1, len(self.sequence) - 1):
-                for charge in range(1, maxcharge + 1):
-                    if ion_type[0] in 'abc':
-                        ms.append(mass.fast_mass(
-                            str(self.sequence)[:i], ion_type=ion_type, charge=charge,
-                            **kwargs))
-                    else:
-                        ms.append(mass.fast_mass(
-                            str(self.sequence)[i:], ion_type=ion_type, charge=charge,
-                            **kwargs))
+            for i in range(1, len(self.modified_sequence) - 1):
+                if self.modified_sequence[i - 1] in parser.std_amino_acids:
+                    for charge in range(1, maxcharge + 1):
+                        if ion_type[0] in 'abc':
+                            ms.append(mass.fast_mass2(
+                                str(self.modified_sequence)[:i], ion_type=ion_type, charge=charge,
+                                **kwargs))
+                        else:
+                            ms.append(mass.fast_mass2(
+                                str(self.modified_sequence)[i:], ion_type=ion_type, charge=charge,
+                                **kwargs))
             marr = np.array(ms)
             marr.sort()
             peaks[ion_type] = marr
@@ -531,7 +537,7 @@ class Peptide:
         """Calculates a difference between theoretical and experimental masses. Takes into account an isotope mass difference error"""
         return (self.massdiff - round(self.massdiff, 0) * 1.0033548378) / (self.pmass - round(self.massdiff, 0) * 1.0033548378) * 1e6
 
-    def modified_peptide(self, settings):
+    def modified_peptide(self):
         def add_modification(arg):
             i = 0
             while i != -1:
@@ -564,3 +570,18 @@ class Peptide:
         while stack:
             self.modified_sequence += stack.pop(0)
         self.modified_sequence = self.modified_sequence[::-1]
+        for modif in self.modifications:
+            if modif['position'] == 0:
+                try:
+                    self.modified_sequence = self.modification_list[str(int(modif['mass']))] + self.modified_sequence
+                except:
+                    add_modification(str(int(modif['mass'])))
+                    print 'label for %s nterm modification is missing in parameters, using %s label' % (str(int(modif['mass'])), self.modification_list[str(int(modif['mass']))])
+                    self.modified_sequence = self.modification_list[str(int(modif['mass']))] + '-' + self.modified_sequence
+            elif modif['position'] == len(self.sequence) + 1:
+                try:
+                    self.modified_sequence = self.modified_sequence + self.modification_list[str(int(modif['mass']))]
+                except:
+                    add_modification(str(int(modif['mass'])))
+                    print 'label for %s cterm modification is missing in parameters, using label %s' % (str(int(modif['mass'])), self.modification_list[str(int(modif['mass']))])
+                    self.modified_sequence = self.modified_sequence + '-' + self.modification_list[str(int(modif['mass']))]
