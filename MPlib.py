@@ -436,7 +436,7 @@ class Peptide:
         self.modification_list = modification_list
         self.pcharge = int(pcharge)
         self.nomodifications = 0
-        self.pmass = float(mass.calculate_mass(sequence=self.sequence, charge=0))
+        self.pmass = float(mass.calculate_mass(sequence=self.sequence, charge=0)) - mass.fast_mass('') + settings.getfloat('modifications', 'protein nterm cleavage') + settings.getfloat('modifications', 'protein cterm cleavage')
         for modif in self.modifications:
             self.pmass += modif['mass']
             if modif['position'] not in [0, len(self.sequence) + 1]:
@@ -444,9 +444,9 @@ class Peptide:
                 self.pmass -= mass.std_aa_mass[aminoacid]
             else:
                 if modif['position'] == 0:
-                    self.pmass -= 1.00782503207
+                    self.pmass -= settings.getfloat('modifications', 'protein nterm cleavage')
                 else:
-                    self.pmass -= 17.002739651629998
+                    self.pmass -= settings.getfloat('modifications', 'protein cterm cleavage')
 
         self.mz = (mass_exp + pcharge * 1.007276) / pcharge
         self.mass_exp = mass_exp
@@ -456,6 +456,7 @@ class Peptide:
         self.evalue = float(evalue)
         self.parentproteins = []
         self.massdiff = float(mass_exp) - float(self.pmass)
+        print self.sequence, self.massdiff
         self.num_missed_cleavages = dict()
         self.mc = mc
         self.note = note
