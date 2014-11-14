@@ -404,7 +404,10 @@ def handle(q, q_output, settings, protsL):
                         copy_peptides = peptides.filter_evalue_new(FDR=FDR, FDR2=FDR_new, useMP=True)[0]
 
                     numPSMs_true = len(copy_peptides)
-                    k = float(copy_peptides.get_number_of_peptides()) / peptides.total_number_of_peptides_in_searchspace
+                    try:
+                        k = float(copy_peptides.get_number_of_peptides()) / peptides.total_number_of_peptides_in_searchspace
+                    except:
+                        k = 0
                     FDR_new = (((FDR / 100 - float(peptides.total_number_of_PSMs_decoy) / numPSMs_true * k)) / (1 - k)) * 100
                     k_temp.append(float(k))
                 print k, 'k factor'

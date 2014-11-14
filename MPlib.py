@@ -233,7 +233,7 @@ class PeptideList:
                                 pept.RT_exp = 0
 
                         decoy_tags = [':reversed', 'DECOY_', 'rev_', 'Random sequence.']
-                        if any([all([all([key in protein and isinstance(protein[key], str) and not protein[key].startswith(tag) and not protein[key].endswith(tag) for key in ['protein', 'protein_descr']]) for tag in decoy_tags]) for protein in record['search_hit'][0]['proteins']]):
+                        if any([all([all((not protein.get(key, '') or not protein[key].startswith(tag)) and (not protein.get(key, '') or not protein[key].endswith(tag)) for key in ['protein', 'protein_descr']) for tag in decoy_tags]) for protein in record['search_hit'][0]['proteins']]):
                             pept.note = 'target'
                         else:
                             pept.note = 'decoy'
