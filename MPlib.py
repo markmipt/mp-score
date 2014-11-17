@@ -41,6 +41,7 @@ def get_aa_mass(settings):
         for mod in re.split(r'[,;]\s*', fmods):
             m, aa = parser._split_label(mod)
             aa_mass[aa] += settings.getfloat('modifications', m)
+            aa_mass[mod] = aa_mass[aa] + settings.getfloat('modifications', m)
     vmods = settings.get('modifications', 'variable')
     if vmods:
         mods = [(l[:-1], l[-1]) for l in re.split(r',\s*', vmods)]
@@ -288,6 +289,15 @@ class PeptideList:
         for peptide in self.peptideslist:
             if RTtype == 'achrom':
                 peptide.RT_predicted = achrom.calculate_RT(peptide.modified_sequence, self.RC, raise_no_mod=False)
+                if np.isinf(peptide.RT_predicted):
+                    elems = peptide.modified_sequence.split('-')
+                    if len(elems) > 1:
+                        if not all(el in parser.std_amino_acids for el in elems[0]) and str(elems[0] + '-') not in self.RC['aa']:
+                            self.RC['aa'][str(elems[0] + '-')] = self.RC['aa']['H-']
+                        elif not all(el in parser.std_amino_acids for el in elems[-1]) and str('-' + elems[-1]) not in self.RC['aa']:
+                            self.RC['aa'][str('-' + elems[-1])] = self.RC['aa']['-OH']
+                    peptide.RT_predicted = achrom.calculate_RT(peptide.modified_sequence, self.RC, raise_no_mod=False)
+
             elif RTtype == 'ssrcalc':
                 SSRCalc_RT = SSRCalc_RTs[peptide.sequence]
                 if SSRCalc_RT is not None:
@@ -456,7 +466,6 @@ class Peptide:
         self.evalue = float(evalue)
         self.parentproteins = []
         self.massdiff = float(mass_exp) - float(self.pmass)
-        print self.sequence, self.massdiff
         self.num_missed_cleavages = dict()
         self.mc = mc
         self.note = note
@@ -498,8 +507,15 @@ class Peptide:
         return self.num_missed_cleavages[protease]
 
     def count_modifications(self, label):
-        nmods = self.modified_sequence.count(label)
-        naa = self.modified_sequence.count(parser._split_label(label)[1])
+        if ']' in label:
+            naa = 1
+            nmods = self.modified_sequence.count('-' + label[:-1])
+        elif '[' in label:
+            naa = 1
+            nmods = self.modified_sequence.count(label[:-1] + '-')
+        else:
+            naa = self.modified_sequence.count(label[-1])
+            nmods = self.modified_sequence.count(label)
         if naa:
             return float(nmods) / naa
         else:
@@ -535,12 +551,16 @@ class Peptide:
         return (self.massdiff - round(self.massdiff, 0) * 1.0033548378) / (self.pmass - round(self.massdiff, 0) * 1.0033548378) * 1e6
 
     def modified_peptide(self):
-        def add_modification(arg):
+        def add_modification(arg, term=None):
             i = 0
             while i != -1:
                 for x in lowercase:
                     if i * lowercase[0] + x not in self.modification_list.values():
                         self.modification_list[arg] = i * lowercase[0] + x
+                        if term and term == 'c':
+                             self.modification_list[arg] = '-' + self.modification_list[arg]
+                        elif term and term == 'n':
+                             self.modification_list[arg] += '-'
                         i = -2
                         break
                 i += 1
@@ -572,13 +592,13 @@ class Peptide:
                 try:
                     self.modified_sequence = self.modification_list[str(int(modif['mass']))] + self.modified_sequence
                 except:
-                    add_modification(str(int(modif['mass'])))
+                    add_modification(str(int(modif['mass'])), term='n')
                     print 'label for %s nterm modification is missing in parameters, using %s label' % (str(int(modif['mass'])), self.modification_list[str(int(modif['mass']))])
-                    self.modified_sequence = self.modification_list[str(int(modif['mass']))] + '-' + self.modified_sequence
+                    self.modified_sequence = self.modification_list[str(int(modif['mass']))] + self.modified_sequence
             elif modif['position'] == len(self.sequence) + 1:
                 try:
                     self.modified_sequence = self.modified_sequence + self.modification_list[str(int(modif['mass']))]
                 except:
-                    add_modification(str(int(modif['mass'])))
+                    add_modification(str(int(modif['mass'])), term='c')
                     print 'label for %s cterm modification is missing in parameters, using label %s' % (str(int(modif['mass'])), self.modification_list[str(int(modif['mass']))])
-                    self.modified_sequence = self.modified_sequence + '-' + self.modification_list[str(int(modif['mass']))]
+                    self.modified_sequence = self.modified_sequence + self.modification_list[str(int(modif['mass']))]
