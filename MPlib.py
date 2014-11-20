@@ -146,6 +146,7 @@ class PeptideList:
         self.total_number_of_spectra = 0
         self.nterm_mass = self.settings.getfloat('modifications', 'protein nterm cleavage')
         self.cterm_mass = self.settings.getfloat('modifications', 'protein cterm cleavage')
+        self.aa_list = get_aa_mass(settings)
         fmods = self.settings.get('modifications', 'fixed')
         if fmods:
             for mod in re.split(r'[,;]\s*', fmods):
@@ -232,7 +233,7 @@ class PeptideList:
                         pcharge = record['assumed_charge']
                         mass_exp = record['precursor_neutral_mass']
 
-                        pept = Peptide(sequence=sequence, settings=self.settings, modified_code=modified_code, evalue=evalue, spectrum=spectrum, pcharge=pcharge, mass_exp=mass_exp, modifications=modifications, modification_list=self.modification_list, sumI=sumI, mc=mc)
+                        pept = Peptide(sequence=sequence, settings=self.settings, modified_code=modified_code, evalue=evalue, spectrum=spectrum, pcharge=pcharge, mass_exp=mass_exp, modifications=modifications, modification_list=self.modification_list, custom_aa_mass=self.aa_list, sumI=sumI, mc=mc)
                         try:
                             pept.RT_exp = float(record['retention_time_sec']) / 60
                         except:
@@ -442,7 +443,7 @@ class Protein:
         self.description = description
 
 class Peptide:
-    def __init__(self, sequence, settings, modified_code='', pcharge=0, RT_exp=False, evalue=0, note='unknown', spectrum='', mass_exp=0, modifications=[], modification_list={}, sumI=0, mc=None):
+    def __init__(self, sequence, settings, modified_code='', pcharge=0, RT_exp=False, evalue=0, note='unknown', spectrum='', mass_exp=0, modifications=[], modification_list={}, custom_aa_mass=None, sumI=0, mc=None):
         self.sequence = sequence
         self.modified_code = modified_code
         self.modified_sequence = sequence
@@ -450,6 +451,7 @@ class Peptide:
         self.modification_list = modification_list
         self.pcharge = int(pcharge)
         self.nomodifications = 0
+        self.aa_mass = custom_aa_mass
         self.pmass = float(mass.calculate_mass(sequence=self.sequence, charge=0)) - mass.fast_mass('') + settings.getfloat('modifications', 'protein nterm cleavage') + settings.getfloat('modifications', 'protein cterm cleavage')
         for modif in self.modifications:
             self.pmass += modif['mass']
@@ -535,7 +537,7 @@ class Peptide:
             int_array = int_array / int_array.max() * 100
             i = int_array > int_array.max() / 100
             spectrum_mz = spectrum_mz[i]
-            theor = self.theor_spectrum(types=ion_types, aa_mass=get_aa_mass(settings))
+            theor = self.theor_spectrum(types=ion_types, aa_mass=self.aa_mass)
             spectrum_KDTree = cKDTree(spectrum_mz.reshape((spectrum_mz.size, 1)))
 
             dist_total = np.array([])
@@ -598,6 +600,7 @@ class Peptide:
                 except:
                     add_modification(str(int(modif['mass'])), term='n')
                     print 'label for %s nterm modification is missing in parameters, using %s label' % (str(int(modif['mass'])), self.modification_list[str(int(modif['mass']))])
+                    self.aa_mass[self.modification_list[str(int(modif['mass']))]] = float(modif['mass'])
                     self.modified_sequence = self.modification_list[str(int(modif['mass']))] + self.modified_sequence
             elif modif['position'] == len(self.sequence) + 1:
                 try:
@@ -605,4 +608,5 @@ class Peptide:
                 except:
                     add_modification(str(int(modif['mass'])), term='c')
                     print 'label for %s cterm modification is missing in parameters, using label %s' % (str(int(modif['mass'])), self.modification_list[str(int(modif['mass']))])
+                    self.aa_mass[self.modification_list[str(int(modif['mass']))]] = float(modif['mass'])
                     self.modified_sequence = self.modified_sequence + self.modification_list[str(int(modif['mass']))]
