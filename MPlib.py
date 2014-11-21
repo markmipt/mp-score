@@ -539,7 +539,6 @@ class Peptide:
             spectrum_mz = spectrum_mz[i]
             theor = self.theor_spectrum(types=ion_types, aa_mass=self.aa_mass)
             spectrum_KDTree = cKDTree(spectrum_mz.reshape((spectrum_mz.size, 1)))
-
             dist_total = np.array([])
             for fragments in theor.values():
                 n = fragments.size
@@ -567,23 +566,27 @@ class Peptide:
                              self.modification_list[arg] = '-' + self.modification_list[arg]
                         elif term and term == 'n':
                              self.modification_list[arg] += '-'
+                        else:
+                            print 'label for %s modification is missing in parameters, using %s label' % (arg, self.modification_list[arg])
                         i = -2
                         break
                 i += 1
 
         def get_modification(arg):
             if arg.isdigit():
-                try:
-                    return self.modification_list[arg]
-                except:
+                if arg not in self.modification_list:
                     add_modification(arg)
-                    return self.modification_list[arg]
+                for modif in self.modifications:
+                    if int(modif['mass']) == int(arg):
+                        self.aa_mass[self.modification_list[arg] + self.sequence[modif['position'] - 1]] = float(modif['mass'])
+                return self.modification_list[arg]
             else:
                 return arg
 
         self.modified_sequence = ''
         stack = []
-        for elem in ''.join(map(get_modification, re.split('\[|\]', self.modified_code)))[::-1]:
+        tcode = re.split('\[|\]', self.modified_code)
+        for elem in ''.join(map(get_modification, tcode))[::-1]:
             if elem.islower():
                 stack.append(elem)
             else:
@@ -593,6 +596,9 @@ class Peptide:
         while stack:
             self.modified_sequence += stack.pop(0)
         self.modified_sequence = self.modified_sequence[::-1]
+        for idx, elem in enumerate(tcode):
+            if elem.isdigit() and not tcode[idx + 1] and idx != len(tcode) - 2 and tcode[idx + 2].isdigit():
+                self.aa_mass[self.modification_list[elem] + self.modification_list[tcode[idx + 2]]] = self.aa_mass[self.modification_list[elem] + tcode[idx - 1][-1]] + self.aa_mass[self.modification_list[tcode[idx + 2]] + tcode[idx - 1][-1]] - mass.std_aa_mass[tcode[idx - 1][-1]]
         for modif in self.modifications:
             if modif['position'] == 0:
                 try:
