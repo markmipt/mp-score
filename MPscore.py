@@ -122,8 +122,12 @@ def handle(q, q_output, settings, protsL):
                             peptide.spectrum_mz = spectra_dict[peptide.spectrum.split(' RTINSECONDS=')[0].strip()]
                             peptide.spectrum_i = spectra_dict_intensities[peptide.spectrum.split(' RTINSECONDS=')[0].strip()]
                         except:
-                            peptide.spectrum_mz = spectra_dict[peptide.spectrum.strip()]
-                            peptide.spectrum_i = spectra_dict_intensities[peptide.spectrum.strip()]
+                            try:
+                                peptide.spectrum_mz = spectra_dict[peptide.spectrum.strip() + ' min']
+                                peptide.spectrum_i = spectra_dict_intensities[peptide.spectrum.strip() + ' min']
+                            except:
+                                peptide.spectrum_mz = spectra_dict[peptide.spectrum.strip()]
+                                peptide.spectrum_i = spectra_dict_intensities[peptide.spectrum.strip()]
                     for peptide in qpeptides.peptideslist:
                         peptide.get_median_fragment_mt(qpeptides.settings)
                         peptide.spectrum_mz = None
