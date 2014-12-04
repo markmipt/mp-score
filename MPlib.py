@@ -491,8 +491,8 @@ class Peptide:
         maxcharge = max(self.pcharge, 1)
         for ion_type in types:
             ms = []
-            for i in range(1, len(self.modified_sequence) - 1):
-                if self.modified_sequence[i - 1] in parser.std_amino_acids:
+            for i in range(1, len(self.modified_sequence)):
+                if self.modified_sequence[i - 1] in parser.std_amino_acids and self.modified_sequence[i] != '-':
                     for charge in range(1, maxcharge + 1):
                         if ion_type[0] in 'abc':
                             ms.append(mass.fast_mass2(
@@ -537,6 +537,7 @@ class Peptide:
             int_array = int_array / int_array.max() * 100
             i = int_array > int_array.max() / 100
             spectrum_mz = spectrum_mz[i]
+            print self.aa_mass
             theor = self.theor_spectrum(types=ion_types, aa_mass=self.aa_mass)
             spectrum_KDTree = cKDTree(spectrum_mz.reshape((spectrum_mz.size, 1)))
             dist_total = np.array([])
