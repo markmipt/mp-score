@@ -10,6 +10,7 @@ import numpy as np
 from scipy.stats import scoreatpercentile
 from copy import copy
 from scipy.spatial import cKDTree
+from collections import Counter
 
 try:
     from configparser import RawConfigParser
@@ -252,7 +253,7 @@ class PeptideList:
                             if get_dbname(prot, self.pepxml_type) not in [protein.dbname for protein in pept.parentproteins]:
                                 pept.parentproteins.append(Protein(dbname=get_dbname(prot, self.pepxml_type), description=prot.get('protein_descr', None)))
 
-                        if len(pept.parentproteins):
+                        if len(pept.parentproteins) and (not modifications or Counter(v['position'] for v in modifications).most_common(1)[0][1] <= 2):
                             self.peptideslist.append(pept)
 
 
@@ -537,7 +538,6 @@ class Peptide:
             int_array = int_array / int_array.max() * 100
             i = int_array > int_array.max() / 100
             spectrum_mz = spectrum_mz[i]
-            print self.aa_mass
             theor = self.theor_spectrum(types=ion_types, aa_mass=self.aa_mass)
             spectrum_KDTree = cKDTree(spectrum_mz.reshape((spectrum_mz.size, 1)))
             dist_total = np.array([])
@@ -558,20 +558,27 @@ class Peptide:
 
     def modified_peptide(self):
         def add_modification(arg, term=None):
-            i = 0
-            while i != -1:
+            i = ''
+            done_flag = 0
+            while 1:
                 for x in lowercase:
-                    if i * lowercase[0] + x not in self.modification_list.values():
-                        self.modification_list[arg] = i * lowercase[0] + x
+                    if i + x not in self.modification_list.values():
+                        self.modification_list[arg] = i + x
                         if term and term == 'c':
                              self.modification_list[arg] = '-' + self.modification_list[arg]
                         elif term and term == 'n':
                              self.modification_list[arg] += '-'
                         else:
                             print 'label for %s modification is missing in parameters, using %s label' % (arg, self.modification_list[arg])
-                        i = -2
+                        done_flag = 1
                         break
-                i += 1
+                if not done_flag:
+                    if i and i[-1] != lowercase[-1]:
+                        i = i[:-1] + lowercase.index(i[-1] + 1)
+                    else:
+                        i += lowercase[0]
+                else:
+                    break
 
         def get_modification(arg):
             if arg.isdigit():
@@ -598,8 +605,14 @@ class Peptide:
             self.modified_sequence += stack.pop(0)
         self.modified_sequence = self.modified_sequence[::-1]
         for idx, elem in enumerate(tcode):
+            flag_v = 0
+            while idx - flag_v - 1 >= 0:
+                if not tcode[idx - flag_v - 1]:
+                    flag_v += 2
+                else:
+                    break
             if elem.isdigit() and not tcode[idx + 1] and idx != len(tcode) - 2 and tcode[idx + 2].isdigit():
-                self.aa_mass[self.modification_list[elem] + self.modification_list[tcode[idx + 2]]] = self.aa_mass[self.modification_list[elem] + tcode[idx - 1][-1]] + self.aa_mass[self.modification_list[tcode[idx + 2]] + tcode[idx - 1][-1]] - mass.std_aa_mass[tcode[idx - 1][-1]]
+                self.aa_mass[self.modification_list[elem] + self.modification_list[tcode[idx + 2]]] = self.aa_mass[self.modification_list[elem] + tcode[idx - 1 - flag_v][-1]] + self.aa_mass[self.modification_list[tcode[idx + 2]] + tcode[idx - 1 - flag_v][-1]] - mass.std_aa_mass[tcode[idx - 1 - flag_v][-1]]
         for modif in self.modifications:
             if modif['position'] == 0:
                 try:
