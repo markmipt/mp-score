@@ -133,13 +133,16 @@ class Descriptor():
 
 
 class PeptideList:
-    def __init__(self, settings=None):
+    def __init__(self, settings=None, mods=None):
         self.peptideslist = []
         self.calibrate_coeff = None
         self.pepxml_type = ''
         self.RC = False
         self.settings = settings
-        self.modification_list = {}
+        if not mods:
+            self.modification_list = {}
+        else:
+            self.modification_list = mods
         self.total_number_of_PSMs = 0
         self.total_number_of_PSMs_decoy = 0
         self.total_number_of_peptides_in_searchspace = 0

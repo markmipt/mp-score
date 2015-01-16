@@ -62,15 +62,15 @@ def handle(q, q_output, settings, protsL):
         spectra_dict_intensities = dict()
 
         peptides = PeptideList(settings)
-
+        mods = manager.dict()
         iprocs = []
         inprocs = peptides.settings.getint('options', 'threads')
         iq = multiprocessing.Queue()
         iq_output = multiprocessing.Queue()
 
-        def getpepxml(iq, iq_output, settings):
+        def getpepxml(iq, iq_output, settings, mods=False):
             for curfile in iter(iq.get, None):
-                qpeptides = PeptideList(settings)
+                qpeptides = PeptideList(settings, mods)
 
                 mzmlfile = curfile.get('.mzml', None)
                 if mzmlfile:
@@ -139,7 +139,7 @@ def handle(q, q_output, settings, protsL):
             iq.put(None)
 
         for i in range(inprocs):
-            p = multiprocessing.Process(target=getpepxml, args=(iq, iq_output, settings))
+            p = multiprocessing.Process(target=getpepxml, args=(iq, iq_output, settings, mods))
             iprocs.append(p)
             p.start()
 
