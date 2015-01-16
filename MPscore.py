@@ -72,14 +72,6 @@ def handle(q, q_output, settings, protsL):
             for curfile in iter(iq.get, None):
                 qpeptides = PeptideList(settings)
 
-                txmlfile = curfile.get('.t', None)
-                if txmlfile and 0:
-                    txmlf = open(txmlfile, 'r')
-                    for x in txmlf:
-                        if x.startswith('<group id='):
-                            Fragment_intensities[int(x.split('<group id="')[1].split('"')[0])] = 10**float(x.split('sumI="')[1].split('"')[0])
-                    txmlf.close()
-
                 mzmlfile = curfile.get('.mzml', None)
                 if mzmlfile:
                     isolation_window = settings.getfloat('precursor ion fraction', 'isolation window')
@@ -767,7 +759,7 @@ def main(inputfile):
                 if '.pep' not in v:
                     del inputdict[k]
                 else:
-                    for ext in ('.mgf', '.t', '.mzml'):
+                    for ext in ('.mgf', '.mzml'):
                         if ext not in v:
                             path_to_file = path.join(path.dirname(v['.pep']), k) + (ext if not ext == '.t' else ext + '.xml')
                             if path.isfile(path_to_file):
