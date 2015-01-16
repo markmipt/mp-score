@@ -206,8 +206,10 @@ def handle(q, q_output, settings, protsL):
             peptide.peptscore2 = pepts_dict[peptide.sequence]
             for protein in peptide.parentproteins:
                 if protein.dbname not in protsL:
-                    print 'protein %s is missed in fasta, 5000 length is used for normalization' % (protein.dbname, )
+                    print 'protein %s is missed in fasta, 5000 length and 50 theoretical peptides is used for normalization' % (protein.dbname, )
                     protsL[protein.dbname] = 5000
+                    protsL['total proteins'] += 1
+                    protsL['total peptides'] += 50
                 if peptide.protscore2 < float(prots_dict[protein.dbname]) / protsL[protein.dbname] * 500:
                     peptide.protscore2 = float(prots_dict[protein.dbname]) / protsL[protein.dbname] * 500
         pepts_dict = None
