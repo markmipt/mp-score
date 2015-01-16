@@ -227,7 +227,7 @@ class PeptideList:
                             except IOError:
                                 'Cannot read e-value!'
                         try:
-                            sumI = record['search_hit'][0]['search_score']['sumI']
+                            sumI = round(10 ** float(record['search_hit'][0]['search_score']['sumI']), 0)
                         except:
                             sumI = 0
                         spectrum = record['spectrum']
