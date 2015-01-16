@@ -528,6 +528,11 @@ def PSMs_info(peptides, valid_proteins, printresults=True, tofile=False, curfile
             for k in prots.keys():
                 if k.startswith('L'):
                     del prots[k]
+        #protein sumI normalization
+        sumI_norm = sum(x['sumI'] for x in prots.itervalues())
+        for k in prots.keys():
+            prots[k]['sumI'] = prots[k]['sumI'] / sumI_norm / protsL[k]
+
         ffolder = path.dirname(path.realpath(curfile))
         if peptides.settings.get('options', 'files') == 'union':
             fname = 'union'
