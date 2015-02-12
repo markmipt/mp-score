@@ -403,7 +403,13 @@ def find_optimal_xy(descriptors):
         else:
             x += 1
     return x, y
-
+def nsaf(prots):
+    sumI = 0
+    for protein in prots:
+        sumI += float(prots[protein]['PSMs'])/protsL[protein]
+    for protein in prots:
+        prots[protein]['NSAF'] = float(prots[protein]['PSMs']) / sumI / protsL[protein]
+    return prots
 def PSMs_info(peptides, valid_proteins, printresults=True, tofile=False, curfile=False, loop=True):
     full_sequences = set()
     added = set()
@@ -521,6 +527,7 @@ def PSMs_info(peptides, valid_proteins, printresults=True, tofile=False, curfile
                 if k.startswith('L'):
                     del prots[k]
         #protein sumI normalization
+        prots = nsaf(prots)
         sumI_norm = sum(x['sumI'] for x in prots.itervalues())
         for k in prots.keys():
             prots[k]['sumI'] = prots[k]['sumI'] / sumI_norm / protsL[k]
@@ -530,8 +537,9 @@ def PSMs_info(peptides, valid_proteins, printresults=True, tofile=False, curfile
             fname = 'union'
         else:
             fname = path.splitext(path.splitext(path.basename(curfile))[0])[0]
+
         output_proteins = open('%s/%s_proteins.csv' % (ffolder, fname), 'w')
-        output_proteins.write('dbname\tdescription\tPSMs\tpeptides\tsequence coverage\tlabel-free quantitation\tprotein LN(e-value)\n')
+        output_proteins.write('dbname\tdescription\tPSMs\tpeptides\tsequence coverage\tlabel-free quantitation(SIn)\tlabel-free quantitation(NSAF)\tprotein LN(e-value)\n')
         output_PSMs = open('%s/%s_PSMs.csv' % (ffolder, fname), 'w')
         output_PSMs.write('sequence\tmodified_sequence\tm/z experimental\tmissed cleavages\te-value\tMPscore\tRT_experimental\tspectrum\tproteins\tproteins description\tby-product of label-free quantitation\n')
         output_peptides_detailed = open('%s/%s_peptides.csv' % (ffolder, fname), 'w')
@@ -545,7 +553,7 @@ def PSMs_info(peptides, valid_proteins, printresults=True, tofile=False, curfile
                 temp_data.append([float(v['sumI']), protsC[k]])
             if int(v['Peptides']) > 0:
                 sqc = calc_sq(protsS.get(k, []), v['pept'])
-                output_proteins.write('%s\t%s\t%s\t%s\t%0.1f\t%s\t%s\n' % (k, v['description'], v['PSMs'], v['Peptides'], sqc, v['sumI'], v['expect']))
+                output_proteins.write('%s\t%s\t%s\t%s\t%0.1f\t%s\t%s\t%s\n' % (k, v['description'], v['PSMs'], v['Peptides'], sqc, v['sumI'],v['NSAF'], v['expect']))
         for peptide in peptides.peptideslist:
             if any(protein.dbname in prots for protein in peptide.parentproteins):
                 output_PSMs.write('%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t' % (peptide.sequence, peptide.modified_sequence, peptide.mz, peptide.mc, peptide.evalue, peptide.peptscore, peptide.RT_exp, peptide.spectrum))
@@ -864,3 +872,9 @@ if __name__ == '__main__':
     protsS = manager.dict()
     stime = time()
     main(inputfile)
+
+
+# In[ ]:
+
+
+
