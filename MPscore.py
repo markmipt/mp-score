@@ -94,43 +94,43 @@ def handle(q, q_output, settings, protsL):
                         psm.PIF = PIF
 
                 qpeptides.get_from_pepxmlfile(curfile['.pep'], min_charge=min_charge, max_charge=max_charge)
-
-                mgffile = curfile.get('.mgf', None)
-                if mgffile:
-                    print 'mgf is processing'
-                    spectra = mgf.read(mgffile)
-                    for spectrum in spectra:
-                        spectra_dict[spectrum['params']['title'].strip()] = spectrum['m/z array']
-                        spectra_dict_intensities[spectrum['params']['title'].strip()] = spectrum['intensity array']
-                    protsL['total spectra'] = len(spectra_dict)
-                    if not qpeptides.total_number_of_spectra:
-                        qpeptides.total_number_of_spectra = len(spectra_dict)
-                if not spectra_dict:
-                    qpeptides.settings.set('descriptors', 'fragment mass tolerance, Da', 0)
-                    print 'fragment mass tolerance was turned off due to missed mgf file'
-                if qpeptides.settings.getint('descriptors', 'fragment mass tolerance, Da'):
-                    for peptide in qpeptides.peptideslist:
-                        try:
-                            peptide.spectrum_mz = spectra_dict[peptide.spectrum.split(' RTINSECONDS=')[0].strip()]
-                            peptide.spectrum_i = spectra_dict_intensities[peptide.spectrum.split(' RTINSECONDS=')[0].strip()]
-                        except:
+                if len(qpeptides.peptideslist):
+                    mgffile = curfile.get('.mgf', None)
+                    if mgffile:
+                        print 'mgf is processing'
+                        spectra = mgf.read(mgffile)
+                        for spectrum in spectra:
+                            spectra_dict[spectrum['params']['title'].strip()] = spectrum['m/z array']
+                            spectra_dict_intensities[spectrum['params']['title'].strip()] = spectrum['intensity array']
+                        protsL['total spectra'] = len(spectra_dict)
+                        if not qpeptides.total_number_of_spectra:
+                            qpeptides.total_number_of_spectra = len(spectra_dict)
+                    if not spectra_dict:
+                        qpeptides.settings.set('descriptors', 'fragment mass tolerance, Da', 0)
+                        print 'fragment mass tolerance was turned off due to missed mgf file'
+                    if qpeptides.settings.getint('descriptors', 'fragment mass tolerance, Da'):
+                        for peptide in qpeptides.peptideslist:
                             try:
-                                peptide.spectrum_mz = spectra_dict[peptide.spectrum.strip() + ' min']
-                                peptide.spectrum_i = spectra_dict_intensities[peptide.spectrum.strip() + ' min']
+                                peptide.spectrum_mz = spectra_dict[peptide.spectrum.split(' RTINSECONDS=')[0].strip()]
+                                peptide.spectrum_i = spectra_dict_intensities[peptide.spectrum.split(' RTINSECONDS=')[0].strip()]
                             except:
-                                peptide.spectrum_mz = spectra_dict[peptide.spectrum.strip()]
-                                peptide.spectrum_i = spectra_dict_intensities[peptide.spectrum.strip()]
-                    for peptide in qpeptides.peptideslist:
-                        peptide.get_median_fragment_mt(qpeptides.settings)
-                        peptide.spectrum_mz = None
-                        peptide.spectrum_i = None
+                                try:
+                                    peptide.spectrum_mz = spectra_dict[peptide.spectrum.strip() + ' min']
+                                    peptide.spectrum_i = spectra_dict_intensities[peptide.spectrum.strip() + ' min']
+                                except:
+                                    peptide.spectrum_mz = spectra_dict[peptide.spectrum.strip()]
+                                    peptide.spectrum_i = spectra_dict_intensities[peptide.spectrum.strip()]
+                        for peptide in qpeptides.peptideslist:
+                            peptide.get_median_fragment_mt(qpeptides.settings)
+                            peptide.spectrum_mz = None
+                            peptide.spectrum_i = None
 
-                tmp_peptides = qpeptides.copy_empty()
-                msize = 10000
-                while len(qpeptides.peptideslist):
-                    tmp_peptides.peptideslist = qpeptides.peptideslist[:msize]
-                    iq_output.put(copy(tmp_peptides))
-                    qpeptides.peptideslist = qpeptides.peptideslist[msize:]
+                    tmp_peptides = qpeptides.copy_empty()
+                    msize = 10000
+                    while len(qpeptides.peptideslist):
+                        tmp_peptides.peptideslist = qpeptides.peptideslist[:msize]
+                        iq_output.put(copy(tmp_peptides))
+                        qpeptides.peptideslist = qpeptides.peptideslist[msize:]
                 iq_output.put(None)
 
         for filename in filenames:
@@ -217,7 +217,7 @@ def handle(q, q_output, settings, protsL):
         copy_peptides, threshold0, _ = peptides.filter_evalue_new(FDR=FDR, useMP=False)
 
         print 'Default filtering:'
-        numPSMs, numpeptides_true, numprots_true = PSMs_info(copy_peptides, valid_proteins)
+        numPSMs, numpeptides_true, numprots_true = PSMs_info(copy_peptides, valid_proteins, settings)
         if numPSMs > 4:
             descriptors = []
             dname = 'RT difference, min'
@@ -389,10 +389,10 @@ def handle(q, q_output, settings, protsL):
                     k_temp.append(float(k))
                 print k, 'k factor'
 
-                plot_MP(descriptors, peptides, fig, FDR, FDR_new, valid_proteins, threshold0, curfile)
+                plot_MP(descriptors, peptides, fig, FDR, FDR_new, valid_proteins, settings, threshold0, curfile)
             else:
                 fig = plt.figure(figsize=(16, 12))
-                plot_MP(descriptors, peptides, fig, FDR, 0, valid_proteins, threshold0, curfile)
+                plot_MP(descriptors, peptides, fig, FDR, 0, valid_proteins, settings, threshold0, curfile)
 
 
 def find_optimal_xy(descriptors):
@@ -404,7 +404,7 @@ def find_optimal_xy(descriptors):
             x += 1
     return x, y
 
-def PSMs_info(peptides, valid_proteins, printresults=True, tofile=False, curfile=False, loop=True):
+def PSMs_info(peptides, valid_proteins, settings, printresults=True, tofile=False, curfile=False, loop=True):
     full_sequences = set()
     added = set()
     tostay = set()
@@ -522,6 +522,8 @@ def PSMs_info(peptides, valid_proteins, printresults=True, tofile=False, curfile
                     del prots[k]
         #protein sumI normalization
         sumI_norm = sum(x['sumI'] for x in prots.itervalues())
+        if not sumI_norm:
+            sumI_norm = 1.0
         for k in prots.keys():
             prots[k]['sumI'] = prots[k]['sumI'] / sumI_norm / protsL[k]
 
@@ -648,7 +650,7 @@ def plot_histograms(descriptors, peptides, FDR):
     return fig
 
 
-def plot_MP(descriptors, peptides, fig, FDR, FDR2, valid_proteins, threshold0=False, curfile=False):
+def plot_MP(descriptors, peptides, fig, FDR, FDR2, valid_proteins, settings, threshold0=False, curfile=False):
     ox, oy = find_optimal_xy(descriptors)
     copy_peptides, threshold1, threshold2 = peptides.filter_evalue_new(FDR=FDR, FDR2=FDR2, useMP=True, drop_decoy=False)
 
@@ -664,9 +666,9 @@ def plot_MP(descriptors, peptides, fig, FDR, FDR2, valid_proteins, threshold0=Fa
     PSMs_true = [[(-np.log(pept.evalue) if pept.evalue != 0 else zero_evalue), (np.log(pept.peptscore) if pept.peptscore != 0 else zero_peptscore)] for pept in peptides.peptideslist if pept.note2 == 'tr']
 
     print 'MP filtering:'
-    PSMs_info(copy_peptides, valid_proteins, tofile=True, curfile=curfile)
+    PSMs_info(copy_peptides, valid_proteins, settings, tofile=True, curfile=curfile)
     print 'Without filtering, after removing outliers:'
-    PSMs_info(peptides, valid_proteins, loop=False)
+    PSMs_info(peptides, valid_proteins, settings, loop=False)
 
     ax = fig.add_subplot(ox, oy, ox * oy)
     ax.plot([x[0] for x in PSMs_wrong], [x[1] for x in PSMs_wrong], 'o', markersize=2, color='red')
@@ -772,7 +774,7 @@ def main(inputfile):
         elif path.splitext(arg)[-1] == '.cfg':
             configfile = arg
         elif path.isdir(arg):
-            for filename in listdir(inputfile):
+            for filename in listdir(arg):
                 files = update_dict(files, path.join(arg, filename))
         else:
             files = update_dict(files, arg)
@@ -807,7 +809,7 @@ def main(inputfile):
                     if any(tag in x[0] for tag in ['SWISS-PROT:', 'TREMBL:']):
                         dbname = x[0].split(' ')[0]
                     else:
-                        dbname = x[0].replace('>', ' ')
+                        dbname = x[0]#.replace('>', ' ')
                     protsL[dbname] = len(x[1])
                     if 'DECOY_' not in x[0]:
                         protsS[dbname] = x[1]
