@@ -195,10 +195,14 @@ class PeptideList:
                     print "Unknown search_engine"
                 break
 
-        pepxml_params = {k: v for d in pepxml.iterfind(pepxmlfile, 'parameter name') for k, v in d.items()}
-        self.total_number_of_peptides_in_searchspace = int(pepxml_params.get('modelling, total peptides used', self.total_number_of_peptides_in_searchspace))
-        self.total_number_of_proteins_in_searchspace = int(pepxml_params.get('modelling, total proteins used', self.total_number_of_proteins_in_searchspace))
-        self.total_number_of_spectra = int(pepxml_params.get('modelling, total spectra used', self.total_number_of_spectra))
+        try:
+            pepxml_params = {k: v for d in pepxml.iterfind(pepxmlfile, 'parameter name') for k, v in d.items()}
+            self.total_number_of_peptides_in_searchspace = int(pepxml_params.get('modelling, total peptides used', self.total_number_of_peptides_in_searchspace))
+            self.total_number_of_proteins_in_searchspace = int(pepxml_params.get('modelling, total proteins used', self.total_number_of_proteins_in_searchspace))
+            self.total_number_of_spectra = int(pepxml_params.get('modelling, total spectra used', self.total_number_of_spectra))
+        except:
+            print 'smth wrong with .pep.xml file'
+            return 0
 
         standard_aminoacids = set(k for k in mass.std_aa_comp if '-' not in k)
         first_psm = True
