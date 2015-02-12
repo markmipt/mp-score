@@ -513,7 +513,7 @@ class Peptide:
 
     def get_missed_cleavages(self, protease='trypsin'):
         if protease not in self.num_missed_cleavages:
-            self.num_missed_cleavages[protease] = sum(1 for x in re.finditer(protease, self.sequence))
+            self.num_missed_cleavages[protease] = parser.num_sites(self.sequence, protease)
         return self.num_missed_cleavages[protease]
 
     def count_modifications(self, label):
