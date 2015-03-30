@@ -234,7 +234,7 @@ class PeptideList:
                             except IOError:
                                 'Cannot read e-value!'
                         try:
-                            sumI = round(10 ** float(record['search_hit'][0]['search_score']['sumI']), 0)
+                            sumI = 10 ** float(record['search_hit'][0]['search_score']['sumI'])
                         except:
                             sumI = 0
                         spectrum = record['spectrum']
@@ -492,7 +492,8 @@ class Peptide:
         self.spectrum = spectrum
         self.spectrum_mz = None
         self.fragment_mt = None
-        self.sumI = sumI
+        self.sumI = sumI# / self.pcharge
+        self.it = 1.0
 
     def theor_spectrum(self, types=('b', 'y'), maxcharge=None, **kwargs):
         peaks = {}

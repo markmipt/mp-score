@@ -12,6 +12,7 @@ import multiprocessing
 from time import sleep, time
 import pickle
 from copy import copy
+from collections import defaultdict
 
 
 def calc_sq(protein, peptides):
@@ -71,30 +72,48 @@ def handle(q, q_output, settings, protsL):
         def getpepxml(iq, iq_output, settings, mods=False):
             for curfile in iter(iq.get, None):
                 qpeptides = PeptideList(settings, mods)
-
-                mzmlfile = curfile.get('.mzml', None)
-                if mzmlfile:
-                    isolation_window = settings.getfloat('precursor ion fraction', 'isolation window')
-                    mass_acc = settings.getfloat('precursor ion fraction', 'mass accuracy')
-                    spectra = [x for x in mzml.read(mzmlfile) if x['ms level'] == 1]
-                    for psm in qpeptides.peptideslist:
-                        j = len(spectra) - 1
-                        while spectra[j]['scanList']['scan'][0]['scan start time'] > psm.RT_exp:
-                            j -= 1
-                        basemz = spectra[j]
-                        I = []
-                        Ip = 0
-                        for idx, mz in enumerate(spectra[j]['m/z array']):
-                            if abs(mz - (float(psm.mass_exp + 1.007825 * psm.pcharge) / psm.pcharge)) <= isolation_window:
-                                if any(abs(mz - (float(psm.mass_exp + k + 1.007825 * psm.pcharge) / psm.pcharge)) <= mz * mass_acc * 1e-6 for k in [-2, -1, 0, 1, 2]):
-                                    Ip += float(spectra[j]['intensity array'][idx])
-                                I.append(float(spectra[j]['intensity array'][idx]))
-                        PIF = Ip / sum(I) * 100
-                        psm.I = Ip
-                        psm.PIF = PIF
-
                 qpeptides.get_from_pepxmlfile(curfile['.pep'], min_charge=min_charge, max_charge=max_charge)
+
                 if len(qpeptides.peptideslist):
+                    mzmlfile = curfile.get('.mzML', None)
+                    if mzmlfile:
+                        print 'mzml is processing'
+                        # isolation_window = settings.getfloat('precursor ion fraction', 'isolation window')
+                        # mass_acc = settings.getfloat('precursor ion fraction', 'mass accuracy')
+                        # spectra_ms1 = []
+                        spectra_ms2 = []
+                        for x in mzml.read(mzmlfile):
+                            if x['ms level'] == 2:
+                                spectra_ms2.append(x)
+                            # elif x['ms level'] == 1:
+                            #     spectra_ms1.append(x)
+                        # for psm in qpeptides.peptideslist:
+                        #     j = len(spectra_ms1) - 1
+                        #     while spectra_ms1[j]['scanList']['scan'][0]['scan start time'] > psm.RT_exp:
+                        #         j -= 1
+                        #     basemz = spectra_ms1[j]
+                        #     I = []
+                        #     Ip = 0
+                        #     for idx, mz in enumerate(spectra_ms1[j]['m/z array']):
+                        #         if abs(mz - (float(psm.mass_exp + 1.007825 * psm.pcharge) / psm.pcharge)) <= isolation_window:
+                        #             if any(abs(mz - (float(psm.mass_exp + k + 1.007825 * psm.pcharge) / psm.pcharge)) <= mz * mass_acc * 1e-6 for k in [-2, -1, 0, 1, 2]):
+                        #                 Ip += float(spectra_ms1[j]['intensity array'][idx])
+                        #             I.append(float(spectra_ms1[j]['intensity array'][idx]))
+                        #     PIF = Ip / sum(I) * 100
+                        #     psm.I = Ip
+                        #     psm.PIF = PIF
+
+                        itimes = dict()
+                        for x in spectra_ms2:
+                            sc_n = x['id'].split('scan=')[-1]
+                            itimes[sc_n] = float(x['scanList']['scan'][0]['ion injection time'])
+                        for peptide in qpeptides.peptideslist:
+                            try:
+                                peptide.it = itimes[peptide.spectrum.split('.')[1]]
+                            except:
+                                print 'Smth wrong with mzML indexes'
+                                print peptide.spectrum.split('.')[1], itimes[-1]
+
                     mgffile = curfile.get('.mgf', None)
                     if mgffile:
                         print 'mgf is processing'
@@ -267,6 +286,8 @@ def handle(q, q_output, settings, protsL):
 
             if 'RT difference, min' in [d.name for d in descriptors]:
                 if RT_type == 'achrom':
+                    for peptide in copy_peptides.peptideslist:
+                        print peptide.modified_sequence, peptide.sequence, peptide.RT_exp
                     copy_peptides.get_RC()
                     peptides.RC = copy_peptides.RC
                     if peptides.settings.getint('advanced options', 'saveRC'):
@@ -459,7 +480,11 @@ def PSMs_info(peptides, valid_proteins, settings, printresults=True, tofile=Fals
     peptides_added = set()
     true_prots = set()
     Total_prots = set()
+
     for peptide in peptides.peptideslist:
+        # Peptide sumI normalization!
+        if tofile:
+            peptide.sumI = round(peptide.sumI / peptide.it, 2)
         if peptide.note2 == 'wr':
             add_label = 'L'
         else:
@@ -474,12 +499,14 @@ def PSMs_info(peptides, valid_proteins, settings, printresults=True, tofile=Fals
                 prots[tmp_dbname]['pept'].add(peptide.sequence)
             except:
                 prots[tmp_dbname] = dict()
+                prots[tmp_dbname]['sumI_mod'] = defaultdict(float)
                 prots[tmp_dbname]['pept'] = set([peptide.sequence, ])
                 prots[tmp_dbname]['PSMs'] = 1
                 prots[tmp_dbname]['sumI'] = peptide.sumI
                 prots[tmp_dbname]['evalues'] = []
                 prots[tmp_dbname]['expect'] = 1
                 prots[tmp_dbname]['description'] = protein.description
+            prots[tmp_dbname]['sumI_mod'][peptide.sequence] += peptide.sumI
             if tmp_dbname in valid_proteins and peptide.note != 'decoy':
                 true_prots.add(tmp_dbname)
         if peptide.sequence not in peptides_added:
@@ -543,6 +570,14 @@ def PSMs_info(peptides, valid_proteins, settings, printresults=True, tofile=Fals
             for k in prots.keys():
                 if k.startswith('L'):
                     del prots[k]
+        #protein new sumI
+        for k in prots:
+            prots[k]['sumI_mod'] = np.median(prots[k]['sumI_mod'].values())
+        sumI_mod_norm = sum(x['sumI_mod'] for x in prots.itervalues())
+        if not sumI_mod_norm:
+            sumI_mod_norm = 1.0
+        for k in prots.keys():
+            prots[k]['sumI_mod'] = prots[k]['sumI_mod'] / sumI_mod_norm / protsL[k]
         #protein sumI normalization
         prots = nsaf(prots)
         prots = calc_emPAI(prots, protsN)
@@ -564,6 +599,7 @@ def PSMs_info(peptides, valid_proteins, settings, printresults=True, tofile=Fals
         output_PSMs.write('sequence\tmodified_sequence\tm/z experimental\tmissed cleavages\te-value\tMPscore\tRT_experimental\tspectrum\tproteins\tproteins description\tby-product of label-free quantitation\n')
         output_peptides_detailed = open('%s/%s_peptides.csv' % (ffolder, fname), 'w')
         output_peptides_detailed.write('sequence\tmodified_sequence\tm/z experimental\tmissed cleavages\te-value\tMPscore\tRT_experimental\tspectrum\tproteins\tproteins description\tby-product of label-free quantitation\n')
+        pickle.dump(peptides.RC, open('%s/%s_RC.pickle' % (ffolder, fname), 'w'))
         if protsC:
             output_proteins_valid = open('%s/%s_proteins_valid.csv' % (ffolder, fname), 'w')
             temp_data = []
@@ -787,7 +823,7 @@ def main(inputfile):
                 if '.pep' not in v:
                     del inputdict[k]
                 else:
-                    for ext in ('.mgf', '.mzml'):
+                    for ext in ('.mgf', '.mzML'):
                         if ext not in v:
                             path_to_file = path.join(path.dirname(v['.pep']), k) + (ext if not ext == '.t' else ext + '.xml')
                             if path.isfile(path_to_file):
