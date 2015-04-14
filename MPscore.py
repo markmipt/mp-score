@@ -909,9 +909,9 @@ def main(inputfile):
 
     files_processing = settings.get('options', 'files')
     if files_processing == 'union':
-        q.put(files.values())
+        q.put(sorted(files.values()))
     else:
-        for filename in files.itervalues():
+        for filename in sorted(files.values()):
             q.put([filename, ])
     for i in range(nprocs):
         p = multiprocessing.Process(target=handle, args=(q, q_output, settings, protsL))
