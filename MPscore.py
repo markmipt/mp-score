@@ -474,6 +474,7 @@ def PSMs_info(peptides, valid_proteins, settings, printresults=True, tofile=Fals
         bestprot = max(prots.iterkeys(), key=(lambda key: len(prots[key])))
         tostay.add(bestprot)
         full_sequences.difference_update(prots[bestprot])
+
     prots = dict()
     peptides_added = set()
     true_prots = set()
@@ -534,6 +535,16 @@ def PSMs_info(peptides, valid_proteins, settings, printresults=True, tofile=Fals
         expect += n * np.log10(beta) + (s - n) * np.log10(1 - beta) - np.log10(s) - (n - 1) * np.log10(N)
         return expect
 
+    for k in prots:
+        if k in tostay:
+            prots[k]['fullgroup'] = set()
+            for pep in peptides.peptideslist:
+                tprots = set([pr.dbname for pr in pep.parentproteins])
+                if k in tprots:
+                    prots[k]['fullgroup'].update(tprots)
+    for k in prots:
+        prots[k]['fullgroup'] = ';'.join(prots[k]['fullgroup'])
+
     for dbname in list(prots.keys()):
         if (dbname not in tostay and loop) or 'Peptides' not in prots[dbname]:
             del prots[dbname]
@@ -592,7 +603,7 @@ def PSMs_info(peptides, valid_proteins, settings, printresults=True, tofile=Fals
             fname = path.splitext(path.splitext(path.basename(curfile))[0])[0]
 
         output_proteins = open('%s/%s_proteins.csv' % (ffolder, fname), 'w')
-        output_proteins.write('dbname\tdescription\tPSMs\tpeptides\tsequence coverage\tlabel-free quantitation(SIn)\tlabel-free quantitation(NSAF)\tLFQ(emPAI)\tprotein LN(e-value)\n')
+        output_proteins.write('dbname\tdescription\tPSMs\tpeptides\tsequence coverage\tlabel-free quantitation(SIn)\tlabel-free quantitation(NSAF)\tLFQ(emPAI)\tprotein LN(e-value)\tall proteins\n')
         output_PSMs = open('%s/%s_PSMs.csv' % (ffolder, fname), 'w')
         output_PSMs.write('sequence\tmodified_sequence\tm/z experimental\tmissed cleavages\te-value\tMPscore\tRT_experimental\tspectrum\tproteins\tproteins description\tby-product of label-free quantitation\n')
         output_peptides_detailed = open('%s/%s_peptides.csv' % (ffolder, fname), 'w')
@@ -607,7 +618,7 @@ def PSMs_info(peptides, valid_proteins, settings, printresults=True, tofile=Fals
                 temp_data.append([float(v['sumI']), protsC[k]])
             if int(v['Peptides']) > 0:
                 sqc = calc_sq(protsS.get(k, []), v['pept'])
-                output_proteins.write('%s\t%s\t%s\t%s\t%0.1f\t%s\t%s\t%s\t%s\n' % (k, v['description'], v['PSMs'], v['Peptides'], sqc, v['sumI'],v['NSAF'], v['emPAI'], v['expect']))
+                output_proteins.write('%s\t%s\t%s\t%s\t%0.1f\t%s\t%s\t%s\t%s\t%s\n' % (k, v['description'], v['PSMs'], v['Peptides'], sqc, v['sumI'],v['NSAF'], v['emPAI'], v['expect'], v['fullgroup']))
         for peptide in peptides.peptideslist:
             if any(protein.dbname in prots for protein in peptide.parentproteins):
                 output_PSMs.write('%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t' % (peptide.sequence, peptide.modified_sequence, peptide.mz, peptide.mc, peptide.evalue, peptide.peptscore, peptide.RT_exp, peptide.spectrum))
