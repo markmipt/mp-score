@@ -543,7 +543,8 @@ def PSMs_info(peptides, valid_proteins, settings, printresults=True, tofile=Fals
                 if k in tprots:
                     prots[k]['fullgroup'].update(tprots)
     for k in prots:
-        prots[k]['fullgroup'] = ';'.join(prots[k]['fullgroup'])
+        if k in tostay:
+            prots[k]['fullgroup'] = ';'.join(prots[k]['fullgroup'])
 
     for dbname in list(prots.keys()):
         if (dbname not in tostay and loop) or 'Peptides' not in prots[dbname]:
