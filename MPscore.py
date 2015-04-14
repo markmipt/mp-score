@@ -286,8 +286,6 @@ def handle(q, q_output, settings, protsL):
 
             if 'RT difference, min' in [d.name for d in descriptors]:
                 if RT_type == 'achrom':
-                    for peptide in copy_peptides.peptideslist:
-                        print peptide.modified_sequence, peptide.sequence, peptide.RT_exp
                     copy_peptides.get_RC()
                     peptides.RC = copy_peptides.RC
                     if peptides.settings.getint('advanced options', 'saveRC'):
