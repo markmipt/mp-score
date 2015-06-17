@@ -567,11 +567,6 @@ def PSMs_info(peptides, valid_proteins, settings, printresults=True, tofile=Fals
         for k in prots:
             prots[k]['expect'] = calc_expect_log(prots[k]['evalues'], s, N, T)
 
-        peptides_best_evalues = dict()
-        for peptide in peptides.peptideslist:
-            if peptide.sequence not in peptides_best_evalues or peptide.evalue < peptides_best_evalues[peptide.sequence]:
-                peptides_best_evalues[peptide.sequence] = peptide.evalue
-
         protFDR = peptides.settings.getfloat('options', 'protFDR')
         if protFDR >= 0:
             prots = filter_evalue_prots(prots, FDR=protFDR)
