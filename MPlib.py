@@ -4,7 +4,7 @@ import SSRCalc
 from string import punctuation, lowercase
 from pyteomics import parser, biolccc, pepxml
 from pyteomics import mass
-from pyteomics.auxiliary import linear_regression
+from pyteomics import auxiliary as aux
 from pyteomics import achrom
 import numpy as np
 from scipy.stats import scoreatpercentile
@@ -285,7 +285,7 @@ class PeptideList:
                 xdict[key][1] = val
             except:
                 xdict[key] = [None, val]
-        a, b, _, _ = linear_regression([x[0] for x in xdict.values() if all(v != None for v in x)], [x[1] for x in xdict.values() if all(v != None for v in x)])
+        a, b, _, _ = aux.linear_regression([x[0] for x in xdict.values() if all(v != None for v in x)], [x[1] for x in xdict.values() if all(v != None for v in x)])
         for key, x in xdict.items():
             if x[1] == None:
                 x[1] = x[0] * a + b
@@ -343,7 +343,7 @@ class PeptideList:
                 else:
                     peptides_added[peptide.sequence].append(peptide.RT_exp)
                     peptides.append([peptide.RT_predicted, peptide.RT_exp])
-        aux_RT = linear_regression([val[0] for val in peptides], [val[1] for val in peptides])
+        aux_RT = aux.linear_regression([val[0] for val in peptides], [val[1] for val in peptides])
         return aux_RT
 
     def filter_modifications(self, RT_type=None):
@@ -362,46 +362,71 @@ class PeptideList:
 
     def filter_evalue_new(self, FDR=1, FDR2=1, useMP=True, drop_decoy=True, toprint=False):
         "A function for filtering PSMs by e-value and MP-score with some FDR"
-        target_evalues, decoy_evalues = [], []
-        for peptide in self.peptideslist:
-            if peptide.note == 'target':
-                target_evalues.append(float(peptide.evalue))
-            elif peptide.note == 'decoy':
-                decoy_evalues.append(float(peptide.evalue))
-        target_evalues = np.array(target_evalues)
-        decoy_evalues = np.array(decoy_evalues)
-        target_evalues.sort()
-        best_cut_evalue = None
-        real_FDR = 0
-        for cut_evalue in target_evalues:
-            counter_target = target_evalues[target_evalues <= cut_evalue].size
-            counter_decoy = decoy_evalues[decoy_evalues <= cut_evalue].size
-            if counter_target and (float(counter_decoy) / float(counter_target)) * 100 <= float(FDR):
-                best_cut_evalue = cut_evalue
-                real_FDR = round(float(counter_decoy) / float(counter_target) * 100, 1)
-        if not best_cut_evalue:
-            best_cut_evalue = 0
-        print real_FDR, best_cut_evalue, 'e-value'
+        isdecoy = lambda x: x.note == 'decoy'
+        escore = lambda x: float(x.evalue)
+        mscore = lambda x: -float(x.peptscore)
+        # target_evalues, decoy_evalues = [], []
+        # for peptide in self.peptideslist:
+        #     if peptide.note == 'target':
+        #         target_evalues.append(float(peptide.evalue))
+        #     elif peptide.note == 'decoy':
+        #         decoy_evalues.append(float(peptide.evalue))
+        # target_evalues = np.array(target_evalues)
+        # decoy_evalues = np.array(decoy_evalues)
+        # target_evalues.sort()
+        # best_cut_evalue = None
+        # real_FDR = 0
+        # for cut_evalue in target_evalues:
+        #     counter_target = target_evalues[target_evalues <= cut_evalue].size
+        #     counter_decoy = decoy_evalues[decoy_evalues <= cut_evalue].size
+        #     if counter_target and (float(counter_decoy) / float(counter_target)) * 100 <= float(FDR):
+        #         best_cut_evalue = cut_evalue
+        #         real_FDR = round(float(counter_decoy) / float(counter_target) * 100, 1)
+        # if not best_cut_evalue:
+        #     best_cut_evalue = 0
+        # print real_FDR, best_cut_evalue, 'e-value'
 
+        filtered_peptides = aux.filter(self.peptideslist, fdr=float(FDR)/100, key=escore, is_decoy=isdecoy, remove_decoy=False, formula=1, full_output=True)
+        try:
+            best_cut_evalue = max(float(p.evalue) for p in filtered_peptides)
+            real_FDR = round(aux.fdr(filtered_peptides, is_decoy=isdecoy) * 100, 1)
+        except:
+            best_cut_evalue = 0
+            real_FDR = 0
+        print real_FDR, best_cut_evalue, 'e-value'
+        # best_cut_peptscore = 1.1
+        # if useMP:
+        #     target_peptscores, decoy_peptscores = [], []
+        #     for peptide in self.peptideslist:
+        #         if peptide.evalue >= best_cut_evalue:
+        #             if peptide.note == 'target':
+        #                 target_peptscores.append(float(peptide.peptscore))
+        #             elif peptide.note == 'decoy':
+        #                 decoy_peptscores.append(float(peptide.peptscore))
+        #     target_peptscores = np.array(target_peptscores)
+        #     decoy_peptscores = np.array(decoy_peptscores)
+        #     target_peptscores = np.sort(target_peptscores)[::-1]
+        #     real_FDR = 0
+        #     for cut_peptscore in target_peptscores:
+        #         counter_target = target_peptscores[target_peptscores >= cut_peptscore].size
+        #         counter_decoy = decoy_peptscores[decoy_peptscores >= cut_peptscore].size
+        #         if counter_target and (float(counter_decoy) / float(counter_target)) * 100 <= float(FDR2):
+        #             best_cut_peptscore = cut_peptscore
+        #             real_FDR = round(float(counter_decoy) / float(counter_target) * 100, 1)
+        #     print real_FDR, best_cut_peptscore, 'MP score'
         best_cut_peptscore = 1.1
         if useMP:
-            target_peptscores, decoy_peptscores = [], []
+            tmp_peptides = []
             for peptide in self.peptideslist:
                 if peptide.evalue >= best_cut_evalue:
-                    if peptide.note == 'target':
-                        target_peptscores.append(float(peptide.peptscore))
-                    elif peptide.note == 'decoy':
-                        decoy_peptscores.append(float(peptide.peptscore))
-            target_peptscores = np.array(target_peptscores)
-            decoy_peptscores = np.array(decoy_peptscores)
-            target_peptscores = np.sort(target_peptscores)[::-1]
-            real_FDR = 0
-            for cut_peptscore in target_peptscores:
-                counter_target = target_peptscores[target_peptscores >= cut_peptscore].size
-                counter_decoy = decoy_peptscores[decoy_peptscores >= cut_peptscore].size
-                if counter_target and (float(counter_decoy) / float(counter_target)) * 100 <= float(FDR2):
-                    best_cut_peptscore = cut_peptscore
-                    real_FDR = round(float(counter_decoy) / float(counter_target) * 100, 1)
+                    tmp_peptides.append(peptide)
+            filtered_peptides = aux.filter(tmp_peptides, fdr=float(FDR)/100, key=mscore, is_decoy=isdecoy, remove_decoy=False, formula=1, full_output=True)
+            try:
+                best_cut_peptscore = min(float(p.peptscore) for p in filtered_peptides)
+                real_FDR = round(aux.fdr(filtered_peptides, is_decoy=isdecoy) * 100, 1)
+            except:
+                best_cut_peptscore = 1.1
+                real_FDR = 0
             print real_FDR, best_cut_peptscore, 'MP score'
         new_peptides = self.copy_empty()
         for peptide in self.peptideslist:
