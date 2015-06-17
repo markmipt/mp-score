@@ -172,22 +172,16 @@ def handle(q, q_output, settings, protsL):
         for p in iprocs:
             p.terminate()
 
-        print 'total number of PSMs = %d' % (len(peptides.peptideslist),)
+        print 'Total number of PSMs = %d' % (len(peptides.peptideslist),)
         print 'Total number of peptides: %s' % (len(set(pept.sequence for pept in peptides.peptideslist)), )
 
         true_prots = set()
-        prots_dict = {}
-        pepts_dict = {}
+        prots_dict = defaultdict(int)
+        pepts_dict = defaultdict(int)
         for peptide in peptides.peptideslist:
-            try:
-                pepts_dict[peptide.sequence] += 1
-            except:
-                pepts_dict[peptide.sequence] = 1
+            pepts_dict[peptide.sequence] += 1
             for protein in peptide.parentproteins:
-                try:
-                    prots_dict[protein.dbname] += 1
-                except:
-                    prots_dict[protein.dbname] = 1
+                prots_dict[protein.dbname] += 1
                 if peptide.note == 'decoy':
                     protein.note = 'W'
                     if peptide.note2 != 'tr' or peptide.note == 'decoy':
