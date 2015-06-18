@@ -360,7 +360,7 @@ class PeptideList:
                 self.peptideslist.pop(j)
             j -= 1
 
-    def filter_evalue_new(self, FDR=1, FDR2=1, useMP=True, drop_decoy=True, toprint=False):
+    def filter_evalue_new(self, FDR=1, FDR2=1, useMP=True, drop_decoy=True, toprint=True):
         "A function for filtering PSMs by e-value and MP-score with some FDR"
         isdecoy = lambda x: x.note == 'decoy'
         escore = lambda x: float(x.evalue)
@@ -393,7 +393,8 @@ class PeptideList:
         except:
             best_cut_evalue = 0
             real_FDR = 0
-        print real_FDR, best_cut_evalue, 'e-value'
+        if toprint:
+            print real_FDR, best_cut_evalue, 'e-value'
         # best_cut_peptscore = 1.1
         # if useMP:
         #     target_peptscores, decoy_peptscores = [], []
@@ -427,7 +428,8 @@ class PeptideList:
             except:
                 best_cut_peptscore = 1.1
                 real_FDR = 0
-            print real_FDR, best_cut_peptscore, 'MP score'
+            if toprint:
+                print real_FDR, best_cut_peptscore, 'MP score'
         new_peptides = self.copy_empty()
         for peptide in self.peptideslist:
             if peptide.evalue <= best_cut_evalue or (useMP and peptide.peptscore >= best_cut_peptscore):

@@ -387,10 +387,10 @@ def handle(q, q_output, settings, protsL):
                 k_temp = []
                 while len(k_temp) < 3 or k_temp[-1] != k_temp[-3]:
                     if not k_temp:
-                        copy_peptides = peptides.filter_evalue_new(FDR=FDR, useMP=False)[0]
+                        copy_peptides = peptides.filter_evalue_new(FDR=FDR, useMP=False, toprint=False)[0]
                     else:
                         FDR_new = (((FDR / 100 - float(peptides.total_number_of_PSMs_decoy) / numPSMs_true * k)) / (1 - k)) * 100
-                        copy_peptides = peptides.filter_evalue_new(FDR=FDR, FDR2=FDR_new, useMP=True)[0]
+                        copy_peptides = peptides.filter_evalue_new(FDR=FDR, FDR2=FDR_new, useMP=True, toprint=False)[0]
 
                     numPSMs_true = len(copy_peptides)
                     try:
