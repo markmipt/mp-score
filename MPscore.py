@@ -175,7 +175,6 @@ def handle(q, q_output, settings, protsL):
         print 'Total number of PSMs = %d' % (len(peptides.peptideslist),)
         print 'Total number of peptides: %s' % (len(set(pept.sequence for pept in peptides.peptideslist)), )
 
-        true_prots = set()
         prots_dict = defaultdict(int)
         pepts_dict = defaultdict(int)
         for peptide in peptides.peptideslist:
@@ -189,7 +188,6 @@ def handle(q, q_output, settings, protsL):
                 else:
                     if protein.dbname in valid_proteins:
                         peptide.note3 = 'valid'
-                    true_prots.add(protein.dbname)
                     protein.note = 'Valid'
                     peptide.note2 = 'tr'
         peptides.total_number_of_PSMs_decoy = sum(1 for pept in peptides.peptideslist if pept.note2 == 'wr')
@@ -441,33 +439,34 @@ def calc_emPAI(prots, protsN):
 
 
 def PSMs_info(peptides, valid_proteins, settings, printresults=True, tofile=False, curfile=False, loop=True):
-    full_sequences = set()
-    added = set()
+    def keywithmaxval(d):
+        #this method is much faster than using max(prots.iterkeys(), key=(lambda key: prots[key]))
+        v=list(d.values())
+        k=list(d.keys())
+        return k[v.index(max(v))]
+    # full_sequences = set((peptide.sequence for peptide in peptides.peptideslist))
     tostay = set()
+    prots = defaultdict(int)
+    prots_pep = defaultdict(set)
+    peptides_added = defaultdict(set)
     for peptide in peptides.peptideslist:
-        full_sequences.add(peptide.sequence)
-    prots = dict()
-    peptides_added = set()
-    for peptide in peptides.peptideslist:
-        if peptide.sequence not in peptides_added and peptide.sequence in full_sequences:
+        if peptide.sequence not in peptides_added:
             if peptide.note2 == 'wr':
                 add_label = 'L'
             else:
                 add_label = ''
             for protein in peptide.parentproteins:
                 tmp_dbname = add_label + protein.dbname
-                try:
-                    prots[tmp_dbname].add(peptide.sequence)
-                except:
-                    prots[tmp_dbname] = set([peptide.sequence, ])
-            peptides_added.add(peptide.sequence)
-
-    while full_sequences and loop:
-        for k in prots.keys():
-            prots[k].intersection_update(full_sequences)
-        bestprot = max(prots.iterkeys(), key=(lambda key: len(prots[key])))
+                prots[tmp_dbname] += 1
+                prots_pep[tmp_dbname].add(peptide.sequence)
+                peptides_added[peptide.sequence].add(tmp_dbname)
+    while peptides_added and loop:
+        bestprot = keywithmaxval(prots)
         tostay.add(bestprot)
-        full_sequences.difference_update(prots[bestprot])
+        for pep in prots_pep[bestprot]:
+            for k in peptides_added[pep]:
+                prots[k] -= 1
+            del peptides_added[pep]
 
     prots = dict()
     peptides_added = set()
@@ -530,19 +529,20 @@ def PSMs_info(peptides, valid_proteins, settings, printresults=True, tofile=Fals
         return expect
 
     for k in prots:
-        if k in tostay:
-            prots[k]['fullgroup'] = set()
-            for pep in peptides.peptideslist:
-                tprots = set([pr.dbname for pr in pep.parentproteins])
-                if k in tprots:
-                    prots[k]['fullgroup'].update(tprots)
-    for k in prots:
-        if k in tostay:
-            prots[k]['fullgroup'] = ';'.join(prots[k]['fullgroup'])
+        prots[k]['fullgroup'] = set()
 
-    for dbname in list(prots.keys()):
-        if (dbname not in tostay and loop) or 'Peptides' not in prots[dbname]:
+    for pep in peptides.peptideslist:
+        tprots = set([pr.dbname for pr in pep.parentproteins])
+        for k in tostay:
+            if k in tprots:
+                prots[k]['fullgroup'].update(tprots)
+    for k in tostay:
+        prots[k]['fullgroup'] = ';'.join(prots[k]['fullgroup'])
+
+    for dbname in prots.keys():
+        if (loop and dbname not in tostay) or 'Peptides' not in prots[dbname]:
             del prots[dbname]
+
     if tofile:
         new_peptides = peptides.remove_duplicate_sequences()
         # Add normal s, T calculation

@@ -464,10 +464,14 @@ class PeptideList:
         self.peptideslist.extend(new_peptides.peptideslist)
 
     def remove_duplicate_sequences(self):
+        edict = dict()
+        for peptide in self.peptideslist:
+            edict[peptide.sequence] = min(float(peptide.evalue), edict.get(peptide.sequence, np.inf))
         new_peptides = self.copy_empty()
         for peptide in self.peptideslist:
-            if peptide.sequence not in set(p.sequence for p in new_peptides.peptideslist) and peptide.evalue == min([p.evalue for p in self.peptideslist if p.sequence == peptide.sequence]):
+            if peptide.evalue == edict.get(peptide.sequence, None):
                 new_peptides.peptideslist.append(peptide)
+                del edict[peptide.sequence]
         return new_peptides
 
 class Protein:
