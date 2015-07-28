@@ -301,7 +301,7 @@ def handle(q, q_output, settings, protsL):
             curfile = filenames[-1]['.pep']
             if descriptors:
                 descriptors = prepare_hist(descriptors, copy_peptides, first=False)
-                fig = plot_histograms(descriptors, peptides, FDR)
+                fig = plot_histograms(descriptors, peptides, FDR, curfile)
 
                 if len(copy_peptides.peptideslist) > 100:
                     jk = manager.dict()
@@ -595,7 +595,7 @@ def PSMs_info(peptides, valid_proteins, settings, printresults=True, tofile=Fals
         output_proteins = open('%s/%s_proteins.csv' % (ffolder, fname), 'w')
         output_proteins.write('dbname\tdescription\tPSMs\tpeptides\tsequence coverage\tlabel-free quantitation(SIn)\tlabel-free quantitation(NSAF)\tLFQ(emPAI)\tprotein LN(e-value)\tall proteins\n')
         output_PSMs = open('%s/%s_PSMs.csv' % (ffolder, fname), 'w')
-        output_PSMs.write('sequence\tmodified_sequence\tm/z experimental\tmissed cleavages\te-value\tMPscore\tRT_experimental\tspectrum\tproteins\tproteins description\tby-product of label-free quantitation\n')
+        output_PSMs.write('sequence\tmodified_sequence\tm/z experimental\tm/z error in ppm\tmissed cleavages\te-value\tMPscore\tRT_experimental\tspectrum\tproteins\tproteins description\tby-product of label-free quantitation\n')
         output_peptides_detailed = open('%s/%s_peptides.csv' % (ffolder, fname), 'w')
         output_peptides_detailed.write('sequence\tmodified_sequence\tm/z experimental\tmissed cleavages\te-value\tMPscore\tRT_experimental\tspectrum\tproteins\tproteins description\tby-product of label-free quantitation\n')
         pickle.dump(peptides.RC, open('%s/%s_RC.pickle' % (ffolder, fname), 'w'))
@@ -611,7 +611,7 @@ def PSMs_info(peptides, valid_proteins, settings, printresults=True, tofile=Fals
                 output_proteins.write('%s\t%s\t%s\t%s\t%0.1f\t%s\t%s\t%s\t%s\t%s\n' % (k, v['description'], v['PSMs'], v['Peptides'], sqc, v['sumI'],v['NSAF'], v['emPAI'], v['expect'], v['fullgroup']))
         for peptide in peptides.peptideslist:
             if any(protein.dbname in prots for protein in peptide.parentproteins):
-                output_PSMs.write('%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t' % (peptide.sequence, peptide.modified_sequence, peptide.mz, peptide.mc, peptide.evalue, peptide.peptscore, peptide.RT_exp, peptide.spectrum))
+                output_PSMs.write('%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t' % (peptide.sequence, peptide.modified_sequence, peptide.mz, peptide.mass_diff(), peptide.mc, peptide.evalue, peptide.peptscore, peptide.RT_exp, peptide.spectrum))
                 for protein in peptide.parentproteins:
                     output_PSMs.write('%s; ' % (protein.dbname, ))
                 output_PSMs.write('\t')
@@ -658,13 +658,19 @@ def PSMs_info(peptides, valid_proteins, settings, printresults=True, tofile=Fals
         print '\n'
     return (len([1 for x in peptides.peptideslist if x.note2 == 'tr']), len(set(p.sequence for p in peptides.peptideslist)), len([v for v in prots.values() if v['Peptides'] > 1]))
 
-def plot_histograms(descriptors, peptides, FDR):
-    fig = plt.figure(figsize=(16, 12))
-    ox, oy = find_optimal_xy(descriptors)
+def plot_histograms(descriptors, peptides, FDR, curfile):
+    # fig = plt.figure(figsize=(16, 12))
+    # ox, oy = find_optimal_xy(descriptors)
     copy_peptides, _, _ = peptides.filter_evalue_new(FDR=FDR, useMP=False)
 
     for idx, descriptor in enumerate(descriptors):
-        ax = fig.add_subplot(ox, oy, idx + 1)
+        plt.clf()
+        fig = plt.figure()
+        DPI = fig.get_dpi()
+        fig.set_size_inches(300.0/float(DPI), 350.0/float(DPI))
+        # fig = plt.figure()
+        # ax = fig.add_subplot(ox, oy, idx + 1)
+        ax = fig.add_subplot(1, 1, 1)
         array_wrong = [descriptor.formula(peptide) for peptide in peptides.peptideslist if peptide.note2 == 'wr']
         array_valid = [descriptor.formula(peptide) for peptide in peptides.peptideslist if peptide.note2 == 'tr']
 
@@ -708,12 +714,23 @@ def plot_histograms(descriptors, peptides, FDR):
         if descriptor.name in ['missed cleavages', 'charge states', 'potential modifications', 'isotopes mass difference, Da']:
             plt.xticks(range(1, 6))
         ax.set_xlabel(descriptor.name)
-    return fig
+        if peptides.settings.get('options', 'files') == 'union':
+            fname = 'union'
+        else:
+            fname = path.splitext(path.splitext(path.basename(curfile))[0])[0]
+        plt.savefig('%s/%s_%s.png' % (path.dirname(path.realpath(curfile)), fname, descriptor.name))
+    return 0
 
 
 def plot_MP(descriptors, peptides, fig, FDR, FDR2, valid_proteins, settings, threshold0=False, curfile=False):
-    ox, oy = find_optimal_xy(descriptors)
+    # ox, oy = find_optimal_xy(descriptors)
     copy_peptides, threshold1, threshold2 = peptides.filter_evalue_new(FDR=FDR, FDR2=FDR2, useMP=True, drop_decoy=False)
+
+    plt.clf()
+    fig = plt.figure()
+    DPI = fig.get_dpi()
+    fig.set_size_inches(300.0/float(DPI), 350.0/float(DPI))
+
 
     threshold1 = -np.log(threshold1)
     try:
@@ -731,7 +748,7 @@ def plot_MP(descriptors, peptides, fig, FDR, FDR2, valid_proteins, settings, thr
     print 'Without filtering, after removing outliers:'
     PSMs_info(peptides, valid_proteins, settings, loop=False)
 
-    ax = fig.add_subplot(ox, oy, ox * oy)
+    ax = fig.add_subplot(1, 1, 1)
     ax.plot([x[0] for x in PSMs_wrong], [x[1] for x in PSMs_wrong], 'o', markersize=2, color='red')
     ax.plot([x[0] for x in PSMs_true], [x[1] for x in PSMs_true], 'o', markersize=2, color='blue')
     ax.axvline(threshold1, color='green')
@@ -746,7 +763,9 @@ def plot_MP(descriptors, peptides, fig, FDR, FDR2, valid_proteins, settings, thr
         fname = 'union'
     else:
         fname = path.splitext(path.splitext(path.basename(curfile))[0])[0]
-    plt.savefig('%s/%s.png' % (path.dirname(path.realpath(curfile)), fname))
+    ax.set_xlabel('-LOG(evalue)')
+    ax.set_ylabel('LOG(MPscore)')
+    plt.savefig('%s/%s_%s.png' % (path.dirname(path.realpath(curfile)), fname, 'scores'))
 
 def prepare_hist(descriptors, copy_peptides, first=False):
     for descriptor in descriptors:
