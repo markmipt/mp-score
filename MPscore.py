@@ -592,6 +592,8 @@ def PSMs_info(peptides, valid_proteins, settings, printresults=True, tofile=Fals
         else:
             fname = path.splitext(path.splitext(path.basename(curfile))[0])[0]
 
+        plot_quantiation(prots, curfile, peptides.settings)
+
         output_proteins = open('%s/%s_proteins.csv' % (ffolder, fname), 'w')
         output_proteins.write('dbname\tdescription\tPSMs\tpeptides\tsequence coverage\tlabel-free quantitation(SIn)\tlabel-free quantitation(NSAF)\tLFQ(emPAI)\tprotein LN(e-value)\tall proteins\n')
         output_PSMs = open('%s/%s_PSMs.csv' % (ffolder, fname), 'w')
@@ -667,7 +669,7 @@ def plot_histograms(descriptors, peptides, FDR, curfile):
         plt.clf()
         fig = plt.figure()
         DPI = fig.get_dpi()
-        fig.set_size_inches(300.0/float(DPI), 350.0/float(DPI))
+        fig.set_size_inches(300.0/float(DPI), 300.0/float(DPI))
         # fig = plt.figure()
         # ax = fig.add_subplot(ox, oy, idx + 1)
         ax = fig.add_subplot(1, 1, 1)
@@ -718,8 +720,29 @@ def plot_histograms(descriptors, peptides, FDR, curfile):
             fname = 'union'
         else:
             fname = path.splitext(path.splitext(path.basename(curfile))[0])[0]
+
+        plt.gcf().subplots_adjust(bottom=0.15)
         plt.savefig('%s/%s_%s.png' % (path.dirname(path.realpath(curfile)), fname, descriptor.name))
     return 0
+
+
+def plot_quantiation(prots, curfile, settings):
+    for idx in ['sumI', 'NSAF', 'emPAI']:
+        dots = [np.log10(v[idx]) for v in prots.itervalues()]
+        plt.clf()
+        fig = plt.figure()
+        ax = fig.add_subplot(1, 1, 1)
+        DPI = fig.get_dpi()
+        fig.set_size_inches(300.0/float(DPI), 300.0/float(DPI))
+        plt.gcf().subplots_adjust(bottom=0.15)
+        plt.hist(dots, bins = 10, alpha=0.5, color='b')
+        ax.set_xlabel('LOG10(%s)' % (idx, ))
+        plt.locator_params(axis='x', nbins=4)
+        if settings.get('options', 'files') == 'union':
+            fname = 'union'
+        else:
+            fname = path.splitext(path.splitext(path.basename(curfile))[0])[0]
+        plt.savefig('%s/%s_%s.png' % (path.dirname(path.realpath(curfile)), fname, idx))
 
 
 def plot_MP(descriptors, peptides, fig, FDR, FDR2, valid_proteins, settings, threshold0=False, curfile=False):
@@ -729,7 +752,8 @@ def plot_MP(descriptors, peptides, fig, FDR, FDR2, valid_proteins, settings, thr
     plt.clf()
     fig = plt.figure()
     DPI = fig.get_dpi()
-    fig.set_size_inches(300.0/float(DPI), 350.0/float(DPI))
+    fig.set_size_inches(300.0/float(DPI), 300.0/float(DPI))
+    plt.gcf().subplots_adjust(bottom=0.15)
 
 
     threshold1 = -np.log(threshold1)
