@@ -127,7 +127,7 @@ def handle(q, q_output, settings, protsL):
                     if not spectra_dict:
                         qpeptides.settings.set('descriptors', 'fragment mass tolerance, Da', 0)
                         print 'fragment mass tolerance was turned off due to missed mgf file'
-                    if qpeptides.settings.getint('descriptors', 'fragment mass tolerance, Da'):
+                    if qpeptides.settings.getboolean('descriptors', 'fragment mass tolerance, Da'):
                         for peptide in qpeptides.peptideslist:
                             try:
                                 peptide.spectrum_mz = spectra_dict[peptide.spectrum.split(' RTINSECONDS=')[0].strip()]
@@ -233,47 +233,47 @@ def handle(q, q_output, settings, protsL):
         if numPSMs > 4:
             descriptors = []
             dname = 'RT difference, min'
-            if peptides.settings.getint('descriptors', dname):
+            if peptides.settings.getboolean('descriptors', dname):
                 descriptors.append(Descriptor(name=dname, formula=lambda peptide: peptide.RT_exp - peptide.RT_predicted, group='A', binsize='auto'))
             dname = 'precursor mass difference, ppm'
-            if peptides.settings.getint('descriptors', dname):
+            if peptides.settings.getboolean('descriptors', dname):
                 descriptors.append(Descriptor(name=dname, formula=lambda peptide: peptide.mass_diff(), group='A', binsize='auto'))
             dname = 'missed cleavages, protease 1'
-            if peptides.settings.getint('descriptors', dname.split(',')[0]):
+            if peptides.settings.getboolean('descriptors', dname.split(',')[0]):
                 protease1 = [x.strip() for x in settings.get('missed cleavages', 'protease1').split(',')]
                 expasy1 = '|'.join((parser.expasy_rules[protease] if protease in parser.expasy_rules else protease for protease in protease1))
                 descriptors.append(Descriptor(name=dname, formula=lambda peptide: peptide.get_missed_cleavages(expasy1), group='A', binsize=1))
             dname = 'missed cleavages, protease 2'
-            if peptides.settings.getint('descriptors', dname.split(',')[0]):
+            if peptides.settings.getboolean('descriptors', dname.split(',')[0]):
                 protease2 = [x.strip() for x in settings.get('missed cleavages', 'protease2').split(',')]
                 expasy2 = '|'.join((parser.expasy_rules[protease] if protease in parser.expasy_rules else protease for protease in protease2))
                 if protease2[0]:
                     descriptors.append(Descriptor(name=dname, formula=lambda peptide: peptide.get_missed_cleavages(expasy2), group='A', binsize=1))
 
             dname = 'charge states'
-            if peptides.settings.getint('descriptors', dname):
+            if peptides.settings.getboolean('descriptors', dname):
                 descriptors.append(Descriptor(name=dname, formula=lambda peptide: peptide.pcharge, group='A', binsize='1'))
             dname = 'potential modifications'
-            if peptides.settings.getint('descriptors', dname):
+            if peptides.settings.getboolean('descriptors', dname):
                 labeldict = dict()
                 temp = settings.get('modifications', 'variable')
                 if temp:
                     for mod in temp.split(', '):
                         descriptors.append(Descriptor(name='%s, %s' % (dname, mod), formula=lambda peptide: peptide.count_modifications(mod), group='A', binsize='1'))
             dname = 'isotopes mass difference, Da'
-            if peptides.settings.getint('descriptors', dname):
+            if peptides.settings.getboolean('descriptors', dname):
                 descriptors.append(Descriptor(name=dname, formula=lambda peptide: round(peptide.massdiff, 0), group='A', binsize='1'))
             dname = 'PSMs per protein'
-            if peptides.settings.getint('descriptors', dname):
+            if peptides.settings.getboolean('descriptors', dname):
                 descriptors.append(Descriptor(name=dname, formula=lambda peptide: peptide.protscore2, group='B'))
             dname = 'PSM count'
-            if peptides.settings.getint('descriptors', dname):
+            if peptides.settings.getboolean('descriptors', dname):
                 descriptors.append(Descriptor(name=dname, formula=lambda peptide: peptide.peptscore2, group='B'))
             dname = 'fragment mass tolerance, Da'
-            if peptides.settings.getint('descriptors', dname):
+            if peptides.settings.getboolean('descriptors', dname):
                 descriptors.append(Descriptor(name=dname, formula=lambda peptide: peptide.get_median_fragment_mt(), group='A', binsize = 'auto'))
             dname = 'PIF'
-            if peptides.settings.getint('descriptors', dname):
+            if peptides.settings.getboolean('descriptors', dname):
                 descriptors.append(Descriptor(name=dname, formula=lambda peptide: peptide.PIF, group='B'))
 
             if 'RT difference, min' in [d.name for d in descriptors]:
