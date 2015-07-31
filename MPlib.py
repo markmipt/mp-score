@@ -17,6 +17,20 @@ try:
 except ImportError:
     from ConfigParser import RawConfigParser
 
+class CustomRawConfigParser(RawConfigParser):
+    def get(self, section, option):
+        val = RawConfigParser.get(self, section, option)
+        if isinstance(val, basestring):
+            return val.split('|')[0]
+        return val
+
+    def get_choices(self, section, option):
+        val = RawConfigParser.get(self, section, option)
+        if isinstance(val, basestring) and len(val.split('|')) > 1:
+            return val.split('|')[1]
+        else:
+            return ''
+
 def get_dbname(prot, pepxml_type='tandem'):
     if pepxml_type != 'omssa':
         try:
@@ -84,7 +98,7 @@ def get_settings(fname=None, default_name='default.cfg'):
     kw['dict_type'] = dict
     kw['allow_no_value'] = True
 
-    raw_config = RawConfigParser(**kw)
+    raw_config = CustomRawConfigParser(**kw)
     if default_name:
         raw_config.read(default_name)
     if fname:
@@ -220,48 +234,48 @@ class PeptideList:
                             except:
                                 print 'RT experimental is missed in pepxml file, using 0 value for all peptides'
                         first_psm = False
-
-                    sequence = record['search_hit'][0]['peptide']
-                    if not set(sequence).difference(standard_aminoacids):
-                        mc = record['search_hit'][0].get('num_missed_cleavages', 0)
-                        modified_code = record['search_hit'][0]['modified_peptide']
-                        modifications = record['search_hit'][0]['modifications']
-                        try:
-                            evalue = record['search_hit'][0]['search_score']['expect']
-                        except:
+                    if 'peptide' in record['search_hit'][0]:
+                        sequence = record['search_hit'][0]['peptide']
+                        if not set(sequence).difference(standard_aminoacids):
+                            mc = record['search_hit'][0].get('num_missed_cleavages', 0)
+                            modified_code = record['search_hit'][0]['modified_peptide']
+                            modifications = record['search_hit'][0]['modifications']
                             try:
-                                evalue = 1.0 / float(record['search_hit'][0]['search_score']['ionscore'])
-                            except IOError:
-                                'Cannot read e-value!'
-                        try:
-                            sumI = 10 ** float(record['search_hit'][0]['search_score']['sumI'])
-                        except:
-                            sumI = 0
-                        spectrum = record['spectrum']
-                        pcharge = record['assumed_charge']
-                        mass_exp = record['precursor_neutral_mass']
-
-                        pept = Peptide(sequence=sequence, settings=self.settings, modified_code=modified_code, evalue=evalue, spectrum=spectrum, pcharge=pcharge, mass_exp=mass_exp, modifications=modifications, modification_list=self.modification_list, custom_aa_mass=self.aa_list, sumI=sumI, mc=mc)
-                        try:
-                            pept.RT_exp = float(record['retention_time_sec']) / 60
-                        except:
-                            try:
-                                pept.RT_exp = float(record['spectrum'].split(',')[2].split()[0])
+                                evalue = record['search_hit'][0]['search_score']['expect']
                             except:
-                                pept.RT_exp = 0
+                                try:
+                                    evalue = 1.0 / float(record['search_hit'][0]['search_score']['ionscore'])
+                                except IOError:
+                                    'Cannot read e-value!'
+                            try:
+                                sumI = 10 ** float(record['search_hit'][0]['search_score']['sumI'])
+                            except:
+                                sumI = 0
+                            spectrum = record['spectrum']
+                            pcharge = record['assumed_charge']
+                            mass_exp = record['precursor_neutral_mass']
 
-                        decoy_tags = [':reversed', 'DECOY_', 'rev_', 'Random sequence.']
-                        if any([all([all((not protein.get(key, '') or not protein[key].startswith(tag)) and (not protein.get(key, '') or not protein[key].endswith(tag)) for key in ['protein', 'protein_descr']) for tag in decoy_tags]) for protein in record['search_hit'][0]['proteins']]):
-                            pept.note = 'target'
-                        else:
-                            pept.note = 'decoy'
+                            pept = Peptide(sequence=sequence, settings=self.settings, modified_code=modified_code, evalue=evalue, spectrum=spectrum, pcharge=pcharge, mass_exp=mass_exp, modifications=modifications, modification_list=self.modification_list, custom_aa_mass=self.aa_list, sumI=sumI, mc=mc)
+                            try:
+                                pept.RT_exp = float(record['retention_time_sec']) / 60
+                            except:
+                                try:
+                                    pept.RT_exp = float(record['spectrum'].split(',')[2].split()[0])
+                                except:
+                                    pept.RT_exp = 0
 
-                        for prot in record['search_hit'][0]['proteins']:
-                            if get_dbname(prot, self.pepxml_type) not in [protein.dbname for protein in pept.parentproteins]:
-                                pept.parentproteins.append(Protein(dbname=get_dbname(prot, self.pepxml_type), description=prot.get('protein_descr', None)))
+                            decoy_tags = [':reversed', 'DECOY_', 'rev_', 'Random sequence.']
+                            if any([all([all((not protein.get(key, '') or not protein[key].startswith(tag)) and (not protein.get(key, '') or not protein[key].endswith(tag)) for key in ['protein', 'protein_descr']) for tag in decoy_tags]) for protein in record['search_hit'][0]['proteins']]):
+                                pept.note = 'target'
+                            else:
+                                pept.note = 'decoy'
 
-                        if len(pept.parentproteins) and (not modifications or Counter(v['position'] for v in modifications).most_common(1)[0][1] <= 2):
-                            self.peptideslist.append(pept)
+                            for prot in record['search_hit'][0]['proteins']:
+                                if get_dbname(prot, self.pepxml_type) not in [protein.dbname for protein in pept.parentproteins]:
+                                    pept.parentproteins.append(Protein(dbname=get_dbname(prot, self.pepxml_type), description=prot.get('protein_descr', None)))
+
+                            if len(pept.parentproteins) and (not modifications or Counter(v['position'] for v in modifications).most_common(1)[0][1] <= 2):
+                                self.peptideslist.append(pept)
 
 
     def modified_peptides(self):
