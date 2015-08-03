@@ -852,7 +852,7 @@ def calc_peptscore(cq, cq_output, descriptors, jk, cq_finish):
     cq_finish.put(True)
 
 
-def main(argv_in):
+def main(argv_in, union_custom=False):
     inputfile = argv_in[1]
     files = {}
     fastafile = None
@@ -895,6 +895,8 @@ def main(argv_in):
         settings = get_settings(configfile)
     else:
         settings = get_settings('default.cfg')
+    if union_custom:
+        settings.set('options', 'files', 'union')
 
     proteases = [x.strip() for x in settings.get('missed cleavages', 'protease1').split(',')]
     proteases.extend([x.strip() for x in settings.get('missed cleavages', 'protease2').split(',')])
