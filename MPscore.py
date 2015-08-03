@@ -14,6 +14,12 @@ import pickle
 from copy import copy
 from collections import defaultdict
 
+manager = multiprocessing.Manager()
+protsC = {}
+protsL = manager.dict()
+protsS = manager.dict()
+protsN = manager.dict()
+stime = time()
 
 def calc_sq(protein, peptides):
     if not protein:
@@ -846,7 +852,8 @@ def calc_peptscore(cq, cq_output, descriptors, jk, cq_finish):
     cq_finish.put(True)
 
 
-def main(inputfile):
+def main(argv_in):
+    inputfile = argv_in[1]
     files = {}
     fastafile = None
     configfile = None
@@ -872,7 +879,7 @@ def main(inputfile):
                                 inputdict[k][ext] = path_to_file
         return inputdict
 
-    for arg in argv:
+    for arg in argv_in:
         if path.splitext(arg)[-1] == '.fasta':
             fastafile = arg
         elif path.splitext(arg)[-1] == '.cfg':
@@ -968,11 +975,4 @@ def main(inputfile):
         p.terminate()
 
 if __name__ == '__main__':
-    inputfile = argv[1]
-    protsC = {}
-    manager = multiprocessing.Manager()
-    protsL = manager.dict()
-    protsS = manager.dict()
-    protsN = manager.dict()
-    stime = time()
-    main(inputfile)
+    main(argv)
