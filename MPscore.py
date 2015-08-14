@@ -728,6 +728,7 @@ def plot_histograms(descriptors, peptides, FDR, curfile):
             fname = path.splitext(path.splitext(path.basename(curfile))[0])[0]
 
         plt.gcf().subplots_adjust(bottom=0.15)
+        fig.tight_layout()
         plt.savefig('%s/%s_%s.png' % (path.dirname(path.realpath(curfile)), fname, descriptor.name))
     return 0
 
@@ -740,7 +741,6 @@ def plot_quantiation(prots, curfile, settings):
         ax = fig.add_subplot(1, 1, 1)
         DPI = fig.get_dpi()
         fig.set_size_inches(300.0/float(DPI), 300.0/float(DPI))
-        plt.gcf().subplots_adjust(bottom=0.15)
         plt.hist(dots, bins = 10, alpha=0.5, color='b')
         ax.set_xlabel('LOG10(%s)' % (idx, ))
         plt.locator_params(axis='x', nbins=4)
@@ -748,19 +748,14 @@ def plot_quantiation(prots, curfile, settings):
             fname = 'union'
         else:
             fname = path.splitext(path.splitext(path.basename(curfile))[0])[0]
+        plt.gcf().subplots_adjust(bottom=0.15)
+        fig.tight_layout()
         plt.savefig('%s/%s_%s.png' % (path.dirname(path.realpath(curfile)), fname, idx))
 
 
 def plot_MP(descriptors, peptides, fig, FDR, FDR2, valid_proteins, settings, threshold0=False, curfile=False):
     # ox, oy = find_optimal_xy(descriptors)
     copy_peptides, threshold1, threshold2 = peptides.filter_evalue_new(FDR=FDR, FDR2=FDR2, useMP=True, drop_decoy=False)
-
-    plt.clf()
-    fig = plt.figure()
-    DPI = fig.get_dpi()
-    fig.set_size_inches(300.0/float(DPI), 300.0/float(DPI))
-    plt.gcf().subplots_adjust(bottom=0.15)
-
 
     threshold1 = -np.log(threshold1)
     try:
@@ -778,6 +773,11 @@ def plot_MP(descriptors, peptides, fig, FDR, FDR2, valid_proteins, settings, thr
     print 'Without filtering, after removing outliers:'
     PSMs_info(peptides, valid_proteins, settings, loop=False)
 
+    plt.clf()
+    fig = plt.figure()
+    DPI = fig.get_dpi()
+    fig.set_size_inches(300.0/float(DPI), 300.0/float(DPI))
+
     ax = fig.add_subplot(1, 1, 1)
     ax.plot([x[0] for x in PSMs_wrong], [x[1] for x in PSMs_wrong], 'o', markersize=2, color='red')
     ax.plot([x[0] for x in PSMs_true], [x[1] for x in PSMs_true], 'o', markersize=2, color='blue')
@@ -788,13 +788,14 @@ def plot_MP(descriptors, peptides, fig, FDR, FDR2, valid_proteins, settings, thr
         threshold0 = -np.log(threshold0)
         ax.axvline(threshold0, color='red')
     ax.set_ylim(min(x[1] for x in PSMs_true) - 1, max(x[1] for x in PSMs_true) + 1)
-    fig.tight_layout()
     if peptides.settings.get('options', 'files') == 'union':
         fname = 'union'
     else:
         fname = path.splitext(path.splitext(path.basename(curfile))[0])[0]
     ax.set_xlabel('-LOG(evalue)')
     ax.set_ylabel('LOG(MPscore)')
+    plt.gcf().subplots_adjust(bottom=0.15)
+    fig.tight_layout()
     plt.savefig('%s/%s_%s.png' % (path.dirname(path.realpath(curfile)), fname, 'scores'))
 
 def prepare_hist(descriptors, copy_peptides, first=False):
