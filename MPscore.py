@@ -88,9 +88,11 @@ def handle(q, q_output, settings, protsL):
                         # mass_acc = settings.getfloat('precursor ion fraction', 'mass accuracy')
                         # spectra_ms1 = []
                         spectra_ms2 = []
-                        for x in mzml.read(mzmlfile):
-                            if x['ms level'] == 2:
-                                spectra_ms2.append(x)
+                        for spectrum in mzml.read(mzmlfile):
+                            if spectrum['ms level'] == 2:
+                                spectra_dict[spectrum['spectrum title'].strip()] = spectrum['m/z array']
+                                spectra_dict_intensities[spectrum['spectrum title'].strip()] = spectrum['intensity array']
+                                #spectra_ms2.append(x)
                             # elif x['ms level'] == 1:
                             #     spectra_ms1.append(x)
                         # for psm in qpeptides.peptideslist:
@@ -109,16 +111,16 @@ def handle(q, q_output, settings, protsL):
                         #     psm.I = Ip
                         #     psm.PIF = PIF
 
-                        itimes = dict()
-                        for x in spectra_ms2:
-                            sc_n = x['id'].split('scan=')[-1]
-                            itimes[sc_n] = float(x['scanList']['scan'][0]['ion injection time'])
-                        for peptide in qpeptides.peptideslist:
-                            try:
-                                peptide.it = itimes[peptide.spectrum.split('.')[1]]
-                            except:
-                                print 'Smth wrong with mzML indexes'
-                                print peptide.spectrum.split('.')[1], itimes[-1]
+                        # itimes = dict()
+                        # for x in spectra_ms2:
+                        #     sc_n = x['id'].split('scan=')[-1]
+                        #     itimes[sc_n] = float(x['scanList']['scan'][0]['ion injection time'])
+                        # for peptide in qpeptides.peptideslist:
+                        #     try:
+                        #         peptide.it = itimes[peptide.spectrum.split('.')[1]]
+                        #     except:
+                        #         print 'Smth wrong with mzML indexes'
+                        #         print peptide.spectrum.split('.')[1], itimes[-1]
 
                     mgffile = curfile.get('.mgf', None)
                     if mgffile:
