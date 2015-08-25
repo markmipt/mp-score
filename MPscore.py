@@ -13,6 +13,10 @@ from time import sleep, time
 import pickle
 from copy import copy
 from collections import defaultdict
+try:
+    import seaborn
+except:
+    pass
 
 manager = multiprocessing.Manager()
 protsC = {}
