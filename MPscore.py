@@ -721,8 +721,11 @@ def plot_histograms(descriptors, peptides, FDR, curfile):
         plt.bar(ind, H2, width, color='green', alpha=0.5)
         plt.bar(ind, H3, width, color='black', alpha=0.5)
 
-        if descriptor.name in ['missed cleavages', 'charge states', 'potential modifications', 'isotopes mass difference, Da']:
-            plt.xticks(range(1, 6))
+        if any(descriptor.name.startswith(clabel) for clabel in ['missed cleavages', 'charge states', 'potential modifications', 'isotopes mass difference, Da']):
+            ax.set_xticks(np.arange(0.5, 5.5, 1.0))
+            fig.canvas.draw()
+            labels = [item.get_text() for item in ax.get_xticklabels()]
+            ax.set_xticklabels([int(float(l)) for l in labels])
         ax.set_xlabel(descriptor.name)
         if peptides.settings.get('options', 'files') == 'union':
             fname = 'union'
