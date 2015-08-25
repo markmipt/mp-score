@@ -313,7 +313,7 @@ def handle(q, q_output, settings, protsL):
             curfile = filenames[-1]['.pep']
             if descriptors:
                 descriptors = prepare_hist(descriptors, copy_peptides, first=False)
-                fig = plot_histograms(descriptors, peptides, FDR, curfile)
+                fig = plot_histograms(descriptors, peptides, FDR, curfile, savesvg=settings.getboolean('advanced options', 'saveSVG'))
 
                 if len(copy_peptides.peptideslist) > 100:
                     jk = manager.dict()
@@ -672,7 +672,7 @@ def PSMs_info(peptides, valid_proteins, settings, printresults=True, tofile=Fals
         print '\n'
     return (len([1 for x in peptides.peptideslist if x.note2 == 'tr']), len(set(p.sequence for p in peptides.peptideslist)), len([v for v in prots.values() if v['Peptides'] > 1]))
 
-def plot_histograms(descriptors, peptides, FDR, curfile):
+def plot_histograms(descriptors, peptides, FDR, curfile, savesvg=False):
     # fig = plt.figure(figsize=(16, 12))
     # ox, oy = find_optimal_xy(descriptors)
     copy_peptides, _, _ = peptides.filter_evalue_new(FDR=FDR, useMP=False)
@@ -739,6 +739,8 @@ def plot_histograms(descriptors, peptides, FDR, curfile):
         plt.gcf().subplots_adjust(bottom=0.15)
         fig.tight_layout()
         plt.savefig('%s/%s_%s.png' % (path.dirname(path.realpath(curfile)), fname, descriptor.name))
+        if savesvg:
+            plt.savefig('%s/%s_%s.svg' % (path.dirname(path.realpath(curfile)), fname, descriptor.name))
     return 0
 
 
@@ -760,6 +762,8 @@ def plot_quantiation(prots, curfile, settings):
         plt.gcf().subplots_adjust(bottom=0.15)
         fig.tight_layout()
         plt.savefig('%s/%s_%s.png' % (path.dirname(path.realpath(curfile)), fname, idx))
+        if settings.getboolean('advanced options', 'saveSVG'):
+            plt.savefig('%s/%s_%s.svg' % (path.dirname(path.realpath(curfile)), fname, idx))
 
 
 def plot_MP(descriptors, peptides, fig, FDR, FDR2, valid_proteins, settings, threshold0=False, curfile=False):
@@ -806,6 +810,8 @@ def plot_MP(descriptors, peptides, fig, FDR, FDR2, valid_proteins, settings, thr
     plt.gcf().subplots_adjust(bottom=0.15)
     fig.tight_layout()
     plt.savefig('%s/%s_%s.png' % (path.dirname(path.realpath(curfile)), fname, 'scores'))
+    if settings.getboolean('advanced options', 'saveSVG'):
+        plt.savefig('%s/%s_%s.svg' % (path.dirname(path.realpath(curfile)), fname, 'scores'))
 
 def prepare_hist(descriptors, copy_peptides, first=False):
     for descriptor in descriptors:
