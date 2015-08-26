@@ -735,6 +735,10 @@ def plot_histograms(descriptors, peptides, FDR, curfile, savesvg=False):
             fname = 'union'
         else:
             fname = path.splitext(path.splitext(path.basename(curfile))[0])[0]
+        if descriptor.group == 'A':
+            ax.set_ylabel('# of identifications')
+        else:
+            ax.set_ylabel('Log(# of identifications)')
 
         plt.gcf().subplots_adjust(bottom=0.15)
         fig.tight_layout()
@@ -754,6 +758,7 @@ def plot_quantiation(prots, curfile, settings):
         fig.set_size_inches(300.0/float(DPI), 300.0/float(DPI))
         plt.hist(dots, bins = 10, alpha=0.5, color='b')
         ax.set_xlabel('LOG10(%s)' % (idx, ))
+        ax.set_ylabel('Number of proteins')
         plt.locator_params(axis='x', nbins=4)
         if settings.get('options', 'files') == 'union':
             fname = 'union'
