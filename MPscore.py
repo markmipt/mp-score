@@ -1,4 +1,4 @@
-from MPlib import PeptideList, Descriptor, get_settings, filter_evalue_prots
+from MPlib import PeptideList, Descriptor, get_settings, filter_evalue_prots, FDbinSize
 from sys import argv
 import matplotlib
 matplotlib.use('Agg')
@@ -605,6 +605,7 @@ def PSMs_info(peptides, valid_proteins, settings, printresults=True, tofile=Fals
             fname = path.splitext(path.splitext(path.basename(curfile))[0])[0]
 
         plot_quantiation(prots, curfile, peptides.settings)
+        plot_useful_histograms(peptides, curfile, savesvg=settings.getboolean('advanced options', 'saveSVG'))
 
         output_proteins = open('%s/%s_proteins.csv' % (ffolder, fname), 'w')
         output_proteins.write('dbname\tdescription\tPSMs\tpeptides\tsequence coverage\tlabel-free quantitation(SIn)\tlabel-free quantitation(NSAF)\tLFQ(emPAI)\tprotein LN(e-value)\tall proteins\n')
@@ -671,6 +672,40 @@ def PSMs_info(peptides, valid_proteins, settings, printresults=True, tofile=Fals
             print 'Real FDR = %s' % (100 * float(len([1 for x in peptides.peptideslist if not x.note3])) / len(peptides.peptideslist) )
         print '\n'
     return (len([1 for x in peptides.peptideslist if x.note2 == 'tr']), len(set(p.sequence for p in peptides.peptideslist)), len([v for v in prots.values() if v['Peptides'] > 1]))
+
+def plot_useful_histograms(peptides, curfile, savesvg=False):
+    formulas = [
+        (lambda peptide: peptide.RT_exp, 'RT experimental', 'RT experimental, min'),
+        (lambda peptide: peptide.mz, 'precursor mass', 'precursor m/z'),
+        (lambda peptide: len(peptide.sequence), 'peptide length', 'peptide length')
+    ]
+    for form in formulas:
+        array_valid = [form[0](peptide) for peptide in peptides.peptideslist if peptide.note2 == 'tr']
+        plt.clf()
+        fig = plt.figure()
+        DPI = fig.get_dpi()
+        fig.set_size_inches(300.0/float(DPI), 300.0/float(DPI))
+        ax = fig.add_subplot(1, 1, 1)
+        lbin = min(array_valid)
+        rbin = max(array_valid)
+        binsize = FDbinSize(array_valid)
+        H1, _ = np.histogram(array_valid, bins=np.arange(lbin, rbin, binsize))
+        ind = np.arange(lbin, rbin - (1 + 1e-15) * binsize, binsize)
+        width = binsize
+        plt.bar(ind, H1, width, color='red', alpha=0.5)
+        ax.set_ylabel('# of identifications')
+        ax.set_xlabel(form[2])
+        plt.gcf().subplots_adjust(bottom=0.15)
+        fig.tight_layout()
+
+        if peptides.settings.get('options', 'files') == 'union':
+            fname = 'union'
+        else:
+            fname = path.splitext(path.splitext(path.basename(curfile))[0])[0]
+
+        plt.savefig('%s/%s_%s.png' % (path.dirname(path.realpath(curfile)), fname, form[1]))
+        if savesvg:
+            plt.savefig('%s/%s_%s.svg' % (path.dirname(path.realpath(curfile)), fname, form[1]))
 
 def plot_histograms(descriptors, peptides, FDR, curfile, savesvg=False):
     # fig = plt.figure(figsize=(16, 12))
