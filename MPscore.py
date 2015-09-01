@@ -628,10 +628,10 @@ def PSMs_info(peptides, valid_proteins, settings, printresults=True, tofile=Fals
             if any(protein.dbname in prots for protein in peptide.parentproteins):
                 output_PSMs.write('%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t' % (peptide.sequence, peptide.modified_sequence, peptide.mz, peptide.mass_diff(), peptide.mc, peptide.evalue, peptide.peptscore, peptide.RT_exp, peptide.spectrum))
                 for protein in peptide.parentproteins:
-                    output_PSMs.write('%s; ' % (protein.dbname, ))
+                    output_PSMs.write('%s;' % (protein.dbname, ))
                 output_PSMs.write('\t')
                 for protein in peptide.parentproteins:
-                    output_PSMs.write('%s; ' % (protein.description, ))
+                    output_PSMs.write('%s;' % (protein.description, ))
                 output_PSMs.write('\t%s\n' % (peptide.sumI, ))
 
         peptides_best = dict()
@@ -649,10 +649,10 @@ def PSMs_info(peptides, valid_proteins, settings, printresults=True, tofile=Fals
                 if any(protein.dbname in prots for protein in peptide.parentproteins):
                     output_peptides_detailed.write('%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t' % (peptide.sequence, peptide.modified_sequence, peptide.mz, peptide.mc, peptide.evalue, peptide.peptscore, peptide.RT_exp, peptide.spectrum))
                     for protein in peptide.parentproteins:
-                        output_peptides_detailed.write('%s; ' % (protein.dbname, ))
+                        output_peptides_detailed.write('%s;' % (protein.dbname, ))
                     output_peptides_detailed.write('\t')
                     for protein in peptide.parentproteins:
-                        output_peptides_detailed.write('%s; ' % (protein.description, ))
+                        output_peptides_detailed.write('%s;' % (protein.description, ))
                     output_peptides_detailed.write('\t%s\n' % (peptide.sumI, ))
         if protsC:
             temp_sum = sum([x[0] for x in temp_data])
