@@ -15,6 +15,7 @@ from copy import copy
 from collections import defaultdict
 try:
     import seaborn
+    seaborn.set(rc={'axes.facecolor':'#eeeeff'})
 except:
     pass
 
@@ -680,6 +681,7 @@ def plot_useful_histograms(peptides, curfile, savesvg=False):
         (lambda peptide: len(peptide.sequence), 'peptide length', 'peptide length')
     ]
     for form in formulas:
+        print form[2]
         array_valid = [form[0](peptide) for peptide in peptides.peptideslist if peptide.note2 == 'tr']
         plt.clf()
         fig = plt.figure()
@@ -688,16 +690,18 @@ def plot_useful_histograms(peptides, curfile, savesvg=False):
         ax = fig.add_subplot(1, 1, 1)
         lbin = min(array_valid)
         rbin = max(array_valid)
-        binsize = FDbinSize(array_valid)
-        H1, _ = np.histogram(array_valid, bins=np.arange(lbin, rbin, binsize))
-        ind = np.arange(lbin, rbin - (1 + 1e-15) * binsize, binsize)
+        if form[2]=='peptide length':
+            binsize = 1
+            lbin = lbin-0.5
+        else: binsize = FDbinSize(array_valid)
+        H1, _ = np.histogram(array_valid, bins=np.arange(lbin, rbin+binsize, binsize))
+        ind = np.arange(lbin, rbin, binsize)
         width = binsize
-        plt.bar(ind, H1, width, color='red', alpha=0.5)
+        plt.bar(ind, H1, width, color='#AE0066', alpha=0.8)
         ax.set_ylabel('# of identifications')
         ax.set_xlabel(form[2])
-        plt.gcf().subplots_adjust(bottom=0.15)
-        fig.tight_layout()
-
+        plt.gcf().subplots_adjust(bottom=0.15, left=0.2, top=0.9, right=0.9)
+        
         if peptides.settings.get('options', 'files') == 'union':
             fname = 'union'
         else:
@@ -738,12 +742,12 @@ def plot_histograms(descriptors, peptides, FDR, curfile, savesvg=False):
         if rbin_s and abs((rbin - rbin_s) / rbin_s) > 1.0:
             rbin = rbin_s * 1.05
         rbin += 1.5 * binsize
-        H1, _ = np.histogram(array_wrong, bins=np.arange(lbin, rbin, binsize))
-        H2, _ = np.histogram(array_valid, bins=np.arange(lbin, rbin, binsize))
+        H1, _ = np.histogram(array_wrong, bins=np.arange(lbin, rbin+binsize, binsize))
+        H2, _ = np.histogram(array_valid, bins=np.arange(lbin, rbin+binsize, binsize))
         if descriptor.group == 'B':
-            H3, _ = np.histogram([np.log10(descriptor.formula(peptide)) for peptide in copy_peptides.peptideslist], bins=np.arange(lbin, rbin, binsize))
+            H3, _ = np.histogram([np.log10(descriptor.formula(peptide)) for peptide in copy_peptides.peptideslist], bins=np.arange(lbin, rbin+binsize, binsize))
         else:
-            H3, _ = np.histogram([descriptor.formula(peptide) for peptide in copy_peptides.peptideslist], bins=np.arange(lbin, rbin, binsize))
+            H3, _ = np.histogram([descriptor.formula(peptide) for peptide in copy_peptides.peptideslist], bins=np.arange(lbin, rbin+binsize, binsize))
 
         if descriptor.name in ['precursor mass difference, ppm']:
             print 'MEDIAN precursor mass difference of top PSMs=%s ppm' % (np.median([descriptor.formula(peptide) for peptide in copy_peptides.peptideslist]), )
@@ -754,18 +758,21 @@ def plot_histograms(descriptors, peptides, FDR, curfile, savesvg=False):
             H1 = np.log10(H1)
             H2 = np.log10(H2)
             H3 = np.log10(H3)
-        ind = np.arange(lbin, rbin - (1 + 1e-15) * binsize, binsize)
+        ind = np.arange(lbin, rbin+binsize, binsize)
         width = binsize
-        plt.bar(ind, H1, width, color='red', alpha=0.5)
-        plt.bar(ind, H2, width, color='green', alpha=0.5)
-        plt.bar(ind, H3, width, color='black', alpha=0.5)
-
+        plt.bar(ind[:-1], H1, width, color='#AE0066', alpha=0.5)
+        plt.bar(ind[:-1], H2, width, color='#000099', alpha=0.5)
+        plt.bar(ind[:-1], H3, width, color='#007E08', alpha=1)
+        plt.step(ind, np.append(0,H2), color='#000099')
+        plt.step(ind, np.append(0,H1), color='#AE0066')
         if any(descriptor.name.startswith(clabel) for clabel in ['missed cleavages', 'charge states', 'potential modifications', 'isotopes mass difference, Da']):
             ax.set_xticks(np.arange(0.5, 5.5, 1.0))
             fig.canvas.draw()
             labels = [item.get_text() for item in ax.get_xticklabels()]
             ax.set_xticklabels([int(float(l)) for l in labels])
-        ax.set_xlabel(descriptor.name)
+        if descriptor.name.startswith('PSM count'): ax.set_xlabel('log(PSMs per peptide)')
+        elif descriptor.name.startswith('PSMs per protein'): ax.set_xlabel('log(PSMs per protein)')
+        else: ax.set_xlabel(descriptor.name)
         if peptides.settings.get('options', 'files') == 'union':
             fname = 'union'
         else:
@@ -775,8 +782,7 @@ def plot_histograms(descriptors, peptides, FDR, curfile, savesvg=False):
         else:
             ax.set_ylabel('Log(# of identifications)')
 
-        plt.gcf().subplots_adjust(bottom=0.15)
-        fig.tight_layout()
+        plt.gcf().subplots_adjust(bottom=0.15, left=0.2, top=0.9, right=0.9)
         plt.savefig('%s/%s_%s.png' % (path.dirname(path.realpath(curfile)), fname, descriptor.name))
         if savesvg:
             plt.savefig('%s/%s_%s.svg' % (path.dirname(path.realpath(curfile)), fname, descriptor.name))
@@ -791,7 +797,7 @@ def plot_quantiation(prots, curfile, settings):
         ax = fig.add_subplot(1, 1, 1)
         DPI = fig.get_dpi()
         fig.set_size_inches(300.0/float(DPI), 300.0/float(DPI))
-        plt.hist(dots, bins = 10, alpha=0.5, color='b')
+        plt.hist(dots, bins = 10, alpha=0.8, color='#000099')
         ax.set_xlabel('LOG10(%s)' % (idx, ))
         ax.set_ylabel('Number of proteins')
         plt.locator_params(axis='x', nbins=4)
@@ -799,8 +805,7 @@ def plot_quantiation(prots, curfile, settings):
             fname = 'union'
         else:
             fname = path.splitext(path.splitext(path.basename(curfile))[0])[0]
-        plt.gcf().subplots_adjust(bottom=0.15)
-        fig.tight_layout()
+        plt.gcf().subplots_adjust(bottom=0.15, left=0.2, top=0.9, right=0.9)
         plt.savefig('%s/%s_%s.png' % (path.dirname(path.realpath(curfile)), fname, idx))
         if settings.getboolean('advanced options', 'saveSVG'):
             plt.savefig('%s/%s_%s.svg' % (path.dirname(path.realpath(curfile)), fname, idx))
@@ -832,14 +837,14 @@ def plot_MP(descriptors, peptides, fig, FDR, FDR2, valid_proteins, settings, thr
     fig.set_size_inches(300.0/float(DPI), 300.0/float(DPI))
 
     ax = fig.add_subplot(1, 1, 1)
-    ax.plot([x[0] for x in PSMs_wrong], [x[1] for x in PSMs_wrong], 'o', markersize=2, color='red')
-    ax.plot([x[0] for x in PSMs_true], [x[1] for x in PSMs_true], 'o', markersize=2, color='blue')
-    ax.axvline(threshold1, color='green')
+    ax.plot([x[0] for x in PSMs_wrong], [x[1] for x in PSMs_wrong], 'o', markersize=2, color='#AE0066')
+    ax.plot([x[0] for x in PSMs_true], [x[1] for x in PSMs_true], 'o', markersize=2, color='#000099')
+    ax.axvline(threshold1, color='g')
     if threshold2:
-        ax.axhline(threshold2, color='green')
+        ax.axhline(threshold2, color='g')
     if threshold0:
         threshold0 = -np.log(threshold0)
-        ax.axvline(threshold0, color='red')
+        ax.axvline(threshold0, color='#AE0066')
     ax.set_ylim(min(x[1] for x in PSMs_true) - 1, max(x[1] for x in PSMs_true) + 1)
     if peptides.settings.get('options', 'files') == 'union':
         fname = 'union'
@@ -847,8 +852,7 @@ def plot_MP(descriptors, peptides, fig, FDR, FDR2, valid_proteins, settings, thr
         fname = path.splitext(path.splitext(path.basename(curfile))[0])[0]
     ax.set_xlabel('-LOG(evalue)')
     ax.set_ylabel('LOG(MPscore)')
-    plt.gcf().subplots_adjust(bottom=0.15)
-    fig.tight_layout()
+    plt.gcf().subplots_adjust(bottom=0.15, left=0.2, top=0.9, right=0.9)
     plt.savefig('%s/%s_%s.png' % (path.dirname(path.realpath(curfile)), fname, 'scores'))
     if settings.getboolean('advanced options', 'saveSVG'):
         plt.savefig('%s/%s_%s.svg' % (path.dirname(path.realpath(curfile)), fname, 'scores'))
