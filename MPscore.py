@@ -536,9 +536,9 @@ def PSMs_info(peptides, valid_proteins, settings, printresults=True, tofile=Fals
         if n == 1:
             return np.log10(es[0])
         expect = sum([np.log10(x) for x in es])
-        beta = float(N) / T
-        expect += sum([np.log10((s - i) / (n - i)) for i in range(n)])
-        expect += n * np.log10(beta) + (s - n) * np.log10(1 - beta) - np.log10(s) - (n - 1) * np.log10(N)
+#        beta = float(N) / T
+#        expect += sum([np.log10((s - i) / (n - i)) for i in range(n)])
+#        expect += n * np.log10(beta) + (s - n) * np.log10(1 - beta) - np.log10(s) - (n - 1) * np.log10(N)
         return expect
 
     for k in prots:
