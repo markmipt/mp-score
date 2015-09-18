@@ -955,6 +955,10 @@ def main(argv_in, union_custom=False):
         settings = get_settings(configfile)
     else:
         settings = get_settings('default.cfg')
+    try:
+        settings.getboolean('advanced options', 'saveSVG')
+    except:
+        settings.set('advanced options', 'saveSVG', '0')
     if union_custom:
         settings.set('options', 'files', 'union')
 
