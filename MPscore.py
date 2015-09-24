@@ -138,7 +138,7 @@ def handle(q, q_output, settings, protsL):
                         if not qpeptides.total_number_of_spectra:
                             qpeptides.total_number_of_spectra = len(spectra_dict)
                     if not spectra_dict:
-                        qpeptides.settings.set('descriptors', 'fragment mass tolerance, Da', 0)
+                        qpeptides.settings.set('descriptors', 'fragment mass tolerance, Da', '0')
                         print 'fragment mass tolerance was turned off due to missed mgf file'
                     if qpeptides.settings.getboolean('descriptors', 'fragment mass tolerance, Da'):
                         for peptide in qpeptides.peptideslist:
@@ -314,7 +314,7 @@ def handle(q, q_output, settings, protsL):
             curfile = filenames[-1]['.pep']
             if descriptors:
                 descriptors = prepare_hist(descriptors, copy_peptides, first=False)
-                fig = plot_histograms(descriptors, peptides, FDR, curfile, savesvg=settings.getboolean('advanced options', 'saveSVG'))
+                fig = plot_histograms(descriptors, peptides, FDR, curfile, savesvg=settings.getboolean('advanced options', 'saveSVG'), sepfigures=settings.getboolean('advanced options', 'separatefigures'))
 
                 if len(copy_peptides.peptideslist) > 100:
                     jk = manager.dict()
@@ -417,12 +417,14 @@ def handle(q, q_output, settings, protsL):
                 plot_MP(descriptors, peptides, fig, FDR, FDR_new, valid_proteins, settings, threshold0, curfile)
             else:
                 fig = plt.figure(figsize=(16, 12))
+                DPI = fig.get_dpi()
+                fig.set_size_inches(300.0/float(DPI), 300.0/float(DPI))
                 plot_MP(descriptors, peptides, fig, FDR, 0, valid_proteins, settings, threshold0, curfile)
 
 
 def find_optimal_xy(descriptors):
     x, y = 1, 1
-    while x * y < len(descriptors) + 1:
+    while x * y < len(descriptors) + 7:
         if x > y:
             y += 1
         else:
@@ -451,7 +453,7 @@ def calc_emPAI(prots, protsN):
     return prots
 
 
-def PSMs_info(peptides, valid_proteins, settings, printresults=True, tofile=False, curfile=False, loop=True):
+def PSMs_info(peptides, valid_proteins, settings, fig=False, printresults=True, tofile=False, curfile=False, loop=True, ox=False, oy=False):
     def keywithmaxval(d):
         #this method is much faster than using max(prots.iterkeys(), key=(lambda key: prots[key]))
         v=list(d.values())
@@ -605,8 +607,8 @@ def PSMs_info(peptides, valid_proteins, settings, printresults=True, tofile=Fals
         else:
             fname = path.splitext(path.splitext(path.basename(curfile))[0])[0]
 
-        plot_quantiation(prots, curfile, peptides.settings)
-        plot_useful_histograms(peptides, curfile, savesvg=settings.getboolean('advanced options', 'saveSVG'))
+        fig = plot_quantiation(prots, curfile, peptides.settings, fig, separatefigs=settings.getboolean('advanced options', 'separatefigures'), ox=ox, oy=oy)
+        fig = plot_useful_histograms(peptides, curfile, fig, separatefigs=settings.getboolean('advanced options', 'separatefigures'), savesvg=settings.getboolean('advanced options', 'saveSVG'), ox=ox, oy=oy)
 
         output_proteins = open('%s/%s_proteins.csv' % (ffolder, fname), 'w')
         output_proteins.write('dbname\tdescription\tPSMs\tpeptides\tsequence coverage\tLFQ(SIn)\tLFQ(NSAF)\tLFQ(emPAI)\tprotein LN(e-value)\tall proteins\n')
@@ -674,20 +676,23 @@ def PSMs_info(peptides, valid_proteins, settings, printresults=True, tofile=Fals
         print '\n'
     return (len([1 for x in peptides.peptideslist if x.note2 == 'tr']), len(set(p.sequence for p in peptides.peptideslist)), len([v for v in prots.values() if v['Peptides'] > 1]))
 
-def plot_useful_histograms(peptides, curfile, savesvg=False):
+def plot_useful_histograms(peptides, curfile, fig, separatefigs=False, savesvg=False, ox=False, oy=False):
     formulas = [
         (lambda peptide: peptide.RT_exp, 'RT experimental', 'RT experimental, min'),
         (lambda peptide: peptide.mz, 'precursor mass', 'precursor m/z'),
         (lambda peptide: len(peptide.sequence), 'peptide length', 'peptide length')
     ]
-    for form in formulas:
+    for idx, form in enumerate(formulas):
         print form[2]
         array_valid = [form[0](peptide) for peptide in peptides.peptideslist if peptide.note2 == 'tr']
-        plt.clf()
-        fig = plt.figure()
-        DPI = fig.get_dpi()
-        fig.set_size_inches(300.0/float(DPI), 300.0/float(DPI))
-        ax = fig.add_subplot(1, 1, 1)
+        if separatefigs:
+            plt.clf()
+            fig = plt.figure()
+            DPI = fig.get_dpi()
+            fig.set_size_inches(300.0/float(DPI), 300.0/float(DPI))
+            ax = fig.add_subplot(1, 1, 1)
+        else:
+            ax = fig.add_subplot(ox, oy, idx+1)
         lbin = min(array_valid)
         rbin = max(array_valid)
         if form[2]=='peptide length':
@@ -697,37 +702,45 @@ def plot_useful_histograms(peptides, curfile, savesvg=False):
         H1, _ = np.histogram(array_valid, bins=np.arange(lbin, rbin+binsize, binsize))
         ind = np.arange(lbin, rbin, binsize)
         width = binsize
-        plt.bar(ind, H1, width, color='#AE0066', alpha=0.8)
+        ax.bar(ind, H1, width, color='#AE0066', alpha=0.8)
         ax.set_ylabel('# of identifications')
         ax.set_xlabel(form[2])
         
         from matplotlib.ticker import MaxNLocator
         ax.get_xaxis().set_major_locator(MaxNLocator(nbins=6))
 
-        plt.gcf().subplots_adjust(bottom=0.15, left=0.2, top=0.95, right=0.9)
-        
-        if peptides.settings.get('options', 'files') == 'union':
-            fname = 'union'
-        else:
-            fname = path.splitext(path.splitext(path.basename(curfile))[0])[0]
+        if separatefigs:
+            plt.gcf().subplots_adjust(bottom=0.15, left=0.2, top=0.95, right=0.9)
 
-        plt.savefig('%s/%s_%s.png' % (path.dirname(path.realpath(curfile)), fname, form[1]))
-        if savesvg:
-            plt.savefig('%s/%s_%s.svg' % (path.dirname(path.realpath(curfile)), fname, form[1]))
+            if peptides.settings.get('options', 'files') == 'union':
+                fname = 'union'
+            else:
+                fname = path.splitext(path.splitext(path.basename(curfile))[0])[0]
 
-def plot_histograms(descriptors, peptides, FDR, curfile, savesvg=False):
-    # fig = plt.figure(figsize=(16, 12))
-    # ox, oy = find_optimal_xy(descriptors)
+            plt.savefig('%s/%s_%s.png' % (path.dirname(path.realpath(curfile)), fname, form[1]))
+            if savesvg:
+                plt.savefig('%s/%s_%s.svg' % (path.dirname(path.realpath(curfile)), fname, form[1]))
+    return fig
+
+
+def plot_histograms(descriptors, peptides, FDR, curfile, savesvg=False, sepfigures=False):
+    if not sepfigures:
+        fig = plt.figure(figsize=(16, 12))
+        ox, oy = find_optimal_xy(descriptors)
+        DPI = fig.get_dpi()
+        fig.set_size_inches(2000.0/float(DPI), 2000.0/float(DPI))
     copy_peptides, _, _ = peptides.filter_evalue_new(FDR=FDR, useMP=False)
 
     for idx, descriptor in enumerate(descriptors):
-        plt.clf()
-        fig = plt.figure()
-        DPI = fig.get_dpi()
-        fig.set_size_inches(300.0/float(DPI), 300.0/float(DPI))
+        if sepfigures:
+            plt.clf()
+            fig = plt.figure()
+            DPI = fig.get_dpi()
+            fig.set_size_inches(300.0/float(DPI), 300.0/float(DPI))
+            ax = fig.add_subplot(1, 1, 1)
+        else:
         # fig = plt.figure()
-        # ax = fig.add_subplot(ox, oy, idx + 1)
-        ax = fig.add_subplot(1, 1, 1)
+            ax = fig.add_subplot(ox, oy, idx + 7)
         array_wrong = [descriptor.formula(peptide) for peptide in peptides.peptideslist if peptide.note2 == 'wr']
         array_valid = [descriptor.formula(peptide) for peptide in peptides.peptideslist if peptide.note2 == 'tr']
 
@@ -770,17 +783,17 @@ def plot_histograms(descriptors, peptides, FDR, curfile, savesvg=False):
             H2=np.append(H2[0],np.append(0,H2[1:]))
             H3=np.append(H3[0],np.append(0,H3[1:]))
         if len(ind)>50: 
-            plt.bar(ind[:-1], H1, width, color='#AE0066', alpha=0.4, edgecolor='#AE0066')
-            plt.bar(ind[:-1], H2, width, color='#000099', alpha=0.4, edgecolor='#000099')
-            plt.bar(ind[:-1], H3, width, color='#007E08', alpha=1, edgecolor='#007E08')
-            plt.step(ind, np.append(0,H2), color='#000099',alpha=0.8)
-            plt.step(ind, np.append(0,H1), color='#AE0066',alpha=0.8)
+            ax.bar(ind[:-1], H1, width, color='#AE0066', alpha=0.4, edgecolor='#AE0066')
+            ax.bar(ind[:-1], H2, width, color='#000099', alpha=0.4, edgecolor='#000099')
+            ax.bar(ind[:-1], H3, width, color='#007E08', alpha=1, edgecolor='#007E08')
+            ax.step(ind, np.append(0,H2), color='#000099',alpha=0.8)
+            ax.step(ind, np.append(0,H1), color='#AE0066',alpha=0.8)
         else:
-            plt.bar(ind[:-1], H1, width, color='#AE0066', alpha=0.4)
-            plt.bar(ind[:-1], H2, width, color='#000099', alpha=0.4)
-            plt.bar(ind[:-1], H3, width, color='#007E08', alpha=1)
-            plt.step(ind, np.append(0,H2), color='#000099',alpha=0.8)
-            plt.step(ind, np.append(0,H1), color='#AE0066',alpha=0.8)
+            ax.bar(ind[:-1], H1, width, color='#AE0066', alpha=0.4)
+            ax.bar(ind[:-1], H2, width, color='#000099', alpha=0.4)
+            ax.bar(ind[:-1], H3, width, color='#007E08', alpha=1)
+            ax.step(ind, np.append(0,H2), color='#000099',alpha=0.8)
+            ax.step(ind, np.append(0,H1), color='#AE0066',alpha=0.8)
         if any(descriptor.name.startswith(clabel) for clabel in ['missed cleavages', 'charge states', 'isotopes mass difference, Da']):
             ax.set_xticks(np.arange(0.5, 5.5, 1.0))
             fig.canvas.draw()
@@ -806,38 +819,44 @@ def plot_histograms(descriptors, peptides, FDR, curfile, savesvg=False):
             ax.set_ylabel('# of identifications')
         else:
             ax.set_ylabel('Log(# of identifications)')
+        if sepfigures:
+            plt.gcf().subplots_adjust(bottom=0.15, left=0.2, top=0.95, right=0.9)
+            plt.savefig('%s/%s_%s.png' % (path.dirname(path.realpath(curfile)), fname, descriptor.name))
+            if savesvg:
+                plt.savefig('%s/%s_%s.svg' % (path.dirname(path.realpath(curfile)), fname, descriptor.name))
+    return fig
 
-        plt.gcf().subplots_adjust(bottom=0.15, left=0.2, top=0.95, right=0.9)
-        plt.savefig('%s/%s_%s.png' % (path.dirname(path.realpath(curfile)), fname, descriptor.name))
-        if savesvg:
-            plt.savefig('%s/%s_%s.svg' % (path.dirname(path.realpath(curfile)), fname, descriptor.name))
-    return 0
 
-
-def plot_quantiation(prots, curfile, settings):
-    for idx in ['sumI', 'NSAF', 'emPAI']:
+def plot_quantiation(prots, curfile, settings, fig, separatefigs, ox, oy):
+    for i, idx in enumerate(['sumI', 'NSAF', 'emPAI']):
         dots = [np.log10(v[idx]) for v in prots.itervalues()]
-        plt.clf()
-        fig = plt.figure()
-        ax = fig.add_subplot(1, 1, 1)
-        DPI = fig.get_dpi()
-        fig.set_size_inches(300.0/float(DPI), 300.0/float(DPI))
-        plt.hist(dots, bins = 10, alpha=0.8, color='#000099')
+        if separatefigs:
+            plt.clf()
+            fig = plt.figure()
+            ax = fig.add_subplot(1, 1, 1)
+            DPI = fig.get_dpi()
+            fig.set_size_inches(300.0/float(DPI), 300.0/float(DPI))
+        else:
+            ax = fig.add_subplot(ox, oy, i+4)
+        ax.hist(dots, bins = 10, alpha=0.8, color='#000099')
         ax.set_xlabel('LOG10(%s)' % (idx, ))
         ax.set_ylabel('Number of proteins')
-        plt.locator_params(axis='x', nbins=4)
+        ax.locator_params(axis='x', nbins=4)
         if settings.get('options', 'files') == 'union':
             fname = 'union'
         else:
             fname = path.splitext(path.splitext(path.basename(curfile))[0])[0]
-        plt.gcf().subplots_adjust(bottom=0.15, left=0.2, top=0.95, right=0.9)
-        plt.savefig('%s/%s_%s.png' % (path.dirname(path.realpath(curfile)), fname, idx))
-        if settings.getboolean('advanced options', 'saveSVG'):
-            plt.savefig('%s/%s_%s.svg' % (path.dirname(path.realpath(curfile)), fname, idx))
+        if separatefigs:
+            plt.gcf().subplots_adjust(bottom=0.15, left=0.2, top=0.95, right=0.9)
+            plt.savefig('%s/%s_%s.png' % (path.dirname(path.realpath(curfile)), fname, idx))
+            if settings.getboolean('advanced options', 'saveSVG'):
+                plt.savefig('%s/%s_%s.svg' % (path.dirname(path.realpath(curfile)), fname, idx))
+    return fig
 
 
 def plot_MP(descriptors, peptides, fig, FDR, FDR2, valid_proteins, settings, threshold0=False, curfile=False):
-    # ox, oy = find_optimal_xy(descriptors)
+    ox, oy = find_optimal_xy(descriptors)
+    sepfigures = settings.getboolean('advanced options', 'separatefigures')
     copy_peptides, threshold1, threshold2 = peptides.filter_evalue_new(FDR=FDR, FDR2=FDR2, useMP=True, drop_decoy=False)
 
     threshold1 = -np.log(threshold1)
@@ -852,16 +871,18 @@ def plot_MP(descriptors, peptides, fig, FDR, FDR2, valid_proteins, settings, thr
     PSMs_true = [[(-np.log(pept.evalue) if pept.evalue != 0 else zero_evalue), (np.log(pept.peptscore) if pept.peptscore != 0 else zero_peptscore)] for pept in peptides.peptideslist if pept.note2 == 'tr']
 
     print 'MP filtering:'
-    PSMs_info(copy_peptides, valid_proteins, settings, tofile=True, curfile=curfile)
+    PSMs_info(copy_peptides, valid_proteins, settings, fig=fig, tofile=True, curfile=curfile, ox=ox, oy=oy)
     print 'Without filtering, after removing outliers:'
     PSMs_info(peptides, valid_proteins, settings, loop=False)
 
-    plt.clf()
-    fig = plt.figure()
-    DPI = fig.get_dpi()
-    fig.set_size_inches(300.0/float(DPI), 300.0/float(DPI))
-
-    ax = fig.add_subplot(1, 1, 1)
+    if sepfigures:
+        plt.clf()
+        fig = plt.figure()
+        DPI = fig.get_dpi()
+        fig.set_size_inches(300.0/float(DPI), 300.0/float(DPI))
+        ax = fig.add_subplot(1, 1, 1)
+    else:
+        ax = fig.add_subplot(ox, oy, ox*oy)
     ax.plot([x[0] for x in PSMs_wrong], [x[1] for x in PSMs_wrong], 'o', markersize=2, color='#AE0066')
     ax.plot([x[0] for x in PSMs_true], [x[1] for x in PSMs_true], 'o', markersize=2, color='#000099')
     ax.axvline(threshold1, color='g')
@@ -877,10 +898,17 @@ def plot_MP(descriptors, peptides, fig, FDR, FDR2, valid_proteins, settings, thr
         fname = path.splitext(path.splitext(path.basename(curfile))[0])[0]
     ax.set_xlabel('-LOG(evalue)')
     ax.set_ylabel('LOG(MPscore)')
-    plt.gcf().subplots_adjust(bottom=0.15, left=0.2, top=0.95, right=0.9)
-    plt.savefig('%s/%s_%s.png' % (path.dirname(path.realpath(curfile)), fname, 'scores'))
-    if settings.getboolean('advanced options', 'saveSVG'):
-        plt.savefig('%s/%s_%s.svg' % (path.dirname(path.realpath(curfile)), fname, 'scores'))
+    if sepfigures:
+        plt.gcf().subplots_adjust(bottom=0.15, left=0.2, top=0.95, right=0.9)
+        plt.savefig('%s/%s_%s.png' % (path.dirname(path.realpath(curfile)), fname, 'scores'))
+        if settings.getboolean('advanced options', 'saveSVG'):
+            plt.savefig('%s/%s_%s.svg' % (path.dirname(path.realpath(curfile)), fname, 'scores'))
+    else:
+        plt.gcf().subplots_adjust(bottom=0.05, left=0.05, top=0.95, right=0.95)
+        plt.savefig('%s/%s.png' % (path.dirname(path.realpath(curfile)), fname))
+        if settings.getboolean('advanced options', 'saveSVG'):
+            plt.savefig('%s/%s.svg' % (path.dirname(path.realpath(curfile)), fname))
+
 
 def prepare_hist(descriptors, copy_peptides, first=False):
     for descriptor in descriptors:
@@ -984,6 +1012,10 @@ def main(argv_in, union_custom=False):
         settings.getboolean('advanced options', 'saveSVG')
     except:
         settings.set('advanced options', 'saveSVG', '0')
+    try:
+        settings.getboolean('advanced options', 'separatefigures')
+    except:
+        settings.set('advanced options', 'separatefigures', '0')
     if union_custom:
         settings.set('options', 'files', 'union')
 
