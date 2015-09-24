@@ -577,7 +577,10 @@ class Peptide:
             naa = self.modified_sequence.count(label[-1])
             nmods = self.modified_sequence.count(label)
         if naa:
-            return float(nmods) / naa
+            if nmods:
+                return 1
+            else:
+                return 0
         else:
             return -1.0
 
