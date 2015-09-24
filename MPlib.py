@@ -435,7 +435,7 @@ class PeptideList:
             for peptide in self.peptideslist:
                 if peptide.evalue >= best_cut_evalue:
                     tmp_peptides.append(peptide)
-            filtered_peptides = aux.filter(tmp_peptides, fdr=float(FDR)/100, key=mscore, is_decoy=isdecoy, remove_decoy=False, formula=1, full_output=True)
+            filtered_peptides = aux.filter(tmp_peptides, fdr=float(FDR2)/100, key=mscore, is_decoy=isdecoy, remove_decoy=False, formula=1, full_output=True)
             try:
                 best_cut_peptscore = min(float(p.peptscore) for p in filtered_peptides)
                 real_FDR = round(aux.fdr(filtered_peptides, is_decoy=isdecoy) * 100, 1)
