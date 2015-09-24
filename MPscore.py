@@ -271,7 +271,7 @@ def handle(q, q_output, settings, protsL):
                 labeldict = dict()
                 temp = settings.get('modifications', 'variable')
                 if temp:
-                    for mod in temp.split(', '):
+                    for mod in temp.replace(' ', '').split(','):
                         descriptors.append(Descriptor(name='%s, %s' % (dname, mod), formula=lambda peptide: peptide.count_modifications(mod), group='A', binsize='1'))
             dname = 'isotopes mass difference, Da'
             if peptides.settings.getboolean('descriptors', dname):
