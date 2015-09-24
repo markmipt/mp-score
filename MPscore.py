@@ -424,7 +424,7 @@ def handle(q, q_output, settings, protsL):
 
 def find_optimal_xy(descriptors):
     x, y = 1, 1
-    while x * y < len(descriptors) + 7:
+    while x * y < len(descriptors) + 10:
         if x > y:
             y += 1
         else:
@@ -678,13 +678,24 @@ def PSMs_info(peptides, valid_proteins, settings, fig=False, printresults=True, 
 
 def plot_useful_histograms(peptides, curfile, fig, separatefigs=False, savesvg=False, ox=False, oy=False):
     formulas = [
-        (lambda peptide: peptide.RT_exp, 'RT experimental', 'RT experimental, min'),
-        (lambda peptide: peptide.mz, 'precursor mass', 'precursor m/z'),
-        (lambda peptide: len(peptide.sequence), 'peptide length', 'peptide length')
+        (lambda peptide: peptide.RT_exp, 'RT experimental', 'PSMs, RT experimental, min'),
+        (lambda peptide: peptide.mz, 'precursor mass', 'PSMs, precursor m/z'),
+        (lambda peptide: len(peptide.sequence), 'peptide length', 'PSMs, peptide length'),
+        (lambda peptide: peptide.RT_exp, 'RT experimental, peptides', 'peptides, RT experimental, min'),
+        (lambda peptide: peptide.mz, 'precursor mass, peptides', 'peptides, precursor m/z'),
+        (lambda peptide: len(peptide.sequence), 'peptide length, peptides', 'peptides, peptide length')
     ]
+    tmp_dict = {}
+    for peptide in peptides.peptideslist:
+        if peptide.note2 == 'tr':
+            tmp_dict[peptide.sequence] = min(tmp_dict.get(peptide.sequence, 1e6), peptide.evalue)
+
     for idx, form in enumerate(formulas):
         print form[2]
-        array_valid = [form[0](peptide) for peptide in peptides.peptideslist if peptide.note2 == 'tr']
+        if form[1].endswith(', peptides'):
+            array_valid = [form[0](peptide) for peptide in peptides.peptideslist if peptide.evalue == tmp_dict.get(peptide.sequence, None)]
+        else:
+            array_valid = [form[0](peptide) for peptide in peptides.peptideslist if peptide.note2 == 'tr']
         if separatefigs:
             plt.clf()
             fig = plt.figure()
@@ -720,6 +731,7 @@ def plot_useful_histograms(peptides, curfile, fig, separatefigs=False, savesvg=F
             plt.savefig('%s/%s_%s.png' % (path.dirname(path.realpath(curfile)), fname, form[1]))
             if savesvg:
                 plt.savefig('%s/%s_%s.svg' % (path.dirname(path.realpath(curfile)), fname, form[1]))
+    del tmp_dict
     return fig
 
 
@@ -740,7 +752,7 @@ def plot_histograms(descriptors, peptides, FDR, curfile, savesvg=False, sepfigur
             ax = fig.add_subplot(1, 1, 1)
         else:
         # fig = plt.figure()
-            ax = fig.add_subplot(ox, oy, idx + 7)
+            ax = fig.add_subplot(ox, oy, idx + 10)
         array_wrong = [descriptor.formula(peptide) for peptide in peptides.peptideslist if peptide.note2 == 'wr']
         array_valid = [descriptor.formula(peptide) for peptide in peptides.peptideslist if peptide.note2 == 'tr']
 
@@ -837,7 +849,7 @@ def plot_quantiation(prots, curfile, settings, fig, separatefigs, ox, oy):
             DPI = fig.get_dpi()
             fig.set_size_inches(300.0/float(DPI), 300.0/float(DPI))
         else:
-            ax = fig.add_subplot(ox, oy, i+4)
+            ax = fig.add_subplot(ox, oy, i+7)
         ax.hist(dots, bins = 10, alpha=0.8, color='#000099')
         ax.set_xlabel('LOG10(%s)' % (idx, ))
         ax.set_ylabel('Number of proteins')
