@@ -418,7 +418,7 @@ def handle(q, q_output, settings, protsL):
             else:
                 fig = plt.figure(figsize=(16, 12))
                 DPI = fig.get_dpi()
-                fig.set_size_inches(300.0/float(DPI), 300.0/float(DPI))
+                fig.set_size_inches(2000.0/float(DPI), 2000.0/float(DPI))
                 plot_MP(descriptors, peptides, fig, FDR, 0, valid_proteins, settings, threshold0, curfile)
 
 
@@ -706,7 +706,7 @@ def plot_useful_histograms(peptides, curfile, fig, separatefigs=False, savesvg=F
             ax = fig.add_subplot(ox, oy, idx+1)
         lbin = min(array_valid)
         rbin = max(array_valid)
-        if form[2]=='peptide length':
+        if form[1].startswith('peptide length'):
             binsize = 1
             lbin = lbin-0.5
         else: binsize = FDbinSize(array_valid)
