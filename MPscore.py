@@ -1028,6 +1028,10 @@ def main(argv_in, union_custom=False):
         settings.getboolean('advanced options', 'separatefigures')
     except:
         settings.set('advanced options', 'separatefigures', '0')
+    try:
+        settings.getboolean('input', 'add decoy')
+    except:
+        settings.set('input', 'add decoy', '0')
     if union_custom:
         settings.set('options', 'files', 'union')
 
@@ -1075,8 +1079,14 @@ def main(argv_in, union_custom=False):
                 pass
 
     if fastafile:
-        for x in fasta.read(fastafile):
-            fq.put(x)
+        if settings.getboolean('input', 'add decoy'):
+            decoy_method = settings.get('input', 'decoy method')
+            decoy_prefix = settings.get('input', 'decoy prefix')
+            for x in fasta.decoy_db(fastafile, mode=decoy_method, prefix=decoy_prefix):
+                fq.put(x)
+        else:
+            for x in fasta.read(fastafile):
+                fq.put(x)
 
     for i in range(fnprocs):
         p = multiprocessing.Process(target=protein_handle, args=(fq, fq_output, protsL, protsN, protsS, expasy, mc))
