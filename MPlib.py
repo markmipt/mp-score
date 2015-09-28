@@ -196,7 +196,9 @@ class PeptideList:
         else:
             return self.total_number_of_PSMs
 
-    def get_from_pepxmlfile(self, pepxmlfile, min_charge=1, max_charge=0):
+    def get_from_pepxmlfile(self, pepxmlfile, min_charge=1, max_charge=0, allowed_peptides=False):
+        if allowed_peptides:
+            allowed_peptides_set = set([x.strip() for x in open(allowed_peptides)])
         for line in open(pepxmlfile, 'r'):
             if line.startswith('<search_summary') or line.startswith('    <search_summary'):
                 if "X! Tandem" in line:
@@ -236,7 +238,7 @@ class PeptideList:
                         first_psm = False
                     if 'peptide' in record['search_hit'][0]:
                         sequence = record['search_hit'][0]['peptide']
-                        if not set(sequence).difference(standard_aminoacids):
+                        if not set(sequence).difference(standard_aminoacids) and (not allowed_peptides or sequence in allowed_peptides_set):
                             mc = record['search_hit'][0].get('num_missed_cleavages', 0)
                             modified_code = record['search_hit'][0]['modified_peptide']
                             modifications = record['search_hit'][0]['modifications']

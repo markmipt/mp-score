@@ -83,7 +83,7 @@ def handle(q, q_output, settings, protsL):
         def getpepxml(iq, iq_output, settings, mods=False):
             for curfile in iter(iq.get, None):
                 qpeptides = PeptideList(settings, mods)
-                qpeptides.get_from_pepxmlfile(curfile['.pep'], min_charge=min_charge, max_charge=max_charge)
+                qpeptides.get_from_pepxmlfile(curfile['.pep'], min_charge=min_charge, max_charge=max_charge, allowed_peptides=settings.get('advanced options', 'allowed peptides'))
 
                 if len(qpeptides.peptideslist):
                     mzmlfile = curfile.get('.mzML', None)
@@ -1024,6 +1024,10 @@ def main(argv_in, union_custom=False):
         settings.getboolean('advanced options', 'saveSVG')
     except:
         settings.set('advanced options', 'saveSVG', '0')
+    try:
+        settings.get('advanced options', 'allowed peptides')
+    except:
+        settings.set('advanced options', 'allowed peptides', '')
     try:
         settings.getboolean('advanced options', 'separatefigures')
     except:
