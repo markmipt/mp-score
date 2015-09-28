@@ -1031,6 +1031,8 @@ def main(argv_in, union_custom=False):
     try:
         settings.getboolean('input', 'add decoy')
     except:
+        if 'input' not in settings.sections():
+            settings.add_section('input')
         settings.set('input', 'add decoy', '0')
     if union_custom:
         settings.set('options', 'files', 'union')
