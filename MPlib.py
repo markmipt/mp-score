@@ -212,7 +212,7 @@ class PeptideList:
                 break
 
         try:
-            pepxml_params = {k: v for d in pepxml.iterfind(pepxmlfile, 'parameter name') for k, v in d.items()}
+            pepxml_params = {k: v for d in pepxml.iterfind(pepxmlfile, 'parameter name', read_schema=False) for k, v in d.items()}
             self.total_number_of_peptides_in_searchspace = int(pepxml_params.get('modelling, total peptides used', self.total_number_of_peptides_in_searchspace))
             self.total_number_of_proteins_in_searchspace = int(pepxml_params.get('modelling, total proteins used', self.total_number_of_proteins_in_searchspace))
             self.total_number_of_spectra = int(pepxml_params.get('modelling, total spectra used', self.total_number_of_spectra))
@@ -222,7 +222,7 @@ class PeptideList:
 
         standard_aminoacids = set(k for k in mass.std_aa_comp if '-' not in k)
         first_psm = True
-        for record in pepxml.read(pepxmlfile):
+        for record in pepxml.read(pepxmlfile, read_schema=False):
             if 'search_hit' in record:
                 if int(min_charge) <= int(record['assumed_charge']) and (int(record['assumed_charge']) <= int(max_charge) or not max_charge):
                     if first_psm:
