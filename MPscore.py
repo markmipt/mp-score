@@ -1005,7 +1005,7 @@ def main(argv_in, union_custom=False):
         return inputdict
 
     for arg in argv_in:
-        if path.splitext(arg)[-1] == '.fasta':
+        if path.splitext(arg)[-1].lower() == '.fasta':
             fastafile = arg
         elif path.splitext(arg)[-1] == '.cfg':
             configfile = arg
@@ -1082,7 +1082,7 @@ def main(argv_in, union_custom=False):
                 protsL['total proteins'] += 1
                 protsL['total peptides'] += protsN.get(dbname, 0)
             except:
-                pass
+                print 'Smth wrong with reading of FASTA file'
 
     if fastafile:
         if settings.getboolean('input', 'add decoy'):
