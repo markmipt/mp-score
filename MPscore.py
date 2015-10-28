@@ -243,7 +243,7 @@ def handle(q, q_output, settings, protsL):
 
         print 'Default filtering:'
         numPSMs, numpeptides_true, numprots_true = PSMs_info(copy_peptides, valid_proteins, settings)
-        if numPSMs > 4:
+        if numPSMs > 1:
             descriptors = []
             dname = 'RT difference, min'
             if peptides.settings.getboolean('descriptors', dname):
@@ -572,7 +572,7 @@ def PSMs_info(peptides, valid_proteins, settings, fig=False, printresults=True, 
             for protein in peptide.parentproteins:
                 tmp_dbname = add_label + protein.dbname
                 if tmp_dbname in prots: # <---- WTF??? not works with tmp_dbname in tostay
-                    prots[tmp_dbname]['evalues'].append(peptide.evalue)
+                    prots[tmp_dbname]['evalues'].append(peptide.qval)
         for k in prots:
             prots[k]['expect'] = calc_expect_log(prots[k]['evalues'], s, N, T)
 
@@ -607,9 +607,11 @@ def PSMs_info(peptides, valid_proteins, settings, fig=False, printresults=True, 
         else:
             fname = path.splitext(path.splitext(path.basename(curfile))[0])[0]
 
-        fig = plot_quantiation(prots, curfile, peptides.settings, fig, separatefigs=settings.getboolean('advanced options', 'separatefigures'), ox=ox, oy=oy)
-        fig = plot_useful_histograms(peptides, curfile, fig, separatefigs=settings.getboolean('advanced options', 'separatefigures'), savesvg=settings.getboolean('advanced options', 'saveSVG'), ox=ox, oy=oy)
-
+        try:
+            fig = plot_quantiation(prots, curfile, peptides.settings, fig, separatefigs=settings.getboolean('advanced options', 'separatefigures'), ox=ox, oy=oy)
+            fig = plot_useful_histograms(peptides, curfile, fig, separatefigs=settings.getboolean('advanced options', 'separatefigures'), savesvg=settings.getboolean('advanced options', 'saveSVG'), ox=ox, oy=oy)
+        except:
+            print 'Cannot plot quantitation figures'
         output_proteins = open('%s/%s_proteins.csv' % (ffolder, fname), 'w')
         output_proteins.write('dbname\tdescription\tPSMs\tpeptides\tsequence coverage\tLFQ(SIn)\tLFQ(NSAF)\tLFQ(emPAI)\tprotein LN(e-value)\tall proteins\n')
         output_PSMs = open('%s/%s_PSMs.csv' % (ffolder, fname), 'w')
@@ -884,6 +886,21 @@ def plot_MP(descriptors, peptides, fig, FDR, FDR2, valid_proteins, settings, thr
 
     print 'MP filtering:'
     PSMs_info(copy_peptides, valid_proteins, settings, fig=fig, tofile=True, curfile=curfile, ox=ox, oy=oy)
+    ffolder = path.dirname(path.realpath(curfile))
+    if peptides.settings.get('options', 'files') == 'union':
+        fname = 'union'
+    else:
+        fname = path.splitext(path.splitext(path.basename(curfile))[0])[0]
+    output_PSMs_full = open('%s/%s_PSMs_full.csv' % (ffolder, fname), 'w')
+    output_PSMs_full.write('sequence\tmodified_sequence\tm/z exp\tm/z error in ppm\tmissed cleavages\te-value\tMPscore\tRT exp\tspectrum\tproteins\tproteins description\tSIn\n')
+    for peptide in peptides.peptideslist:
+        output_PSMs_full.write('%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t' % (peptide.sequence, peptide.modified_sequence, peptide.mz, peptide.mass_diff(), peptide.mc, peptide.evalue, peptide.peptscore, peptide.RT_exp, peptide.spectrum))
+        for protein in peptide.parentproteins:
+            output_PSMs_full.write('%s;' % (protein.dbname, ))
+        output_PSMs_full.write('\t')
+        for protein in peptide.parentproteins:
+            output_PSMs_full.write('%s;' % (protein.description, ))
+        output_PSMs_full.write('\t%s\t%s\n' % (peptide.sumI, peptide.note2))
     print 'Without filtering, after removing outliers:'
     PSMs_info(peptides, valid_proteins, settings, loop=False)
 

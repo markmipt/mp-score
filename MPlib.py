@@ -152,6 +152,7 @@ class PeptideList:
         self.calibrate_coeff = None
         self.pepxml_type = ''
         self.RC = False
+        self.infiles = set()
         self.settings = settings
         if not mods:
             self.modification_list = {}
@@ -186,6 +187,12 @@ class PeptideList:
 
     def get_number_of_peptides(self):
         return len(set(p.sequence for p in self.peptideslist))
+
+    def get_infiles(self):
+        if not self.infiles:
+            self.infiles.update(p.infile for p in self.peptideslist)
+        return self.infiles
+
 
     def get_number_of_spectra(self):
         """Returns the number of MS/MS spectra used for the search. If mgf file is not available,
@@ -257,7 +264,7 @@ class PeptideList:
                             pcharge = record['assumed_charge']
                             mass_exp = record['precursor_neutral_mass']
 
-                            pept = Peptide(sequence=sequence, settings=self.settings, modified_code=modified_code, evalue=evalue, spectrum=spectrum, pcharge=pcharge, mass_exp=mass_exp, modifications=modifications, modification_list=self.modification_list, custom_aa_mass=self.aa_list, sumI=sumI, mc=mc)
+                            pept = Peptide(sequence=sequence, settings=self.settings, modified_code=modified_code, evalue=evalue, spectrum=spectrum, pcharge=pcharge, mass_exp=mass_exp, modifications=modifications, modification_list=self.modification_list, custom_aa_mass=self.aa_list, sumI=sumI, mc=mc, infile=pepxmlfile)
                             try:
                                 pept.RT_exp = float(record['retention_time_sec']) / 60
                             except:
@@ -378,78 +385,53 @@ class PeptideList:
 
     def filter_evalue_new(self, FDR=1, FDR2=1, useMP=True, drop_decoy=True, toprint=True):
         "A function for filtering PSMs by e-value and MP-score with some FDR"
+        print self.get_infiles(), 'infiles'
         isdecoy = lambda x: x.note == 'decoy'
         escore = lambda x: float(x.evalue)
         mscore = lambda x: -float(x.peptscore)
-        # target_evalues, decoy_evalues = [], []
-        # for peptide in self.peptideslist:
-        #     if peptide.note == 'target':
-        #         target_evalues.append(float(peptide.evalue))
-        #     elif peptide.note == 'decoy':
-        #         decoy_evalues.append(float(peptide.evalue))
-        # target_evalues = np.array(target_evalues)
-        # decoy_evalues = np.array(decoy_evalues)
-        # target_evalues.sort()
-        # best_cut_evalue = None
-        # real_FDR = 0
-        # for cut_evalue in target_evalues:
-        #     counter_target = target_evalues[target_evalues <= cut_evalue].size
-        #     counter_decoy = decoy_evalues[decoy_evalues <= cut_evalue].size
-        #     if counter_target and (float(counter_decoy) / float(counter_target)) * 100 <= float(FDR):
-        #         best_cut_evalue = cut_evalue
-        #         real_FDR = round(float(counter_decoy) / float(counter_target) * 100, 1)
-        # if not best_cut_evalue:
-        #     best_cut_evalue = 0
-        # print real_FDR, best_cut_evalue, 'e-value'
 
-        filtered_peptides = aux.filter(self.peptideslist, fdr=float(FDR)/100, key=escore, is_decoy=isdecoy, remove_decoy=False, formula=1, full_output=True)
-        try:
-            best_cut_evalue = max(float(p.evalue) for p in filtered_peptides)
-            real_FDR = round(aux.fdr(filtered_peptides, is_decoy=isdecoy) * 100, 1)
-        except:
-            best_cut_evalue = 0
-            real_FDR = 0
-        if toprint:
-            print real_FDR, best_cut_evalue, 'e-value'
-        # best_cut_peptscore = 1.1
-        # if useMP:
-        #     target_peptscores, decoy_peptscores = [], []
-        #     for peptide in self.peptideslist:
-        #         if peptide.evalue >= best_cut_evalue:
-        #             if peptide.note == 'target':
-        #                 target_peptscores.append(float(peptide.peptscore))
-        #             elif peptide.note == 'decoy':
-        #                 decoy_peptscores.append(float(peptide.peptscore))
-        #     target_peptscores = np.array(target_peptscores)
-        #     decoy_peptscores = np.array(decoy_peptscores)
-        #     target_peptscores = np.sort(target_peptscores)[::-1]
-        #     real_FDR = 0
-        #     for cut_peptscore in target_peptscores:
-        #         counter_target = target_peptscores[target_peptscores >= cut_peptscore].size
-        #         counter_decoy = decoy_peptscores[decoy_peptscores >= cut_peptscore].size
-        #         if counter_target and (float(counter_decoy) / float(counter_target)) * 100 <= float(FDR2):
-        #             best_cut_peptscore = cut_peptscore
-        #             real_FDR = round(float(counter_decoy) / float(counter_target) * 100, 1)
-        #     print real_FDR, best_cut_peptscore, 'MP score'
-        best_cut_peptscore = 1.1
-        if useMP:
-            tmp_peptides = []
+        new_peptides = self.copy_empty()
+        for infile in self.get_infiles():
+            infile_peptides = []
             for peptide in self.peptideslist:
-                if peptide.evalue >= best_cut_evalue:
-                    tmp_peptides.append(peptide)
-            filtered_peptides = aux.filter(tmp_peptides, fdr=float(FDR2)/100, key=mscore, is_decoy=isdecoy, remove_decoy=False, formula=1, full_output=True)
+                if peptide.infile == infile:
+                    infile_peptides.append(peptide)
+            filtered_peptides = aux.filter(infile_peptides, fdr=float(FDR)/100, key=escore, is_decoy=isdecoy, remove_decoy=False, formula=1, full_output=True)
+            qvals_e = aux.qvalues(filtered_peptides, key=escore, is_decoy=isdecoy, reverse=False, remove_decoy=False, formula=1, full_output=True)
             try:
-                best_cut_peptscore = min(float(p.peptscore) for p in filtered_peptides)
+                best_cut_evalue = max(float(p.evalue) for p in filtered_peptides)
                 real_FDR = round(aux.fdr(filtered_peptides, is_decoy=isdecoy) * 100, 1)
             except:
-                best_cut_peptscore = 1.1
+                best_cut_evalue = 0
                 real_FDR = 0
             if toprint:
-                print real_FDR, best_cut_peptscore, 'MP score'
-        new_peptides = self.copy_empty()
-        for peptide in self.peptideslist:
-            if peptide.evalue <= best_cut_evalue or (useMP and peptide.peptscore >= best_cut_peptscore):
-                new_peptides.peptideslist.append(peptide)
+                print real_FDR, best_cut_evalue, 'e-value'
+            best_cut_peptscore = 1.1
+            if useMP:
+                tmp_peptides = []
+                for peptide in infile_peptides:
+                    if peptide.evalue >= best_cut_evalue:
+                        tmp_peptides.append(peptide)
+                filtered_peptides = aux.filter(tmp_peptides, fdr=float(FDR2)/100, key=mscore, is_decoy=isdecoy, remove_decoy=False, formula=1, full_output=True)
+                qvals_m = aux.qvalues(filtered_peptides, key=mscore, is_decoy=isdecoy, reverse=False, remove_decoy=False, formula=1, full_output=True)
+                try:
+                    best_cut_peptscore = min(float(p.peptscore) for p in filtered_peptides)
+                    real_FDR = round(aux.fdr(filtered_peptides, is_decoy=isdecoy) * 100, 1)
+                except:
+                    best_cut_peptscore = 1.1
+                    real_FDR = 0
+                if toprint:
+                    print real_FDR, best_cut_peptscore, 'MP score'
+            for val in qvals_e:
+                new_peptides.peptideslist.append(val[-1])
+                new_peptides.peptideslist[-1].qval = val[-2]
+            if useMP:
+                for val in qvals_m:
+                    new_peptides.peptideslist.append(val[-1])
+                    new_peptides.peptideslist[-1].qval = val[-2]
+            # for peptide in infile_peptides:
+            #     if peptide.evalue <= best_cut_evalue or (useMP and peptide.peptscore >= best_cut_peptscore):
+            #         new_peptides.peptideslist.append(peptide)
         if drop_decoy:
             new_peptides.filter_decoy()
         return (new_peptides, best_cut_evalue, best_cut_peptscore)
@@ -465,6 +447,7 @@ class PeptideList:
         new_peptides.calibrate_coeff = self.calibrate_coeff
         new_peptides.RC = self.RC
         new_peptides.modification_list = self.modification_list
+        new_peptides.infiles = self.infiles
         return new_peptides
 
     def update(self, new_peptides):
@@ -498,7 +481,7 @@ class Protein:
         self.description = description
 
 class Peptide:
-    def __init__(self, sequence, settings, modified_code='', pcharge=0, RT_exp=False, evalue=0, note='unknown', spectrum='', mass_exp=0, modifications=[], modification_list={}, custom_aa_mass=None, sumI=0, mc=None):
+    def __init__(self, sequence, settings, modified_code='', pcharge=0, RT_exp=False, evalue=0, note='unknown', spectrum='', mass_exp=0, modifications=[], modification_list={}, custom_aa_mass=None, sumI=0, mc=None, infile='unknown'):
         self.sequence = sequence
         self.modified_code = modified_code
         self.modified_sequence = sequence
@@ -541,6 +524,7 @@ class Peptide:
         self.fragment_mt = None
         self.sumI = sumI# / self.pcharge
         self.it = 1.0
+        self.infile = infile
 
     def theor_spectrum(self, types=('b', 'y'), maxcharge=None, **kwargs):
         peaks = {}
