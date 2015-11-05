@@ -11,7 +11,7 @@ from Queue import Empty
 import multiprocessing
 from time import sleep, time
 import pickle
-from copy import copy
+from copy import copy, deepcopy
 from collections import defaultdict
 try:
     import seaborn
@@ -432,25 +432,26 @@ def find_optimal_xy(descriptors):
     return x, y
 
 
-def nsaf(prots):
+def nsaf(prots, norm=True):
     sumI = 0
     for protein in prots:
         sumI += float(prots[protein]['PSMs'])/protsL[protein]
     for protein in prots:
-        prots[protein]['NSAF'] = float(prots[protein]['PSMs']) / sumI / protsL[protein]
-    return prots
+        prots[protein]['NSAF'] = float(prots[protein]['PSMs']) / (1 if not norm else sumI) / protsL[protein]
+    return prots, sumI
 
 
-def calc_emPAI(prots, protsN):
+def calc_emPAI(prots, protsN, norm=True):
     for dbname in prots:
         PAI = float(prots[dbname]['PSMs']) / protsN[dbname]
         emPAI = 10 ** PAI - 1
         prots[dbname]['emPAI'] = emPAI
 
     sum_emPAI = sum(val['emPAI'] for val in prots.itervalues())
-    for dbname in prots.keys():
-        prots[dbname]['emPAI'] = prots[dbname]['emPAI'] / sum_emPAI
-    return prots
+    if norm:
+        for dbname in prots.keys():
+            prots[dbname]['emPAI'] = prots[dbname]['emPAI'] / sum_emPAI
+    return prots, sum_emPAI
 
 
 def PSMs_info(peptides, valid_proteins, settings, fig=False, printresults=True, tofile=False, curfile=False, loop=True, ox=False, oy=False):
@@ -554,6 +555,8 @@ def PSMs_info(peptides, valid_proteins, settings, fig=False, printresults=True, 
     for k in tostay:
         prots[k]['fullgroup'] = ';'.join(prots[k]['fullgroup'])
 
+    prots_full = deepcopy(prots)
+
     for dbname in prots.keys():
         if (loop and dbname not in tostay) or 'Peptides' not in prots[dbname]:
             del prots[dbname]
@@ -573,17 +576,30 @@ def PSMs_info(peptides, valid_proteins, settings, fig=False, printresults=True, 
                 tmp_dbname = add_label + protein.dbname
                 if tmp_dbname in prots: # <---- WTF??? not works with tmp_dbname in tostay
                     prots[tmp_dbname]['evalues'].append(peptide.qval)
+                if tmp_dbname in prots_full:
+                    prots_full[tmp_dbname]['evalues'].append(peptide.qval)
         for k in prots:
             prots[k]['expect'] = calc_expect_log(prots[k]['evalues'], s, N, T)
+        for k in prots_full:
+            prots_full[k]['expect'] = calc_expect_log(prots_full[k]['evalues'], s, N, T)
 
         protFDR = peptides.settings.getfloat('options', 'protFDR')
         if protFDR >= 0:
             prots = filter_evalue_prots(prots, FDR=protFDR)
+            all_prots = set()
+            for v in prots.itervalues():
+                all_prots.update(v['fullgroup'].split(';'))
+            for k in prots_full:
+                if k not in all_prots:
+                    del prots_full[k]
         else:
             peptides.filter_decoy()
             for k in prots.keys():
                 if k.startswith('L'):
                     del prots[k]
+            for k in prots_full.keys():
+                if k.startswith('L'):
+                    del prots_full[k]
         #protein new sumI
         for k in prots:
             prots[k]['sumI_mod'] = np.median(prots[k]['sumI_mod'].values())
@@ -593,13 +609,27 @@ def PSMs_info(peptides, valid_proteins, settings, fig=False, printresults=True, 
         for k in prots.keys():
             prots[k]['sumI_mod'] = prots[k]['sumI_mod'] / sumI_mod_norm / protsL[k]
         #protein sumI normalization
-        prots = nsaf(prots)
-        prots = calc_emPAI(prots, protsN)
+
+
+        prots_full, _ = nsaf(prots_full, norm=False)
+        prots_full, _ = calc_emPAI(prots_full, protsN, norm=False)
+        sumI_norm = sum(x['sumI'] for x in prots.itervalues())
+        if not sumI_norm:
+            sumI_norm = 1.0
+        for k in prots_full.keys():
+            prots_full[k]['sumI'] = prots_full[k]['sumI'] / sumI_norm / protsL[k]
+
+        prots, nsaf_norm = nsaf(prots)
+        prots, emPAI_norm = calc_emPAI(prots, protsN)
         sumI_norm = sum(x['sumI'] for x in prots.itervalues())
         if not sumI_norm:
             sumI_norm = 1.0
         for k in prots.keys():
             prots[k]['sumI'] = prots[k]['sumI'] / sumI_norm / protsL[k]
+
+        for k in prots_full:
+            prots_full[k]['NSAF'] /= nsaf_norm
+            prots_full[k]['emPAI'] /= emPAI_norm
 
         ffolder = path.dirname(path.realpath(curfile))
         if peptides.settings.get('options', 'files') == 'union':
@@ -614,6 +644,8 @@ def PSMs_info(peptides, valid_proteins, settings, fig=False, printresults=True, 
             print 'Cannot plot quantitation figures'
         output_proteins = open('%s/%s_proteins.csv' % (ffolder, fname), 'w')
         output_proteins.write('dbname\tdescription\tPSMs\tpeptides\tsequence coverage\tLFQ(SIn)\tLFQ(NSAF)\tLFQ(emPAI)\tprotein LN(e-value)\tall proteins\n')
+        output_proteins_full = open('%s/%s_proteins_full.csv' % (ffolder, fname), 'w')
+        output_proteins_full.write('dbname\tdescription\tPSMs\tpeptides\tsequence coverage\tLFQ(SIn)\tLFQ(NSAF)\tLFQ(emPAI)\tprotein LN(e-value)\tall proteins\n')
         output_PSMs = open('%s/%s_PSMs.csv' % (ffolder, fname), 'w')
         output_PSMs.write('sequence\tmodified_sequence\tm/z exp\tm/z error in ppm\tmissed cleavages\te-value\tMPscore\tRT exp\tspectrum\tproteins\tproteins description\tSIn\n')
         output_peptides_detailed = open('%s/%s_peptides.csv' % (ffolder, fname), 'w')
@@ -629,6 +661,12 @@ def PSMs_info(peptides, valid_proteins, settings, fig=False, printresults=True, 
             if int(v['Peptides']) > 0:
                 sqc = calc_sq(protsS.get(k, []), v['pept'])
                 output_proteins.write('%s\t%s\t%s\t%s\t%0.1f\t%s\t%s\t%s\t%s\t%s\n' % (k, v['description'], v['PSMs'], v['Peptides'], sqc, v['sumI'],v['NSAF'], v['emPAI'], v['expect'], v['fullgroup']))
+
+        for k, v in prots_full.items():
+            if int(v['Peptides']) > 0:
+                sqc = calc_sq(protsS.get(k, []), v['pept'])
+                output_proteins_full.write('%s\t%s\t%s\t%s\t%0.1f\t%s\t%s\t%s\t%s\t%s\n' % (k, v['description'], v['PSMs'], v['Peptides'], sqc, v['sumI'],v['NSAF'], v['emPAI'], v['expect'], v['fullgroup']))
+
         for peptide in peptides.peptideslist:
             if any(protein.dbname in prots for protein in peptide.parentproteins):
                 output_PSMs.write('%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t' % (peptide.sequence, peptide.modified_sequence, peptide.mz, peptide.mass_diff(), peptide.mc, peptide.evalue, peptide.peptscore, peptide.RT_exp, peptide.spectrum))
@@ -665,6 +703,7 @@ def PSMs_info(peptides, valid_proteins, settings, fig=False, printresults=True, 
             print 'conc: ', auxiliary.linear_regression([x[0] for x in temp_data], [x[1] for x in temp_data])
 
         output_proteins.close()
+        output_proteins_full.close()
     if printresults:
         print 'PSMs: %s' % (len([1 for x in peptides.peptideslist if x.note2 == 'tr']), )
         print 'Peptides: %d' % (len(set(p.sequence for p in peptides.peptideslist if p.note2 == 'tr')))
