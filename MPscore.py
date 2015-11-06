@@ -589,7 +589,7 @@ def PSMs_info(peptides, valid_proteins, settings, fig=False, printresults=True, 
             all_prots = set()
             for v in prots.itervalues():
                 all_prots.update(v['fullgroup'].split(';'))
-            for k in prots_full:
+            for k in prots_full.keys():
                 if k not in all_prots:
                     del prots_full[k]
         else:
