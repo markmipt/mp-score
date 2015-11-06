@@ -544,6 +544,10 @@ def PSMs_info(peptides, valid_proteins, settings, fig=False, printresults=True, 
 #        expect += n * np.log10(beta) + (s - n) * np.log10(1 - beta) - np.log10(s) - (n - 1) * np.log10(N)
         return expect
 
+    for dbname in prots.keys():
+        if 'Peptides' not in prots[dbname]:
+            del prots[dbname]
+
     for k in prots:
         prots[k]['fullgroup'] = set()
 
@@ -558,7 +562,7 @@ def PSMs_info(peptides, valid_proteins, settings, fig=False, printresults=True, 
     prots_full = deepcopy(prots)
 
     for dbname in prots.keys():
-        if (loop and dbname not in tostay) or 'Peptides' not in prots[dbname]:
+        if loop and dbname not in tostay:
             del prots[dbname]
 
     if tofile:
