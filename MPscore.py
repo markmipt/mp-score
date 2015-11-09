@@ -999,6 +999,7 @@ def prepare_hist(descriptors, copy_peptides, first=False):
                 descriptor.hist[0][0] = max(descriptor.hist[0][1:])
                 if not descriptor.hist[0][0]:
                     descriptor.hist[0][0] = 1
+            del descriptor.array
     return descriptors
 
 

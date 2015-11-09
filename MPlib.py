@@ -17,6 +17,8 @@ try:
 except ImportError:
     from ConfigParser import RawConfigParser
 
+infiles_dict = dict()
+
 class CustomRawConfigParser(RawConfigParser):
     def get(self, section, option):
         val = RawConfigParser.get(self, section, option)
@@ -264,7 +266,10 @@ class PeptideList:
                             pcharge = record['assumed_charge']
                             mass_exp = record['precursor_neutral_mass']
 
-                            pept = Peptide(sequence=sequence, settings=self.settings, modified_code=modified_code, evalue=evalue, spectrum=spectrum, pcharge=pcharge, mass_exp=mass_exp, modifications=modifications, modification_list=self.modification_list, custom_aa_mass=self.aa_list, sumI=sumI, mc=mc, infile=pepxmlfile)
+                            if pepxmlfile not in infiles_dict:
+                                infiles_dict[pepxmlfile] = len(infiles_dict)
+                            infile_current = infiles_dict[pepxmlfile]
+                            pept = Peptide(sequence=sequence, settings=self.settings, modified_code=modified_code, evalue=evalue, spectrum=spectrum, pcharge=pcharge, mass_exp=mass_exp, modifications=modifications, modification_list=self.modification_list, custom_aa_mass=self.aa_list, sumI=sumI, mc=mc, infile=infile_current)
                             try:
                                 pept.RT_exp = float(record['retention_time_sec']) / 60
                             except:
