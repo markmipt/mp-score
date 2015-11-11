@@ -935,7 +935,7 @@ def plot_MP(descriptors, peptides, fig, FDR, FDR2, valid_proteins, settings, thr
     else:
         fname = path.splitext(path.splitext(path.basename(curfile))[0])[0]
     output_PSMs_full = open('%s/%s_PSMs_full.csv' % (ffolder, fname), 'w')
-    output_PSMs_full.write('sequence\tmodified_sequence\tm/z exp\tm/z error in ppm\tmissed cleavages\te-value\tMPscore\tRT exp\tspectrum\tproteins\tproteins description\tSIn\n')
+    output_PSMs_full.write('sequence\tmodified_sequence\tm/z exp\tm/z error in ppm\tmissed cleavages\te-value\tMPscore\tRT exp\tspectrum\tproteins\tproteins description\tSIn\tdecoy\n')
     for peptide in peptides.peptideslist:
         output_PSMs_full.write('%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t' % (peptide.sequence, peptide.modified_sequence, peptide.mz, peptide.mass_diff(), peptide.mc, peptide.evalue, peptide.peptscore, peptide.RT_exp, peptide.spectrum))
         for protein in peptide.parentproteins:
