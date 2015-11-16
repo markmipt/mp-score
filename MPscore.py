@@ -331,10 +331,10 @@ def handle(q, q_output, settings, protsL):
 
                     counter = 0
                     for idx, peptide in enumerate(peptides.peptideslist):
-                        if counter < 10000:
-                            cq.put([idx, peptide])
-                            counter += 1
-                        else:
+                        # if counter < 10000:
+                        cq.put([idx, peptide])
+                        counter += 1
+                        if counter >= 10000:
                             while counter != 0:
                                 ind, pscore = cq_output.get()
                                 peptides.peptideslist[ind].peptscore = float(pscore)
@@ -357,6 +357,8 @@ def handle(q, q_output, settings, protsL):
                     while j >= 0:
                         if peptides.peptideslist[j].peptscore == 0:
                             peptides.peptideslist.pop(j)
+                        else:
+                            peptides.peptideslist[j].peptscore = 1.0
                         j -= 1
 
                 copy_peptides, _, _ = peptides.filter_evalue_new(FDR=FDR, useMP=False)
@@ -376,10 +378,10 @@ def handle(q, q_output, settings, protsL):
 
                 counter = 0
                 for idx, peptide in enumerate(peptides.peptideslist):
-                    if counter < 10000:
-                        cq.put([idx, peptide])
-                        counter += 1
-                    else:
+                    # if counter < 10000:
+                    cq.put([idx, peptide])
+                    counter += 1
+                    if counter >= 10000:
                         while counter != 0:
                             ind, pscore = cq_output.get()
                             peptides.peptideslist[ind].peptscore = float(pscore)
