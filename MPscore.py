@@ -246,7 +246,7 @@ def handle(q, q_output, settings, protsL):
             if numPSMs > 1:
                 descriptors = []
                 dname = 'RT difference, min'
-                if peptides.settings.getboolean('descriptors', dname) and not np.allclose([pep.RT_exp for pep in peptides], 0):
+                if peptides.settings.getboolean('descriptors', dname) and not np.allclose([pep.RT_exp for pep in peptides.peptideslist], 0):
                     descriptors.append(Descriptor(name=dname, formula=lambda peptide: peptide.RT_exp - peptide.RT_predicted, group='A', binsize='auto'))
                 dname = 'precursor mass difference, ppm'
                 if peptides.settings.getboolean('descriptors', dname):
