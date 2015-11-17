@@ -187,136 +187,183 @@ def handle(q, q_output, settings, protsL):
 
         print 'Total number of PSMs = %d' % (len(peptides.peptideslist),)
         print 'Total number of peptides: %s' % (len(set(pept.sequence for pept in peptides.peptideslist)), )
-
-        prots_dict = defaultdict(int)
-        pepts_dict = defaultdict(int)
-        for peptide in peptides.peptideslist:
-            pepts_dict[peptide.sequence] += 1
-            for protein in peptide.parentproteins:
-                prots_dict[protein.dbname] += 1
-                if peptide.note == 'decoy':
-                    protein.note = 'W'
-                    if peptide.note2 != 'tr' or peptide.note == 'decoy':
-                        peptide.note2 = 'wr'
-                else:
-                    if protein.dbname in valid_proteins:
-                        peptide.note3 = 'valid'
-                    protein.note = 'Valid'
-                    peptide.note2 = 'tr'
-        peptides.total_number_of_PSMs_decoy = sum(1 for pept in peptides.peptideslist if pept.note2 == 'wr')
-
-        if FDR_type == 'peptide':
-            peptidesdict = dict()
+        if len(peptides.peptideslist):
+            prots_dict = defaultdict(int)
+            pepts_dict = defaultdict(int)
             for peptide in peptides.peptideslist:
-                if peptide.sequence not in peptidesdict:
-                    peptidesdict[peptide.sequence] = [peptide.spectrum, peptide.evalue]
-                elif peptide.evalue < peptidesdict[peptide.sequence][1]:
-                    peptidesdict[peptide.sequence] = [peptide.spectrum, peptide.evalue]
-            passed = set([x[0] for x in peptidesdict.values()])
-            j = len(peptides.peptideslist) - 1
-            while j >= 0:
-                if peptides.peptideslist[j].spectrum not in passed:
-                    peptides.peptideslist.pop(j)
-                j -= 1
+                pepts_dict[peptide.sequence] += 1
+                for protein in peptide.parentproteins:
+                    prots_dict[protein.dbname] += 1
+                    if peptide.note == 'decoy':
+                        protein.note = 'W'
+                        if peptide.note2 != 'tr' or peptide.note == 'decoy':
+                            peptide.note2 = 'wr'
+                    else:
+                        if protein.dbname in valid_proteins:
+                            peptide.note3 = 'valid'
+                        protein.note = 'Valid'
+                        peptide.note2 = 'tr'
+            peptides.total_number_of_PSMs_decoy = sum(1 for pept in peptides.peptideslist if pept.note2 == 'wr')
 
-        for peptide in peptides.peptideslist:
-            try:
-                peptide.sumI = Fragment_intensities[peptide.start_scan]
-            except:
-                pass
-        Fragment_intensities = None
+            if FDR_type == 'peptide':
+                peptidesdict = dict()
+                for peptide in peptides.peptideslist:
+                    if peptide.sequence not in peptidesdict:
+                        peptidesdict[peptide.sequence] = [peptide.spectrum, peptide.evalue]
+                    elif peptide.evalue < peptidesdict[peptide.sequence][1]:
+                        peptidesdict[peptide.sequence] = [peptide.spectrum, peptide.evalue]
+                passed = set([x[0] for x in peptidesdict.values()])
+                j = len(peptides.peptideslist) - 1
+                while j >= 0:
+                    if peptides.peptideslist[j].spectrum not in passed:
+                        peptides.peptideslist.pop(j)
+                    j -= 1
 
-        for peptide in peptides.peptideslist:
-            peptide.peptscore2 = pepts_dict[peptide.sequence]
-            for protein in peptide.parentproteins:
-                if protein.dbname not in protsL:
-                    print 'protein %s is missed in fasta, 5000 length and 50 theoretical peptides is used for normalization and emPAI calculation' % (protein.dbname, )
-                    protsL[protein.dbname] = 5000
-                    protsN[protein.dbname] = 50
-                    protsL['total proteins'] += 1
-                    protsL['total peptides'] += 50
-                if peptide.protscore2 < float(prots_dict[protein.dbname]) / protsL[protein.dbname] * 500:
-                    peptide.protscore2 = float(prots_dict[protein.dbname]) / protsL[protein.dbname] * 500
-        pepts_dict = None
-        prots_dict = None
-        copy_peptides, threshold0, _ = peptides.filter_evalue_new(FDR=FDR, useMP=False)
+            for peptide in peptides.peptideslist:
+                try:
+                    peptide.sumI = Fragment_intensities[peptide.start_scan]
+                except:
+                    pass
+            Fragment_intensities = None
 
-        print 'Default filtering:'
-        numPSMs, numpeptides_true, numprots_true = PSMs_info(copy_peptides, valid_proteins, settings)
-        if numPSMs > 1:
-            descriptors = []
-            dname = 'RT difference, min'
-            if peptides.settings.getboolean('descriptors', dname):
-                descriptors.append(Descriptor(name=dname, formula=lambda peptide: peptide.RT_exp - peptide.RT_predicted, group='A', binsize='auto'))
-            dname = 'precursor mass difference, ppm'
-            if peptides.settings.getboolean('descriptors', dname):
-                descriptors.append(Descriptor(name=dname, formula=lambda peptide: peptide.mass_diff(), group='A', binsize='auto'))
-            dname = 'missed cleavages, protease 1'
-            if peptides.settings.getboolean('descriptors', dname.split(',')[0]):
-                protease1 = [x.strip() for x in settings.get('missed cleavages', 'protease1').split(',')]
-                expasy1 = '|'.join((parser.expasy_rules[protease] if protease in parser.expasy_rules else protease for protease in protease1))
-                descriptors.append(Descriptor(name=dname, formula=lambda peptide: peptide.get_missed_cleavages(expasy1), group='A', binsize=1))
-            dname = 'missed cleavages, protease 2'
-            if peptides.settings.getboolean('descriptors', dname.split(',')[0]):
-                protease2 = [x.strip() for x in settings.get('missed cleavages', 'protease2').split(',')]
-                expasy2 = '|'.join((parser.expasy_rules[protease] if protease in parser.expasy_rules else protease for protease in protease2))
-                if protease2[0]:
-                    descriptors.append(Descriptor(name=dname, formula=lambda peptide: peptide.get_missed_cleavages(expasy2), group='A', binsize=1))
+            for peptide in peptides.peptideslist:
+                peptide.peptscore2 = pepts_dict[peptide.sequence]
+                for protein in peptide.parentproteins:
+                    if protein.dbname not in protsL:
+                        print 'protein %s is missed in fasta, 5000 length and 50 theoretical peptides is used for normalization and emPAI calculation' % (protein.dbname, )
+                        protsL[protein.dbname] = 5000
+                        protsN[protein.dbname] = 50
+                        protsL['total proteins'] += 1
+                        protsL['total peptides'] += 50
+                    if peptide.protscore2 < float(prots_dict[protein.dbname]) / protsL[protein.dbname] * 500:
+                        peptide.protscore2 = float(prots_dict[protein.dbname]) / protsL[protein.dbname] * 500
+            pepts_dict = None
+            prots_dict = None
+            copy_peptides, threshold0, _ = peptides.filter_evalue_new(FDR=FDR, useMP=False)
 
-            dname = 'charge states'
-            if peptides.settings.getboolean('descriptors', dname):
-                descriptors.append(Descriptor(name=dname, formula=lambda peptide: peptide.pcharge, group='A', binsize='1'))
-            dname = 'potential modifications'
-            if peptides.settings.getboolean('descriptors', dname):
-                labeldict = dict()
-                temp = settings.get('modifications', 'variable')
-                if temp:
-                    for mod in temp.replace(' ', '').split(','):
-                        descriptors.append(Descriptor(name='%s, %s' % (dname, mod), formula=lambda peptide, mod=mod: peptide.count_modifications(mod), group='A', binsize='1'))
-            dname = 'isotopes mass difference, Da'
-            if peptides.settings.getboolean('descriptors', dname):
-                descriptors.append(Descriptor(name=dname, formula=lambda peptide: round(peptide.massdiff, 0), group='A', binsize='1'))
-            dname = 'PSMs per protein'
-            if peptides.settings.getboolean('descriptors', dname):
-                descriptors.append(Descriptor(name=dname, formula=lambda peptide: peptide.protscore2, group='B'))
-            dname = 'PSM count'
-            if peptides.settings.getboolean('descriptors', dname):
-                descriptors.append(Descriptor(name=dname, formula=lambda peptide: peptide.peptscore2, group='B'))
-            dname = 'fragment mass tolerance, Da'
-            if peptides.settings.getboolean('descriptors', dname):
-                descriptors.append(Descriptor(name=dname, formula=lambda peptide: peptide.get_median_fragment_mt(), group='A', binsize = 'auto'))
-            dname = 'PIF'
-            if peptides.settings.getboolean('descriptors', dname):
-                descriptors.append(Descriptor(name=dname, formula=lambda peptide: peptide.PIF, group='B'))
+            print 'Default filtering:'
+            numPSMs, numpeptides_true, numprots_true = PSMs_info(copy_peptides, valid_proteins, settings)
+            if numPSMs > 1:
+                descriptors = []
+                dname = 'RT difference, min'
+                if peptides.settings.getboolean('descriptors', dname):
+                    descriptors.append(Descriptor(name=dname, formula=lambda peptide: peptide.RT_exp - peptide.RT_predicted, group='A', binsize='auto'))
+                dname = 'precursor mass difference, ppm'
+                if peptides.settings.getboolean('descriptors', dname):
+                    descriptors.append(Descriptor(name=dname, formula=lambda peptide: peptide.mass_diff(), group='A', binsize='auto'))
+                dname = 'missed cleavages, protease 1'
+                if peptides.settings.getboolean('descriptors', dname.split(',')[0]):
+                    protease1 = [x.strip() for x in settings.get('missed cleavages', 'protease1').split(',')]
+                    expasy1 = '|'.join((parser.expasy_rules[protease] if protease in parser.expasy_rules else protease for protease in protease1))
+                    descriptors.append(Descriptor(name=dname, formula=lambda peptide: peptide.get_missed_cleavages(expasy1), group='A', binsize=1))
+                dname = 'missed cleavages, protease 2'
+                if peptides.settings.getboolean('descriptors', dname.split(',')[0]):
+                    protease2 = [x.strip() for x in settings.get('missed cleavages', 'protease2').split(',')]
+                    expasy2 = '|'.join((parser.expasy_rules[protease] if protease in parser.expasy_rules else protease for protease in protease2))
+                    if protease2[0]:
+                        descriptors.append(Descriptor(name=dname, formula=lambda peptide: peptide.get_missed_cleavages(expasy2), group='A', binsize=1))
 
-            if 'RT difference, min' in [d.name for d in descriptors]:
-                if RT_type == 'achrom':
-                    copy_peptides.get_RC()
-                    peptides.RC = copy_peptides.RC
-                    if peptides.settings.getint('advanced options', 'saveRC'):
-                        pickle.dump(peptides.RC, open('RC.pickle', 'w'))
-                    copy_peptides.calc_RT(RTtype=RT_type)
-                    print copy_peptides.get_calibrate_coeff()
-                    peptides.calc_RT(RTtype=RT_type)
-                else:
-                    copy_peptides.filter_modifications(RT_type=RT_type)
-                    copy_peptides.calc_RT(RTtype=RT_type)
-                    calibrate_coeff = copy_peptides.get_calibrate_coeff()
-                    copy_peptides.calc_RT(calibrate_coeff=calibrate_coeff, RTtype=RT_type)
-                    copy_peptides.filter_RT(RT_tolerance=3 * calibrate_coeff[3])
-                    copy_peptides.calc_RT(RTtype=RT_type)
-                    calibrate_coeff = copy_peptides.get_calibrate_coeff()
-                    print calibrate_coeff
-                    peptides.calc_RT(calibrate_coeff=calibrate_coeff, RTtype=RT_type)
+                dname = 'charge states'
+                if peptides.settings.getboolean('descriptors', dname):
+                    descriptors.append(Descriptor(name=dname, formula=lambda peptide: peptide.pcharge, group='A', binsize='1'))
+                dname = 'potential modifications'
+                if peptides.settings.getboolean('descriptors', dname):
+                    labeldict = dict()
+                    temp = settings.get('modifications', 'variable')
+                    if temp:
+                        for mod in temp.replace(' ', '').split(','):
+                            descriptors.append(Descriptor(name='%s, %s' % (dname, mod), formula=lambda peptide, mod=mod: peptide.count_modifications(mod), group='A', binsize='1'))
+                dname = 'isotopes mass difference, Da'
+                if peptides.settings.getboolean('descriptors', dname):
+                    descriptors.append(Descriptor(name=dname, formula=lambda peptide: round(peptide.massdiff, 0), group='A', binsize='1'))
+                dname = 'PSMs per protein'
+                if peptides.settings.getboolean('descriptors', dname):
+                    descriptors.append(Descriptor(name=dname, formula=lambda peptide: peptide.protscore2, group='B'))
+                dname = 'PSM count'
+                if peptides.settings.getboolean('descriptors', dname):
+                    descriptors.append(Descriptor(name=dname, formula=lambda peptide: peptide.peptscore2, group='B'))
+                dname = 'fragment mass tolerance, Da'
+                if peptides.settings.getboolean('descriptors', dname):
+                    descriptors.append(Descriptor(name=dname, formula=lambda peptide: peptide.get_median_fragment_mt(), group='A', binsize = 'auto'))
+                dname = 'PIF'
+                if peptides.settings.getboolean('descriptors', dname):
+                    descriptors.append(Descriptor(name=dname, formula=lambda peptide: peptide.PIF, group='B'))
+
+                if 'RT difference, min' in [d.name for d in descriptors]:
+                    if RT_type == 'achrom':
+                        copy_peptides.get_RC()
+                        peptides.RC = copy_peptides.RC
+                        if peptides.settings.getint('advanced options', 'saveRC'):
+                            pickle.dump(peptides.RC, open('RC.pickle', 'w'))
+                        copy_peptides.calc_RT(RTtype=RT_type)
+                        print copy_peptides.get_calibrate_coeff()
+                        peptides.calc_RT(RTtype=RT_type)
+                    else:
+                        copy_peptides.filter_modifications(RT_type=RT_type)
+                        copy_peptides.calc_RT(RTtype=RT_type)
+                        calibrate_coeff = copy_peptides.get_calibrate_coeff()
+                        copy_peptides.calc_RT(calibrate_coeff=calibrate_coeff, RTtype=RT_type)
+                        copy_peptides.filter_RT(RT_tolerance=3 * calibrate_coeff[3])
+                        copy_peptides.calc_RT(RTtype=RT_type)
+                        calibrate_coeff = copy_peptides.get_calibrate_coeff()
+                        print calibrate_coeff
+                        peptides.calc_RT(calibrate_coeff=calibrate_coeff, RTtype=RT_type)
+                        copy_peptides, _, _ = peptides.filter_evalue_new(FDR=FDR, useMP=False)
+                        copy_peptides.calc_RT(calibrate_coeff=calibrate_coeff, RTtype=RT_type)
+
+                curfile = filenames[-1]['.pep']
+                if descriptors:
+                    descriptors = prepare_hist(descriptors, copy_peptides, first=False)
+                    fig = plot_histograms(descriptors, peptides, FDR, curfile, savesvg=settings.getboolean('advanced options', 'saveSVG'), sepfigures=settings.getboolean('advanced options', 'separatefigures'))
+
+                    if len(copy_peptides.peptideslist) > 100:
+                        jk = manager.dict()
+                        cprocs = []
+                        cnprocs = peptides.settings.getint('options', 'threads')
+                        cq = multiprocessing.Queue()
+                        cq_output = multiprocessing.Queue()
+                        cq_finish = multiprocessing.Queue()
+
+                        for i in range(cnprocs):
+                            p = multiprocessing.Process(target=calc_peptscore, args=(cq, cq_output, descriptors, jk, cq_finish))
+                            cprocs.append(p)
+                            p.start()
+
+                        counter = 0
+                        for idx, peptide in enumerate(peptides.peptideslist):
+                            # if counter < 10000:
+                            cq.put([idx, peptide])
+                            counter += 1
+                            if counter >= 10000:
+                                while counter != 0:
+                                    ind, pscore = cq_output.get()
+                                    peptides.peptideslist[ind].peptscore = float(pscore)
+                                    counter -= 1
+                        while counter != 0:
+                            ind, pscore = cq_output.get()
+                            peptides.peptideslist[ind].peptscore = float(pscore)
+                            counter -= 1
+
+                        for i in range(cnprocs):
+                            cq.put(None)
+                        while cq_finish.qsize() != cnprocs:
+                            sleep(5)
+
+                        for p in cprocs:
+                            p.terminate()
+
+                        print jk
+                        j = len(peptides.peptideslist) - 1
+                        while j >= 0:
+                            if peptides.peptideslist[j].peptscore == 0:
+                                peptides.peptideslist.pop(j)
+                            else:
+                                peptides.peptideslist[j].peptscore = 1.0
+                            j -= 1
+
                     copy_peptides, _, _ = peptides.filter_evalue_new(FDR=FDR, useMP=False)
-                    copy_peptides.calc_RT(calibrate_coeff=calibrate_coeff, RTtype=RT_type)
+                    descriptors = prepare_hist(descriptors, copy_peptides)
 
-            curfile = filenames[-1]['.pep']
-            if descriptors:
-                descriptors = prepare_hist(descriptors, copy_peptides, first=False)
-                fig = plot_histograms(descriptors, peptides, FDR, curfile, savesvg=settings.getboolean('advanced options', 'saveSVG'), sepfigures=settings.getboolean('advanced options', 'separatefigures'))
-
-                if len(copy_peptides.peptideslist) > 100:
                     jk = manager.dict()
                     cprocs = []
                     cnprocs = peptides.settings.getint('options', 'threads')
@@ -352,76 +399,29 @@ def handle(q, q_output, settings, protsL):
                     for p in cprocs:
                         p.terminate()
 
-                    print jk
-                    j = len(peptides.peptideslist) - 1
-                    while j >= 0:
-                        if peptides.peptideslist[j].peptscore == 0:
-                            peptides.peptideslist.pop(j)
+                    k_temp = []
+                    while len(k_temp) < 3 or k_temp[-1] != k_temp[-3]:
+                        if not k_temp:
+                            copy_peptides = peptides.filter_evalue_new(FDR=FDR, useMP=False, toprint=False)[0]
                         else:
-                            peptides.peptideslist[j].peptscore = 1.0
-                        j -= 1
+                            FDR_new = (((FDR / 100 - float(peptides.total_number_of_PSMs_decoy) / numPSMs_true * k)) / (1 - k)) * 100
+                            copy_peptides = peptides.filter_evalue_new(FDR=FDR, FDR2=FDR_new, useMP=True, toprint=False)[0]
 
-                copy_peptides, _, _ = peptides.filter_evalue_new(FDR=FDR, useMP=False)
-                descriptors = prepare_hist(descriptors, copy_peptides)
-
-                jk = manager.dict()
-                cprocs = []
-                cnprocs = peptides.settings.getint('options', 'threads')
-                cq = multiprocessing.Queue()
-                cq_output = multiprocessing.Queue()
-                cq_finish = multiprocessing.Queue()
-
-                for i in range(cnprocs):
-                    p = multiprocessing.Process(target=calc_peptscore, args=(cq, cq_output, descriptors, jk, cq_finish))
-                    cprocs.append(p)
-                    p.start()
-
-                counter = 0
-                for idx, peptide in enumerate(peptides.peptideslist):
-                    # if counter < 10000:
-                    cq.put([idx, peptide])
-                    counter += 1
-                    if counter >= 10000:
-                        while counter != 0:
-                            ind, pscore = cq_output.get()
-                            peptides.peptideslist[ind].peptscore = float(pscore)
-                            counter -= 1
-                while counter != 0:
-                    ind, pscore = cq_output.get()
-                    peptides.peptideslist[ind].peptscore = float(pscore)
-                    counter -= 1
-
-                for i in range(cnprocs):
-                    cq.put(None)
-                while cq_finish.qsize() != cnprocs:
-                    sleep(5)
-
-                for p in cprocs:
-                    p.terminate()
-
-                k_temp = []
-                while len(k_temp) < 3 or k_temp[-1] != k_temp[-3]:
-                    if not k_temp:
-                        copy_peptides = peptides.filter_evalue_new(FDR=FDR, useMP=False, toprint=False)[0]
-                    else:
+                        numPSMs_true = len(copy_peptides)
+                        try:
+                            k = float(copy_peptides.get_number_of_peptides()) / peptides.total_number_of_peptides_in_searchspace
+                        except:
+                            k = 0
                         FDR_new = (((FDR / 100 - float(peptides.total_number_of_PSMs_decoy) / numPSMs_true * k)) / (1 - k)) * 100
-                        copy_peptides = peptides.filter_evalue_new(FDR=FDR, FDR2=FDR_new, useMP=True, toprint=False)[0]
+                        k_temp.append(float(k))
+                    print k, 'k factor'
 
-                    numPSMs_true = len(copy_peptides)
-                    try:
-                        k = float(copy_peptides.get_number_of_peptides()) / peptides.total_number_of_peptides_in_searchspace
-                    except:
-                        k = 0
-                    FDR_new = (((FDR / 100 - float(peptides.total_number_of_PSMs_decoy) / numPSMs_true * k)) / (1 - k)) * 100
-                    k_temp.append(float(k))
-                print k, 'k factor'
-
-                plot_MP(descriptors, peptides, fig, FDR, FDR_new, valid_proteins, settings, threshold0, curfile)
-            else:
-                fig = plt.figure(figsize=(16, 12))
-                DPI = fig.get_dpi()
-                fig.set_size_inches(2000.0/float(DPI), 2000.0/float(DPI))
-                plot_MP(descriptors, peptides, fig, FDR, 0, valid_proteins, settings, threshold0, curfile)
+                    plot_MP(descriptors, peptides, fig, FDR, FDR_new, valid_proteins, settings, threshold0, curfile)
+                else:
+                    fig = plt.figure(figsize=(16, 12))
+                    DPI = fig.get_dpi()
+                    fig.set_size_inches(2000.0/float(DPI), 2000.0/float(DPI))
+                    plot_MP(descriptors, peptides, fig, FDR, 0, valid_proteins, settings, threshold0, curfile)
 
 
 def find_optimal_xy(descriptors):
