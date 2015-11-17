@@ -246,7 +246,7 @@ def handle(q, q_output, settings, protsL):
             if numPSMs > 1:
                 descriptors = []
                 dname = 'RT difference, min'
-                if peptides.settings.getboolean('descriptors', dname):
+                if peptides.settings.getboolean('descriptors', dname) and not np.allclose([pep.RT_exp for pep in peptides], 0):
                     descriptors.append(Descriptor(name=dname, formula=lambda peptide: peptide.RT_exp - peptide.RT_predicted, group='A', binsize='auto'))
                 dname = 'precursor mass difference, ppm'
                 if peptides.settings.getboolean('descriptors', dname):
@@ -653,9 +653,9 @@ def PSMs_info(peptides, valid_proteins, settings, fig=False, printresults=True, 
         output_proteins_full = open('%s/%s_proteins_full.csv' % (ffolder, fname), 'w')
         output_proteins_full.write('dbname\tdescription\tPSMs\tpeptides\tsequence coverage\tLFQ(SIn)\tLFQ(NSAF)\tLFQ(emPAI)\tprotein LN(e-value)\tall proteins\n')
         output_PSMs = open('%s/%s_PSMs.csv' % (ffolder, fname), 'w')
-        output_PSMs.write('sequence\tmodified_sequence\tm/z exp\tm/z error in ppm\tmissed cleavages\te-value\tMPscore\tRT exp\tspectrum\tproteins\tproteins description\tSIn\n')
+        output_PSMs.write('sequence\tmodified_sequence\tm/z exp\tcharge\tm/z error in ppm\tmissed cleavages\te-value\tMPscore\tRT exp\tspectrum\tproteins\tproteins description\tSIn\n')
         output_peptides_detailed = open('%s/%s_peptides.csv' % (ffolder, fname), 'w')
-        output_peptides_detailed.write('sequence\tmodified_sequence\tm/z exp\tmissed cleavages\te-value\tMPscore\tRT exp\tspectrum\tproteins\tproteins description\tSIn\n')
+        output_peptides_detailed.write('sequence\tmodified_sequence\tm/z exp\tcharge\tmissed cleavages\te-value\tMPscore\tRT exp\tspectrum\tproteins\tproteins description\tSIn\n')
         pickle.dump(peptides.RC, open('%s/%s_RC.pickle' % (ffolder, fname), 'w'))
         if protsC:
             output_proteins_valid = open('%s/%s_proteins_valid.csv' % (ffolder, fname), 'w')
@@ -675,7 +675,7 @@ def PSMs_info(peptides, valid_proteins, settings, fig=False, printresults=True, 
 
         for peptide in peptides.peptideslist:
             if any(protein.dbname in prots for protein in peptide.parentproteins):
-                output_PSMs.write('%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t' % (peptide.sequence, peptide.modified_sequence, peptide.mz, peptide.mass_diff(), peptide.mc, peptide.evalue, peptide.peptscore, peptide.RT_exp, peptide.spectrum))
+                output_PSMs.write('%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t' % (peptide.sequence, peptide.modified_sequence, peptide.mz, peptide.pcharge, peptide.mass_diff(), peptide.mc, peptide.evalue, peptide.peptscore, peptide.RT_exp, peptide.spectrum))
                 for protein in peptide.parentproteins:
                     output_PSMs.write('%s;' % (protein.dbname, ))
                 output_PSMs.write('\t')
@@ -696,7 +696,7 @@ def PSMs_info(peptides, valid_proteins, settings, fig=False, printresults=True, 
         for peptide in peptides.peptideslist:
             if peptide.spectrum == peptides_best_sp[peptide.sequence]:
                 if any(protein.dbname in prots for protein in peptide.parentproteins):
-                    output_peptides_detailed.write('%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t' % (peptide.sequence, peptide.modified_sequence, peptide.mz, peptide.mc, peptide.evalue, peptide.peptscore, peptide.RT_exp, peptide.spectrum))
+                    output_peptides_detailed.write('%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t' % (peptide.sequence, peptide.modified_sequence, peptide.mz, peptide.pcharge, peptide.mc, peptide.evalue, peptide.peptscore, peptide.RT_exp, peptide.spectrum))
                     for protein in peptide.parentproteins:
                         output_peptides_detailed.write('%s;' % (protein.dbname, ))
                     output_peptides_detailed.write('\t')
