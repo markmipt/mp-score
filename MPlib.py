@@ -10,7 +10,7 @@ import numpy as np
 from scipy.stats import scoreatpercentile
 from copy import copy
 from scipy.spatial import cKDTree
-from collections import Counter
+from collections import Counter, defaultdict
 
 try:
     from configparser import RawConfigParser
@@ -530,6 +530,7 @@ class Peptide:
         self.sumI = sumI# / self.pcharge
         self.it = 1.0
         self.infile = infile
+        self.fragments = defaultdict(dict)
 
     def theor_spectrum(self, types=('b', 'y'), maxcharge=None, **kwargs):
         peaks = {}
@@ -582,17 +583,22 @@ class Peptide:
             acc = settings.getfloat('fragment mass', 'mass accuracy')
             spectrum_mz = copy(self.spectrum_mz)
             int_array = copy(self.spectrum_i)
-            int_array = int_array / int_array.max() * 100
             i = int_array > int_array.max() / 100
             spectrum_mz = spectrum_mz[i]
-            theor = self.theor_spectrum(types=ion_types, aa_mass=self.aa_mass)
+            int_array = int_array[i]
+            theor = self.theor_spectrum(types=ion_types, aa_mass=self.aa_mass, maxcharge=1)
             spectrum_KDTree = cKDTree(spectrum_mz.reshape((spectrum_mz.size, 1)))
             dist_total = np.array([])
-            for fragments in theor.values():
+            for itype, fragments in theor.iteritems():
+                self.fragments[itype]['m/z'] = fragments
                 n = fragments.size
                 dist, ind = spectrum_KDTree.query(fragments.reshape((n, 1)),
                     distance_upper_bound=acc)
                 dist_total = np.append(dist_total, dist[dist != np.inf])
+                self.fragments[itype]['intensity'] = np.zeros(len(fragments))
+                for idx in range(len(dist)):
+                    if dist[idx] != np.inf:
+                        self.fragments[itype]['intensity'][idx] += int_array[ind[idx]]
             if dist_total.size:
                 self.fragment_mt = np.median(dist_total)
             else:

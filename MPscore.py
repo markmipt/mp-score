@@ -655,7 +655,12 @@ def PSMs_info(peptides, valid_proteins, settings, fig=False, printresults=True, 
         output_PSMs = open('%s/%s_PSMs.csv' % (ffolder, fname), 'w')
         output_PSMs.write('sequence\tmodified_sequence\tm/z exp\tcharge\tm/z error in ppm\tmissed cleavages\te-value\tMPscore\tRT exp\tspectrum\tproteins\tproteins description\tSIn\n')
         output_peptides_detailed = open('%s/%s_peptides.csv' % (ffolder, fname), 'w')
-        output_peptides_detailed.write('sequence\tmodified_sequence\tm/z exp\tcharge\tmissed cleavages\te-value\tMPscore\tRT exp\tspectrum\tproteins\tproteins description\tSIn\n')
+        output_peptides_detailed.write('sequence\tmodified_sequence\tm/z exp\tcharge\tmissed cleavages\te-value\tMPscore\tRT exp\tspectrum\tproteins\tproteins description\tSIn')
+        if settings.getboolean('advanced options', 'fragments_info'):
+            for itype in peptides.peptideslist[0].fragments:
+                output_peptides_detailed.write('\t%s_ions' % (itype))
+        framents_info_zeroes = settings.getboolean('advanced options', 'fragments_info_zeros')
+        output_peptides_detailed.write('\n')
         pickle.dump(peptides.RC, open('%s/%s_RC.pickle' % (ffolder, fname), 'w'))
         if protsC:
             output_proteins_valid = open('%s/%s_proteins_valid.csv' % (ffolder, fname), 'w')
@@ -702,7 +707,15 @@ def PSMs_info(peptides, valid_proteins, settings, fig=False, printresults=True, 
                     output_peptides_detailed.write('\t')
                     for protein in peptide.parentproteins:
                         output_peptides_detailed.write('%s;' % (protein.description, ))
-                    output_peptides_detailed.write('\t%s\n' % (peptide.sumI, ))
+                    output_peptides_detailed.write('\t%s' % (peptide.sumI, ))
+                    if settings.getboolean('advanced options', 'fragments_info'):
+                        for itype, val in peptide.fragments.iteritems():
+                            output_peptides_detailed.write('\t')
+                            for idx, mz in enumerate(val['m/z']):
+                                if framents_info_zeroes or int(val['intensity'][idx]):
+                                    output_peptides_detailed.write('%s:%s;' % (round(mz, 3), int(val['intensity'][idx])))
+
+                    output_peptides_detailed.write('\n')
         if protsC:
             temp_sum = sum([x[0] for x in temp_data])
             temp_data = [[x[0] / temp_sum, x[1]] for x in temp_data]
