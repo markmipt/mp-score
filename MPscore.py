@@ -1109,6 +1109,14 @@ def main(argv_in, union_custom=False):
     except:
         settings.set('advanced options', 'separatefigures', '0')
     try:
+        settings.getboolean('advanced options', 'fragments_info')
+    except:
+        settings.set('advanced options', 'fragments_info', '0')
+    try:
+        settings.getboolean('advanced options', 'fragments_info_zeroes')
+    except:
+        settings.set('advanced options', 'fragments_info_zeroes', '0')
+    try:
         settings.getboolean('input', 'add decoy')
     except:
         if 'input' not in settings.sections():
