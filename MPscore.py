@@ -83,7 +83,7 @@ def handle(q, q_output, settings, protsL):
         def getpepxml(iq, iq_output, settings, mods=False):
             for curfile in iter(iq.get, None):
                 qpeptides = PeptideList(settings, mods)
-                qpeptides.get_from_pepxmlfile(curfile['.pep'], min_charge=min_charge, max_charge=max_charge, allowed_peptides=settings.get('advanced options', 'allowed peptides'))
+                qpeptides.get_from_pepxmlfile(curfile['.pep'], min_charge=min_charge, max_charge=max_charge, allowed_peptides=settings.get('advanced options', 'allowed peptides'), prefix=settings.get('input', 'decoy prefix'))
 
                 if len(qpeptides.peptideslist):
                     mzmlfile = curfile.get('.mzML', None)
@@ -1118,10 +1118,12 @@ def main(argv_in, union_custom=False):
         settings.set('advanced options', 'fragments_info_zeros', '0')
     try:
         settings.getboolean('input', 'add decoy')
+        settings.get('input', 'decoy prefix')
     except:
         if 'input' not in settings.sections():
             settings.add_section('input')
         settings.set('input', 'add decoy', '0')
+        settings.set('input', 'decoy prefix', 'DECOY_')
     if union_custom:
         settings.set('options', 'files', 'union')
 

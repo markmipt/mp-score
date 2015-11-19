@@ -205,7 +205,7 @@ class PeptideList:
         else:
             return self.total_number_of_PSMs
 
-    def get_from_pepxmlfile(self, pepxmlfile, min_charge=1, max_charge=0, allowed_peptides=False):
+    def get_from_pepxmlfile(self, pepxmlfile, min_charge=1, max_charge=0, allowed_peptides=False, prefix='DECOY_'):
         if allowed_peptides:
             allowed_peptides_set = set([x.strip() for x in open(allowed_peptides)])
         for line in open(pepxmlfile, 'r'):
@@ -278,7 +278,7 @@ class PeptideList:
                                 except:
                                     pept.RT_exp = 0
 
-                            decoy_tags = [':reversed', 'DECOY_', 'rev_', 'Random sequence.']
+                            decoy_tags = [':reversed', prefix, 'rev_', 'Random sequence.']
                             if any([all([all((not protein.get(key, '') or not protein[key].startswith(tag)) and (not protein.get(key, '') or not protein[key].endswith(tag)) for key in ['protein', 'protein_descr']) for tag in decoy_tags]) for protein in record['search_hit'][0]['proteins']]):
                                 pept.note = 'target'
                             else:
