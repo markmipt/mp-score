@@ -1117,15 +1117,17 @@ def main(argv_in, union_custom=False):
     except:
         settings.set('advanced options', 'fragments_info_zeros', '0')
     try:
-        settings.getboolean('input', 'add decoy')
+        settings.get('input', 'add decoy')
         settings.get('input', 'decoy prefix')
     except:
         if 'input' not in settings.sections():
             settings.add_section('input')
-        settings.set('input', 'add decoy', '0')
+        settings.set('input', 'add decoy', 'no')
         settings.set('input', 'decoy prefix', 'DECOY_')
     if union_custom:
         settings.set('options', 'files', 'union')
+    dec_prefix = settings.get('input', 'decoy prefix')
+    print 'decoy prefix', dec_prefix
 
     proteases = [x.strip() for x in settings.get('missed cleavages', 'protease1').split(',')]
     proteases.extend([x.strip() for x in settings.get('missed cleavages', 'protease2').split(',')])
@@ -1151,18 +1153,18 @@ def main(argv_in, union_custom=False):
                 break
 
             try:
-                if not any(x[0].startswith(tag) for tag in ['sp', 'tr', 'DECOY_sp', 'DECOY_tr']):
+                if not any(x[0].startswith(tag) for tag in ['sp', 'tr', dec_prefix + '_sp', dec_prefix + '_tr']):
                     if any(tag in x[0] for tag in ['SWISS-PROT:', 'TREMBL:']):
                         dbname = x[0].split(' ')[0]
                     else:
                         dbname = x[0]#.replace('>', ' ')
-                    if 'DECOY_' not in x[0]:
+                    if dec_prefix not in x[0]:
                         protsS[dbname] = x[1]
                 else:
                     dbname = x[0].split('|')[1]
-                    if 'DECOY_' not in x[0]:
+                    if dec_prefix not in x[0]:
                         protsS[x[0].split('|')[1]] = x[1]
-                if 'DECOY_' not in x[0]:
+                if dec_prefix not in x[0]:
                     protsL[dbname] = len(x[1])
                     protsN[dbname] = len(parser.cleave(x[1], expasy, mc))
                 protsL['total proteins'] += 1
@@ -1171,7 +1173,7 @@ def main(argv_in, union_custom=False):
                 print 'Smth wrong with reading of FASTA file'
 
     if fastafile:
-        if settings.getboolean('input', 'add decoy'):
+        if settings.get('input', 'add decoy') == 'yes':
             decoy_method = settings.get('input', 'decoy method')
             decoy_prefix = settings.get('input', 'decoy prefix')
             for x in fasta.decoy_db(fastafile, mode=decoy_method, prefix=decoy_prefix):

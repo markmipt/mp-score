@@ -33,22 +33,22 @@ class CustomRawConfigParser(RawConfigParser):
         else:
             return ''
 
-def get_dbname(prot, pepxml_type='tandem'):
+def get_dbname(prot, pepxml_type='tandem', dec_prefix='DECOY_'):
     if pepxml_type != 'omssa':
         try:
-            if not any(prot['protein'].startswith(tag) for tag in ['sp', 'tr', 'DECOY_sp', 'DECOY_tr']):
+            if not any(prot['protein'].startswith(tag) for tag in ['sp', 'tr', dec_prefix + '_sp', dec_prefix + '_tr']):
                 if any(prot['protein_descr'].startswith(tag) for tag in ['SWISS-PROT:', 'TREMBL:']):
                     return prot['protein']
                 if '|' not in prot['protein']:
-                    return str(prot['protein']+' '+prot['protein_descr']).replace('DECOY_', '')
+                    return str(prot['protein']+' '+prot['protein_descr']).replace(dec_prefix, '')
                 else:
-                    return str(prot['protein']+'>'+prot['protein_descr']).replace('DECOY_', '')
+                    return str(prot['protein']+'>'+prot['protein_descr']).replace(dec_prefix, '')
             else:
-                return str(prot['protein'].split('|')[1]).replace('DECOY_', '')
+                return str(prot['protein'].split('|')[1]).replace(dec_prefix, '')
         except:
-            return str(prot['protein'].split('_')[0]).replace('DECOY_', '')
+            return str(prot['protein'].split('_')[0]).replace(dec_prefix, '')
     else:
-        return str(prot['protein_descr'].split('|')[1]).replace('DECOY_', '')
+        return str(prot['protein_descr'].split('|')[1]).replace(dec_prefix, '')
 
 
 def get_aa_mass(settings):
@@ -285,8 +285,8 @@ class PeptideList:
                                 pept.note = 'decoy'
 
                             for prot in record['search_hit'][0]['proteins']:
-                                if get_dbname(prot, self.pepxml_type) not in [protein.dbname for protein in pept.parentproteins]:
-                                    pept.parentproteins.append(Protein(dbname=get_dbname(prot, self.pepxml_type), description=prot.get('protein_descr', None)))
+                                if get_dbname(prot, self.pepxml_type, dec_prefix=prefix) not in [protein.dbname for protein in pept.parentproteins]:
+                                    pept.parentproteins.append(Protein(dbname=get_dbname(prot, self.pepxml_type, dec_prefix=prefix), description=prot.get('protein_descr', None)))
 
                             if len(pept.parentproteins) and (not modifications or Counter(v['position'] for v in modifications).most_common(1)[0][1] <= 2):
                                 self.peptideslist.append(pept)
