@@ -262,6 +262,10 @@ class PeptideList:
                                 sumI = 10 ** float(record['search_hit'][0]['search_score']['sumI'])
                             except:
                                 sumI = 0
+                            try:
+                                frag_mt = float(record['search_hit'][0]['search_score']['fragmentMT'])
+                            except:
+                                frag_mt = None
                             spectrum = record['spectrum']
                             pcharge = record['assumed_charge']
                             mass_exp = record['precursor_neutral_mass']
@@ -269,7 +273,7 @@ class PeptideList:
                             if pepxmlfile not in infiles_dict:
                                 infiles_dict[pepxmlfile] = len(infiles_dict)
                             infile_current = infiles_dict[pepxmlfile]
-                            pept = Peptide(sequence=sequence, settings=self.settings, modified_code=modified_code, evalue=evalue, spectrum=spectrum, pcharge=pcharge, mass_exp=mass_exp, modifications=modifications, modification_list=self.modification_list, custom_aa_mass=self.aa_list, sumI=sumI, mc=mc, infile=infile_current)
+                            pept = Peptide(sequence=sequence, settings=self.settings, modified_code=modified_code, evalue=evalue, spectrum=spectrum, pcharge=pcharge, mass_exp=mass_exp, modifications=modifications, modification_list=self.modification_list, custom_aa_mass=self.aa_list, sumI=sumI, mc=mc, infile=infile_current, frag_mt=frag_mt)
                             try:
                                 pept.RT_exp = float(record['retention_time_sec']) / 60
                             except:
@@ -486,7 +490,7 @@ class Protein:
         self.description = description
 
 class Peptide:
-    def __init__(self, sequence, settings, modified_code='', pcharge=0, RT_exp=False, evalue=0, note='unknown', spectrum='', mass_exp=0, modifications=[], modification_list={}, custom_aa_mass=None, sumI=0, mc=None, infile='unknown'):
+    def __init__(self, sequence, settings, modified_code='', pcharge=0, RT_exp=False, evalue=0, note='unknown', spectrum='', mass_exp=0, modifications=[], modification_list={}, custom_aa_mass=None, sumI=0, mc=None, infile='unknown', frag_mt=None):
         self.sequence = sequence
         self.modified_code = modified_code
         self.modified_sequence = sequence
@@ -526,7 +530,7 @@ class Peptide:
         self.peptscore2 = 1
         self.spectrum = spectrum
         self.spectrum_mz = None
-        self.fragment_mt = None
+        self.fragment_mt = frag_mt
         self.sumI = sumI# / self.pcharge
         self.it = 1.0
         self.infile = infile

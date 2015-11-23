@@ -127,35 +127,36 @@ def handle(q, q_output, settings, protsL):
                         #         print 'Smth wrong with mzML indexes'
                         #         print peptide.spectrum.split('.')[1], itimes[-1]
 
-                    mgffile = curfile.get('.mgf', None)
-                    if mgffile:
-                        print 'mgf is processing'
-                        spectra = mgf.read(mgffile)
-                        for spectrum in spectra:
-                            spectra_dict[spectrum['params']['title'].strip()] = spectrum['m/z array']
-                            spectra_dict_intensities[spectrum['params']['title'].strip()] = spectrum['intensity array']
-                        protsL['total spectra'] = len(spectra_dict)
-                        if not qpeptides.total_number_of_spectra:
-                            qpeptides.total_number_of_spectra = len(spectra_dict)
-                    if not spectra_dict:
-                        qpeptides.settings.set('descriptors', 'fragment mass tolerance, Da', '0')
-                        print 'fragment mass tolerance was turned off due to missed mgf file'
-                    if qpeptides.settings.getboolean('descriptors', 'fragment mass tolerance, Da'):
-                        for peptide in qpeptides.peptideslist:
-                            try:
-                                peptide.spectrum_mz = spectra_dict[peptide.spectrum.split(' RTINSECONDS=')[0].strip()]
-                                peptide.spectrum_i = spectra_dict_intensities[peptide.spectrum.split(' RTINSECONDS=')[0].strip()]
-                            except:
+                    if not qpeptides.peptideslist[0].fragment_mt:
+                        mgffile = curfile.get('.mgf', None)
+                        if mgffile:
+                            print 'mgf is processing'
+                            spectra = mgf.read(mgffile)
+                            for spectrum in spectra:
+                                spectra_dict[spectrum['params']['title'].strip()] = spectrum['m/z array']
+                                spectra_dict_intensities[spectrum['params']['title'].strip()] = spectrum['intensity array']
+                            protsL['total spectra'] = len(spectra_dict)
+                            if not qpeptides.total_number_of_spectra:
+                                qpeptides.total_number_of_spectra = len(spectra_dict)
+                        if not spectra_dict:
+                            qpeptides.settings.set('descriptors', 'fragment mass tolerance, Da', '0')
+                            print 'fragment mass tolerance was turned off due to missed mgf file'
+                        if qpeptides.settings.getboolean('descriptors', 'fragment mass tolerance, Da'):
+                            for peptide in qpeptides.peptideslist:
                                 try:
-                                    peptide.spectrum_mz = spectra_dict[peptide.spectrum.strip() + ' min']
-                                    peptide.spectrum_i = spectra_dict_intensities[peptide.spectrum.strip() + ' min']
+                                    peptide.spectrum_mz = spectra_dict[peptide.spectrum.split(' RTINSECONDS=')[0].strip()]
+                                    peptide.spectrum_i = spectra_dict_intensities[peptide.spectrum.split(' RTINSECONDS=')[0].strip()]
                                 except:
-                                    peptide.spectrum_mz = spectra_dict[peptide.spectrum.strip()]
-                                    peptide.spectrum_i = spectra_dict_intensities[peptide.spectrum.strip()]
-                        for peptide in qpeptides.peptideslist:
-                            peptide.get_median_fragment_mt(qpeptides.settings)
-                            peptide.spectrum_mz = None
-                            peptide.spectrum_i = None
+                                    try:
+                                        peptide.spectrum_mz = spectra_dict[peptide.spectrum.strip() + ' min']
+                                        peptide.spectrum_i = spectra_dict_intensities[peptide.spectrum.strip() + ' min']
+                                    except:
+                                        peptide.spectrum_mz = spectra_dict[peptide.spectrum.strip()]
+                                        peptide.spectrum_i = spectra_dict_intensities[peptide.spectrum.strip()]
+                            for peptide in qpeptides.peptideslist:
+                                peptide.get_median_fragment_mt(qpeptides.settings)
+                                peptide.spectrum_mz = None
+                                peptide.spectrum_i = None
 
                     tmp_peptides = qpeptides.copy_empty()
                     msize = 10000
