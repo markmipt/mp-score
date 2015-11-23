@@ -36,7 +36,7 @@ class CustomRawConfigParser(RawConfigParser):
 def get_dbname(prot, pepxml_type='tandem', dec_prefix='DECOY_'):
     if pepxml_type != 'omssa':
         try:
-            if not any(prot['protein'].startswith(tag) for tag in ['sp', 'tr', dec_prefix + '_sp', dec_prefix + '_tr']):
+            if not any(prot['protein'].startswith(tag) for tag in ['sp', 'tr', dec_prefix + 'sp', dec_prefix + 'tr']):
                 if any(prot['protein_descr'].startswith(tag) for tag in ['SWISS-PROT:', 'TREMBL:']):
                     return prot['protein']
                 if '|' not in prot['protein']:

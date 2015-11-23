@@ -1153,7 +1153,7 @@ def main(argv_in, union_custom=False):
                 break
 
             try:
-                if not any(x[0].startswith(tag) for tag in ['sp', 'tr', dec_prefix + '_sp', dec_prefix + '_tr']):
+                if not any(x[0].startswith(tag) for tag in ['sp', 'tr', dec_prefix + 'sp', dec_prefix + 'tr']):
                     if any(tag in x[0] for tag in ['SWISS-PROT:', 'TREMBL:']):
                         dbname = x[0].split(' ')[0]
                     else:
