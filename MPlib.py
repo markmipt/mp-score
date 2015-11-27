@@ -51,17 +51,26 @@ def get_dbname(prot, pepxml_type='tandem', dec_prefix='DECOY_'):
         return str(prot['protein_descr'].split('|')[1]).replace(dec_prefix, '')
 
 
+def custom_split_label(mod):
+    j = 0
+    while mod[j].islower():
+        j += 1
+    if len(mod[j:]) > 1:
+        return mod[:j], mod[j:].replace('[', '').replace(']', '')
+    else:
+        return mod[:j], mod[j:]
+
 def get_aa_mass(settings):
     aa_mass = mass.std_aa_mass.copy()
     fmods = settings.get('modifications', 'fixed')
     if fmods:
         for mod in re.split(r'[,;]\s*', fmods):
-            m, aa = parser._split_label(mod)
+            m, aa = custom_split_label(mod)#parser._split_label(mod)
             aa_mass[aa] += settings.getfloat('modifications', m)
             aa_mass[mod] = aa_mass[aa] + settings.getfloat('modifications', m)
     vmods = settings.get('modifications', 'variable')
     if vmods:
-        mods = [(l[:-1], l[-1]) for l in re.split(r',\s*', vmods)]
+        mods = [custom_split_label(mod) for mod in re.split(r',\s*', vmods)]#[(l[:-1], l[-1]) for l in re.split(r',\s*', vmods)]
         for (mod, aa), char in zip(mods, punctuation):
             if aa == '[':
                 aa_mass[mod + '-'] = settings.getfloat('modifications', mod) + settings.getfloat('modifications', 'protein nterm cleavage')
@@ -171,11 +180,11 @@ class PeptideList:
         fmods = self.settings.get('modifications', 'fixed')
         if fmods:
             for mod in re.split(r'[,;]\s*', fmods):
-                m, aa = parser._split_label(mod)
+                m, aa = custom_split_label(mod)#parser._split_label(mod)
                 self.modification_list[str(int(mass.std_aa_mass[aa] + settings.getfloat('modifications', m)))] = m
         vmods = settings.get('modifications', 'variable')
         if vmods:
-            mods = [(l[:-1], l[-1]) for l in re.split(r',\s*', vmods)]
+            mods = [custom_split_label(mod) for mod in re.split(r',\s*', vmods)]#[(l[:-1], l[-1]) for l in re.split(r',\s*', vmods)]
             for (mod, aa), char in zip(mods, punctuation):
                 if aa == '[':
                     self.modification_list[str(int(self.nterm_mass + settings.getfloat('modifications', mod)))] = mod + '-'
@@ -252,7 +261,8 @@ class PeptideList:
                             modified_code = record['search_hit'][0]['modified_peptide']
                             modifications = record['search_hit'][0]['modifications']
                             try:
-                                evalue = record['search_hit'][0]['search_score']['expect']
+                                # evalue = record['search_hit'][0]['search_score']['expect']
+                                evalue = 1/record['search_hit'][0]['search_score']['hyperscore']
                             except:
                                 try:
                                     evalue = 1.0 / float(record['search_hit'][0]['search_score']['ionscore'])
