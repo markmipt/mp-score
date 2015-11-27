@@ -65,7 +65,7 @@ def get_aa_mass(settings):
     fmods = settings.get('modifications', 'fixed')
     if fmods:
         for mod in re.split(r'[,;]\s*', fmods):
-            m, aa = custom_split_label(mod)#parser._split_label(mod)
+            m, aa = parser._split_label(mod)
             aa_mass[aa] += settings.getfloat('modifications', m)
             aa_mass[mod] = aa_mass[aa] + settings.getfloat('modifications', m)
     vmods = settings.get('modifications', 'variable')
@@ -180,7 +180,7 @@ class PeptideList:
         fmods = self.settings.get('modifications', 'fixed')
         if fmods:
             for mod in re.split(r'[,;]\s*', fmods):
-                m, aa = custom_split_label(mod)#parser._split_label(mod)
+                m, aa = parser._split_label(mod)
                 self.modification_list[str(int(mass.std_aa_mass[aa] + settings.getfloat('modifications', m)))] = m
         vmods = settings.get('modifications', 'variable')
         if vmods:
