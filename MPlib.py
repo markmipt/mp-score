@@ -55,13 +55,23 @@ def custom_split_label(mod):
     j = 0
     while mod[j].islower():
         j += 1
-    if len(mod[j:]) > 1:
-        return mod[:j], mod[j:].replace('[', '').replace(']', '')
-    else:
-        return mod[:j], mod[j:]
+    if j == 0:
+        return mod[1:], '-', ']'
+    if len(mod[j:]) > 1 and '[' in mod:
+        return mod[:j], mod[j:].replace('[', ''), '['
+    elif len(mod[j:]) > 1 and ']' in mod:
+        return mod[:j], mod[j:].replace(']', ''), ']'
+    elif len(mod[j:]) == 1:
+        if mod.startswith('-'):
+            return mod[:j], '-', ']'
+        elif mod.endswith('-'):
+            return mod[:j], '-', '['
+        else:
+            return mod[:j], mod[j:], ''
 
 def get_aa_mass(settings):
     aa_mass = mass.std_aa_mass.copy()
+    aa_mass['-'] = 0.0
     fmods = settings.get('modifications', 'fixed')
     if fmods:
         for mod in re.split(r'[,;]\s*', fmods):
@@ -71,11 +81,11 @@ def get_aa_mass(settings):
     vmods = settings.get('modifications', 'variable')
     if vmods:
         mods = [custom_split_label(mod) for mod in re.split(r',\s*', vmods)]#[(l[:-1], l[-1]) for l in re.split(r',\s*', vmods)]
-        for (mod, aa), char in zip(mods, punctuation):
-            if aa == '[':
-                aa_mass[mod + '-'] = settings.getfloat('modifications', mod) + settings.getfloat('modifications', 'protein nterm cleavage')
-            elif aa == ']':
-                aa_mass['-' + mod] = settings.getfloat('modifications', mod) + settings.getfloat('modifications', 'protein cterm cleavage')
+        for (mod, aa, term), char in zip(mods, punctuation):
+            if term == '[' and aa == '-':
+                aa_mass[mod + '-'] = settings.getfloat('modifications', mod.replace('-', '')) + settings.getfloat('modifications', 'protein nterm cleavage')
+            elif term == ']' and aa == '-':
+                aa_mass['-' + mod] = settings.getfloat('modifications', mod.replace('-', '')) + settings.getfloat('modifications', 'protein cterm cleavage')
             else:
                 aa_mass[mod + aa] = aa_mass[aa] + settings.getfloat('modifications', mod)
     return aa_mass
@@ -185,13 +195,13 @@ class PeptideList:
         vmods = settings.get('modifications', 'variable')
         if vmods:
             mods = [custom_split_label(mod) for mod in re.split(r',\s*', vmods)]#[(l[:-1], l[-1]) for l in re.split(r',\s*', vmods)]
-            for (mod, aa), char in zip(mods, punctuation):
-                if aa == '[':
+            for (mod, aa, term), char in zip(mods, punctuation):
+                if term == '[' and aa == '-':
                     self.modification_list[str(int(self.nterm_mass + settings.getfloat('modifications', mod)))] = mod + '-'
-                elif aa == ']':
+                elif term == ']' and aa == '-':
                     self.modification_list[str(int(self.cterm_mass + settings.getfloat('modifications', mod)))] = '-' + mod
                 else:
-                    self.modification_list[str(int(mass.std_aa_mass[aa] + settings.getfloat('modifications', mod)))] = mod
+                    self.modification_list[str(int(self.aa_list[aa] + settings.getfloat('modifications', mod)))] = mod
 
     def __len__(self):
         return len(self.peptideslist)
