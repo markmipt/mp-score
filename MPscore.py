@@ -590,8 +590,9 @@ def PSMs_info(peptides, valid_proteins, settings, fig=False, printresults=True, 
         for k in prots_full:
             prots_full[k]['expect'] = calc_expect_log(prots_full[k]['evalues'], s, N, T)
 
-        protFDR = peptides.settings.getfloat('options', 'protFDR')
-        if protFDR >= 0:
+        FDR_type = settings.get('options', 'FDR_type')
+        if FDR_type == 'protein':
+            protFDR = settings.getfloat('options', 'FDR')
             prots = filter_evalue_prots(prots, FDR=protFDR)
             all_prots = set()
             for v in prots.itervalues():
