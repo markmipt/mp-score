@@ -62,9 +62,9 @@ def custom_split_label(mod):
     elif len(mod[j:]) > 1 and ']' in mod:
         return mod[:j], mod[j:].replace(']', ''), ']'
     elif len(mod[j:]) == 1:
-        if mod.startswith('-'):
+        if mod.startswith('-') or ']' in mod:
             return mod[:j], '-', ']'
-        elif mod.endswith('-'):
+        elif mod.endswith('-') or '[' in mod:
             return mod[:j], '-', '['
         else:
             return mod[:j], mod[j:], ''
