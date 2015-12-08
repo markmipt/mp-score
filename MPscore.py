@@ -181,6 +181,10 @@ def handle(q, q_output, settings, protsL):
             for res_peptides in iter(iq_output.get, None):
                 peptides.update(res_peptides)
             j += 1
+        if settings.get('advanced options', 'choose_best_spectra_results'):
+            for peptide in peptides.peptideslist:
+                peptide.infile = 0
+            peptides.remove_duplicate_spectra()
         peptides.total_number_of_PSMs = len(peptides.peptideslist)
 
         for p in iprocs:
@@ -1115,6 +1119,10 @@ def main(argv_in, union_custom=False):
         settings.getboolean('advanced options', 'fragments_info')
     except:
         settings.set('advanced options', 'fragments_info', '0')
+    try:
+        settings.getboolean('advanced options', 'choose_best_spectra_results')
+    except:
+        settings.set('advanced options', 'choose_best_spectra_results', '0')
     try:
         settings.getboolean('advanced options', 'fragments_info_zeros')
     except:

@@ -271,8 +271,8 @@ class PeptideList:
                             modified_code = record['search_hit'][0]['modified_peptide']
                             modifications = record['search_hit'][0]['modifications']
                             try:
-                                # evalue = record['search_hit'][0]['search_score']['expect']
-                                evalue = 1/record['search_hit'][0]['search_score']['hyperscore']
+                                evalue = record['search_hit'][0]['search_score']['expect']
+                                # evalue = 1/record['search_hit'][0]['search_score']['hyperscore']
                             except:
                                 try:
                                     evalue = 1.0 / float(record['search_hit'][0]['search_score']['ionscore'])
@@ -492,6 +492,15 @@ class PeptideList:
         self.RC = new_peptides.RC
         self.modification_list = new_peptides.modification_list
         self.peptideslist.extend(new_peptides.peptideslist)
+
+    def remove_duplicate_spectra(self):
+        sdict = dict()
+        for peptide in self.peptideslist:
+            if peptide.spectrum not in sdict or peptide.evalue < sdict[peptide.spectrum]:
+                sdict[peptide.spectrum] = peptide
+        self.peptideslist = []
+        for pep in sdict.values():
+            self.peptideslist.append(pep)
 
     def remove_duplicate_sequences(self):
         edict = dict()
