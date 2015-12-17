@@ -660,13 +660,17 @@ def PSMs_info(peptides, valid_proteins, settings, fig=False, printresults=True, 
         output_proteins_full = open('%s/%s_proteins_full.csv' % (ffolder, fname), 'w')
         output_proteins_full.write('dbname\tdescription\tPSMs\tpeptides\tsequence coverage\tLFQ(SIn)\tLFQ(NSAF)\tLFQ(emPAI)\tprotein LN(e-value)\tall proteins\n')
         output_PSMs = open('%s/%s_PSMs.csv' % (ffolder, fname), 'w')
-        output_PSMs.write('sequence\tmodified_sequence\tm/z exp\tcharge\tm/z error in ppm\tmissed cleavages\te-value\tMPscore\tRT exp\tspectrum\tproteins\tproteins description\tSIn\n')
+        output_PSMs.write('sequence\tmodified_sequence\tm/z exp\tcharge\tm/z error in ppm\tmissed cleavages\te-value\tMPscore\tRT exp\tspectrum\tproteins\tproteins description\tSIn\tmassdiff')
         output_peptides_detailed = open('%s/%s_peptides.csv' % (ffolder, fname), 'w')
-        output_peptides_detailed.write('sequence\tmodified_sequence\tm/z exp\tcharge\tmissed cleavages\te-value\tMPscore\tRT exp\tspectrum\tproteins\tproteins description\tSIn')
+        output_peptides_detailed.write('sequence\tmodified_sequence\tm/z exp\tcharge\tmissed cleavages\te-value\tMPscore\tRT exp\tspectrum\tproteins\tproteins description\tSIn\tmassdiff')
         if settings.getboolean('advanced options', 'fragments_info'):
             for itype in peptides.peptideslist[0].fragments:
                 output_peptides_detailed.write('\t%s_ions' % (itype))
+                output_PSMs.write('\t%s_ions' % (itype))
+            output_peptides_detailed.write('\tb_sequence\ty_sequence')
+            output_PSMs.write('\tb_sequence\ty_sequence')
         framents_info_zeroes = settings.getboolean('advanced options', 'fragments_info_zeros')
+        output_PSMs.write('\n')
         output_peptides_detailed.write('\n')
         pickle.dump(peptides.RC, open('%s/%s_RC.pickle' % (ffolder, fname), 'w'))
         if protsC:
@@ -693,7 +697,15 @@ def PSMs_info(peptides, valid_proteins, settings, fig=False, printresults=True, 
                 output_PSMs.write('\t')
                 for protein in peptide.parentproteins:
                     output_PSMs.write('%s;' % (protein.description, ))
-                output_PSMs.write('\t%s\n' % (peptide.sumI, ))
+                output_PSMs.write('\t%s\t%s' % (peptide.sumI, peptide.massdiff))
+                if settings.getboolean('advanced options', 'fragments_info'):
+                    for itype, val in peptide.fragments.iteritems():
+                        output_PSMs.write('\t')
+                        for idx, mz in enumerate(val['m/z']):
+                            if framents_info_zeroes or int(val['intensity'][idx]):
+                                output_PSMs.write('%s:%s;' % (round(mz, 3), int(val['intensity'][idx])))
+                    output_PSMs.write('\t%s\t%s' % (peptide.valid_sequence['b'], peptide.valid_sequence['y']))
+                output_PSMs.write('\n')
 
         peptides_best = dict()
         peptides_best_sp = dict()
@@ -714,13 +726,14 @@ def PSMs_info(peptides, valid_proteins, settings, fig=False, printresults=True, 
                     output_peptides_detailed.write('\t')
                     for protein in peptide.parentproteins:
                         output_peptides_detailed.write('%s;' % (protein.description, ))
-                    output_peptides_detailed.write('\t%s' % (peptide.sumI, ))
+                    output_peptides_detailed.write('\t%s\t%s' % (peptide.sumI, peptide.massdiff))
                     if settings.getboolean('advanced options', 'fragments_info'):
                         for itype, val in peptide.fragments.iteritems():
                             output_peptides_detailed.write('\t')
                             for idx, mz in enumerate(val['m/z']):
                                 if framents_info_zeroes or int(val['intensity'][idx]):
                                     output_peptides_detailed.write('%s:%s;' % (round(mz, 3), int(val['intensity'][idx])))
+                        output_peptides_detailed.write('\t%s\t%s' % (peptide.valid_sequence['b'], peptide.valid_sequence['y']))
 
                     output_peptides_detailed.write('\n')
         if protsC:

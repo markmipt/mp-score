@@ -564,10 +564,12 @@ class Peptide:
         self.it = 1.0
         self.infile = infile
         self.fragments = defaultdict(dict)
+        self.valid_sequence = dict()
 
     def theor_spectrum(self, types=('b', 'y'), maxcharge=None, **kwargs):
         peaks = {}
-        maxcharge = max(self.pcharge, 1)
+        if not maxcharge:
+            maxcharge = max(self.pcharge, 1)
         for ion_type in types:
             ms = []
             for i in range(1, len(self.modified_sequence)):
@@ -632,6 +634,21 @@ class Peptide:
                 for idx in range(len(dist)):
                     if dist[idx] != np.inf:
                         self.fragments[itype]['intensity'][idx] += int_array[ind[idx]]
+
+            for itype, val in self.fragments.iteritems():
+                if itype == 'b':
+                    try:
+                        flag = max(idx for idx, intensity in enumerate(val['intensity']) if intensity) + 1
+                    except:
+                        flag = 0
+                    self.valid_sequence[itype] = self.sequence[:flag] + self.sequence[flag:].lower()
+                elif itype == 'y':
+                    try:
+                        flag = len(self.sequence) - (max(idx for idx, intensity in enumerate(val['intensity']) if intensity) + 1)
+                    except:
+                        flag = len(self.sequence)
+                    self.valid_sequence[itype] = self.sequence[:flag].lower() + self.sequence[flag:]
+
             if dist_total.size:
                 self.fragment_mt = np.median(dist_total)
             else:
