@@ -12,7 +12,7 @@ import multiprocessing
 from time import sleep, time
 import pickle
 from copy import copy, deepcopy
-from collections import defaultdict
+from collections import defaultdict, Counter
 try:
     import seaborn
     seaborn.set(rc={'axes.facecolor':'#eeeeff'})
@@ -662,7 +662,7 @@ def PSMs_info(peptides, valid_proteins, settings, fig=False, printresults=True, 
         output_PSMs = open('%s/%s_PSMs.csv' % (ffolder, fname), 'w')
         output_PSMs.write('sequence\tmodified_sequence\tm/z exp\tcharge\tm/z error in ppm\tmissed cleavages\te-value\tMPscore\tRT exp\tspectrum\tproteins\tproteins description\tSIn\tmassdiff')
         output_peptides_detailed = open('%s/%s_peptides.csv' % (ffolder, fname), 'w')
-        output_peptides_detailed.write('sequence\tmodified_sequence\tm/z exp\tcharge\tmissed cleavages\te-value\tMPscore\tRT exp\tspectrum\tproteins\tproteins description\tSIn\tmassdiff')
+        output_peptides_detailed.write('sequence\tPSM count\tmodified_sequence\tm/z exp\tcharge\tmissed cleavages\te-value\tMPscore\tRT exp\tspectrum\tproteins\tproteins description\tSIn\tmassdiff')
         if settings.getboolean('advanced options', 'fragments_info'):
             for itype in peptides.peptideslist[0].fragments:
                 output_peptides_detailed.write('\t%s_ions' % (itype))
@@ -709,18 +709,16 @@ def PSMs_info(peptides, valid_proteins, settings, fig=False, printresults=True, 
 
         peptides_best = dict()
         peptides_best_sp = dict()
+        peptides_count = Counter()
         for peptide in peptides.peptideslist:
-            if peptide.sequence in peptides_best:
-                if peptide.evalue < peptides_best[peptide.sequence]:
-                    peptides_best[peptide.sequence] = peptide.evalue
-                    peptides_best_sp[peptide.sequence] = peptide.spectrum
-            else:
+            if peptide.evalue < peptides_best.get(peptide.sequence, np.inf):
                 peptides_best[peptide.sequence] = peptide.evalue
                 peptides_best_sp[peptide.sequence] = peptide.spectrum
+            peptides_count[peptide.sequence] += 1
         for peptide in peptides.peptideslist:
             if peptide.spectrum == peptides_best_sp[peptide.sequence]:
                 if any(protein.dbname in prots for protein in peptide.parentproteins):
-                    output_peptides_detailed.write('%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t' % (peptide.sequence, peptide.modified_sequence, peptide.mz, peptide.pcharge, peptide.mc, peptide.evalue, peptide.peptscore, peptide.RT_exp, peptide.spectrum))
+                    output_peptides_detailed.write('%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t' % (peptide.sequence, peptides_count[peptide.sequence], peptide.modified_sequence, peptide.mz, peptide.pcharge, peptide.mc, peptide.evalue, peptide.peptscore, peptide.RT_exp, peptide.spectrum))
                     for protein in peptide.parentproteins:
                         output_peptides_detailed.write('%s;' % (protein.dbname, ))
                     output_peptides_detailed.write('\t')
