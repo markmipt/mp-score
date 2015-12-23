@@ -515,14 +515,12 @@ def PSMs_info(peptides, valid_proteins, settings, fig=False, printresults=True, 
                 prots[tmp_dbname]['pept'].add(peptide.sequence)
             except:
                 prots[tmp_dbname] = dict()
-                prots[tmp_dbname]['sumI_mod'] = defaultdict(float)
                 prots[tmp_dbname]['pept'] = set([peptide.sequence, ])
                 prots[tmp_dbname]['PSMs'] = 1
                 prots[tmp_dbname]['sumI'] = peptide.sumI
                 prots[tmp_dbname]['evalues'] = []
                 prots[tmp_dbname]['expect'] = 1
                 prots[tmp_dbname]['description'] = protein.description
-            prots[tmp_dbname]['sumI_mod'][peptide.sequence] += peptide.sumI
             if tmp_dbname in valid_proteins and peptide.note != 'decoy':
                 true_prots.add(tmp_dbname)
         if peptide.sequence not in peptides_added:
@@ -613,16 +611,6 @@ def PSMs_info(peptides, valid_proteins, settings, fig=False, printresults=True, 
             for k in prots_full.keys():
                 if k.startswith('L'):
                     del prots_full[k]
-        #protein new sumI
-        for k in prots:
-            prots[k]['sumI_mod'] = np.median(prots[k]['sumI_mod'].values())
-        sumI_mod_norm = sum(x['sumI_mod'] for x in prots.itervalues())
-        if not sumI_mod_norm:
-            sumI_mod_norm = 1.0
-        for k in prots.keys():
-            prots[k]['sumI_mod'] = prots[k]['sumI_mod'] / sumI_mod_norm / protsL[k]
-        #protein sumI normalization
-
 
         prots_full, _ = nsaf(prots_full, norm=False)
         prots_full, _ = calc_emPAI(prots_full, protsN, norm=False)
