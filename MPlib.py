@@ -321,29 +321,33 @@ class PeptideList:
             peptide.modified_peptide()
 
     def get_RC(self):
-        seqs = [pept.modified_sequence for pept in self.peptideslist]
-        RTexp = [pept.RT_exp for pept in self.peptideslist]
-        RC_def = achrom.RCs_gilar_rp
-        aa_labels = set(RC_def['aa'].keys())
-        for pept in self.peptideslist:
-            for v in pept.modification_list.itervalues():
-                aa_labels.add(v)
-        xdict = {}
-        for key, val in RC_def['aa'].items():
-            xdict[key] = [val, None]
-        RC_dict = achrom.get_RCs_vary_lcp(seqs, RTexp, labels=aa_labels)
-        for key, val in RC_dict['aa'].items():
-            try:
-                xdict[key][1] = val
-            except:
-                xdict[key] = [None, val]
-        a, b, _, _ = aux.linear_regression([x[0] for x in xdict.values() if all(v != None for v in x)], [x[1] for x in xdict.values() if all(v != None for v in x)])
-        for key, x in xdict.items():
-            if x[1] == None:
-                x[1] = x[0] * a + b
-            RC_dict['aa'][key] = x[1]
-        if 'C' not in RC_dict['aa']:
-            RC_dict['aa']['C'] = RC_dict['aa']['C*']
+        try:
+            seqs = [pept.modified_sequence for pept in self.peptideslist]
+            RTexp = [pept.RT_exp for pept in self.peptideslist]
+            RC_def = achrom.RCs_gilar_rp
+            aa_labels = set(RC_def['aa'].keys())
+            for pept in self.peptideslist:
+                for v in pept.modification_list.itervalues():
+                    aa_labels.add(v)
+            xdict = {}
+            for key, val in RC_def['aa'].items():
+                xdict[key] = [val, None]
+            RC_dict = achrom.get_RCs_vary_lcp(seqs, RTexp, labels=aa_labels)
+            for key, val in RC_dict['aa'].items():
+                try:
+                    xdict[key][1] = val
+                except:
+                    xdict[key] = [None, val]
+            a, b, _, _ = aux.linear_regression([x[0] for x in xdict.values() if all(v != None for v in x)], [x[1] for x in xdict.values() if all(v != None for v in x)])
+            for key, x in xdict.items():
+                if x[1] == None:
+                    x[1] = x[0] * a + b
+                RC_dict['aa'][key] = x[1]
+            if 'C' not in RC_dict['aa']:
+                RC_dict['aa']['C'] = RC_dict['aa']['C*']
+        except:
+            print 'Error in get_RC for achrom model. Use RCs_gilar_rp'
+            RC_dict = achrom.RCs_gilar_rp
         self.RC = RC_dict
 
     def calc_RT(self, calibrate_coeff=(1, 0, 0, 0), RTtype='achrom'):
