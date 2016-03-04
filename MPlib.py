@@ -11,6 +11,7 @@ from scipy.stats import scoreatpercentile
 from copy import copy
 from scipy.spatial import cKDTree
 from collections import Counter, defaultdict
+from operator import itemgetter
 
 try:
     from configparser import RawConfigParser
@@ -81,6 +82,12 @@ def get_aa_mass(settings):
     vmods = settings.get('modifications', 'variable')
     if vmods:
         mods = [custom_split_label(mod) for mod in re.split(r',\s*', vmods)]#[(l[:-1], l[-1]) for l in re.split(r',\s*', vmods)]
+        if settings.get('advanced options', 'snp'):
+            for k, v in mass.std_aa_mass.items():
+                for kk in mass.std_aa_mass.keys():
+                    aa_mass['snp' + kk.lower()] = v
+                # mods.append(('snp' + k.lower(), round(v, 4), 'snp'))
+        # for (mod, aa, term), char in zip(mods, punctuation):
         for (mod, aa, term), char in zip(mods, punctuation):
             if term == '[' and aa == '-':
                 aa_mass[mod + '-'] = settings.getfloat('modifications', mod.replace('-', '')) + settings.getfloat('modifications', 'protein nterm cleavage')
@@ -191,17 +198,22 @@ class PeptideList:
         if fmods:
             for mod in re.split(r'[,;]\s*', fmods):
                 m, aa = parser._split_label(mod)
-                self.modification_list[str(int(mass.std_aa_mass[aa] + settings.getfloat('modifications', m)))] = m
+                self.modification_list[round(mass.std_aa_mass[aa] + settings.getfloat('modifications', m), 4)] = m
         vmods = settings.get('modifications', 'variable')
         if vmods:
             mods = [custom_split_label(mod) for mod in re.split(r',\s*', vmods)]#[(l[:-1], l[-1]) for l in re.split(r',\s*', vmods)]
+            if settings.get('advanced options', 'snp'):
+                for k, v in mass.std_aa_mass.items():
+                    mods.append(('snp' + k.lower(), round(v, 4), 'snp'))
             for (mod, aa, term), char in zip(mods, punctuation):
-                if term == '[' and aa == '-':
-                    self.modification_list[str(int(self.nterm_mass + settings.getfloat('modifications', mod)))] = mod + '-'
+                if term == 'snp':
+                    self.modification_list[aa] = mod
+                elif term == '[' and aa == '-':
+                    self.modification_list[round(self.nterm_mass + settings.getfloat('modifications', mod), 4)] = mod + '-'
                 elif term == ']' and aa == '-':
-                    self.modification_list[str(int(self.cterm_mass + settings.getfloat('modifications', mod)))] = '-' + mod
+                    self.modification_list[round(self.cterm_mass + settings.getfloat('modifications', mod), 4)] = '-' + mod
                 else:
-                    self.modification_list[str(int(self.aa_list[aa] + settings.getfloat('modifications', mod)))] = mod
+                    self.modification_list[round(self.aa_list[aa] + settings.getfloat('modifications', mod), 4)] = mod
 
     def __len__(self):
         return len(self.peptideslist)
@@ -687,53 +699,29 @@ class Peptide:
                 else:
                     break
 
-        def get_modification(arg):
-            if arg.isdigit():
-                if arg not in self.modification_list:
-                    add_modification(arg)
-                for modif in self.modifications:
-                    if int(modif['mass']) == int(arg):
-                        self.aa_mass[self.modification_list[arg] + self.sequence[modif['position'] - 1]] = float(modif['mass'])
-                return self.modification_list[arg]
-            else:
-                return arg
-
-        self.modified_sequence = ''
-        stack = []
-        tcode = re.split('\[|\]', self.modified_code)
-        for elem in ''.join(map(get_modification, tcode))[::-1]:
-            if elem.islower():
-                stack.append(elem)
-            else:
-                self.modified_sequence += elem
-                while stack:
-                    self.modified_sequence += stack.pop(0)
-        while stack:
-            self.modified_sequence += stack.pop(0)
-        self.modified_sequence = self.modified_sequence[::-1]
-        for idx, elem in enumerate(tcode):
-            flag_v = 0
-            while idx - flag_v - 1 >= 0:
-                if not tcode[idx - flag_v - 1]:
-                    flag_v += 2
-                else:
-                    break
-            if elem.isdigit() and not tcode[idx + 1] and idx != len(tcode) - 2 and tcode[idx + 2].isdigit():
-                self.aa_mass[self.modification_list[elem] + self.modification_list[tcode[idx + 2]]] = self.aa_mass[self.modification_list[elem] + tcode[idx - 1 - flag_v][-1]] + self.aa_mass[self.modification_list[tcode[idx + 2]] + tcode[idx - 1 - flag_v][-1]] - mass.std_aa_mass[tcode[idx - 1 - flag_v][-1]]
-        for modif in self.modifications:
+        self.modified_sequence = str(self.sequence)
+        for modif in sorted(self.modifications, key=itemgetter('position'), reverse=True):
             if modif['position'] == 0:
                 try:
-                    self.modified_sequence = self.modification_list[str(int(modif['mass']))] + self.modified_sequence
+                    self.modified_sequence = self.modification_list[round(modif['mass'], 4)] + self.modified_sequence
                 except:
-                    add_modification(str(int(modif['mass'])), term='n')
-                    print 'label for %s nterm modification is missing in parameters, using %s label' % (str(int(modif['mass'])), self.modification_list[str(int(modif['mass']))])
-                    self.aa_mass[self.modification_list[str(int(modif['mass']))]] = float(modif['mass'])
-                    self.modified_sequence = self.modification_list[str(int(modif['mass']))] + self.modified_sequence
+                    add_modification(round(modif['mass'], 4), term='n')
+                    print 'label for %s nterm modification is missing in parameters, using %s label' % (round(modif['mass'], 4), self.modification_list[round(modif['mass'], 4)])
+                    self.aa_mass[self.modification_list[round(modif['mass'], 4)]] = float(modif['mass'])
+                    self.modified_sequence = self.modification_list[round(modif['mass'], 4)] + self.modified_sequence
             elif modif['position'] == len(self.sequence) + 1:
                 try:
-                    self.modified_sequence = self.modified_sequence + self.modification_list[str(int(modif['mass']))]
+                    self.modified_sequence = self.modified_sequence + self.modification_list[round(modif['mass'], 4)]
                 except:
-                    add_modification(str(int(modif['mass'])), term='c')
-                    print 'label for %s cterm modification is missing in parameters, using label %s' % (str(int(modif['mass'])), self.modification_list[str(int(modif['mass']))])
-                    self.aa_mass[self.modification_list[str(int(modif['mass']))]] = float(modif['mass'])
-                    self.modified_sequence = self.modified_sequence + self.modification_list[str(int(modif['mass']))]
+                    add_modification(round(modif['mass'], 4), term='c')
+                    print 'label for %s cterm modification is missing in parameters, using label %s' % (round(modif['mass'], 4), self.modification_list[round(modif['mass'], 4)])
+                    self.aa_mass[self.modification_list[round(modif['mass'], 4)]] = float(modif['mass'])
+                    self.modified_sequence = self.modified_sequence + self.modification_list[round(modif['mass'], 4)]
+            else:
+                pos = modif['position']
+                try:
+                    self.modified_sequence = self.modified_sequence[:pos-1] + self.modification_list[round(modif['mass'], 4)] + self.modified_sequence[pos-1:]
+                except:
+                    add_modification(round(modif['mass'], 4))
+                    self.aa_mass[self.modification_list[round(modif['mass'], 4)]] = float(modif['mass'])
+                    self.modified_sequence = self.modified_sequence[:pos] + self.modification_list[round(modif['mass'], 4)] + self.modified_sequence[pos:]
