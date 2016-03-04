@@ -976,15 +976,26 @@ def plot_MP(descriptors, peptides, fig, FDR, FDR2, valid_proteins, settings, thr
         ax = fig.add_subplot(1, 1, 1)
     else:
         ax = fig.add_subplot(ox, oy, ox*oy)
-    ax.plot([x[0] for x in PSMs_wrong], [x[1] for x in PSMs_wrong], 'o', markersize=2, color='#AE0066')
-    ax.plot([x[0] for x in PSMs_true], [x[1] for x in PSMs_true], 'o', markersize=2, color='#000099')
+    col=['#AE0066',]*len(PSMs_wrong)+['#000099',]*len(PSMs_true)
+    n=len(col)
+    scatterdata=[((PSMs_wrong+PSMs_true)[i][0],(PSMs_wrong+PSMs_true)[i][1],col[i]) for i in range(n)]
+    np.random.shuffle(scatterdata)
+    x=[]
+    y=[]
+    col=[]
+    for a in scatterdata:
+        x.append(a[0])
+        y.append(a[1])
+        col.append(a[2])
+    plt.scatter(x,y, s=2, color=col)
     ax.axvline(threshold1, color='g')
     if threshold2:
         ax.axhline(threshold2, color='g')
     if threshold0:
         threshold0 = -np.log(threshold0)
         ax.axvline(threshold0, color='#AE0066')
-    ax.set_ylim(min(x[1] for x in PSMs_true) - 1, max(x[1] for x in PSMs_true) + 1)
+    ax.set_ylim(min(y) - 1, max(y) + 1)
+    ax.set_xlim(min(x) - 1, max(x) + 1)
     if peptides.settings.get('options', 'files') == 'union':
         fname = 'union'
     else:
