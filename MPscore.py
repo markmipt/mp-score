@@ -476,7 +476,7 @@ def PSMs_info(peptides, valid_proteins, settings, fig=False, printresults=True, 
     for peptide in peptides.peptideslist:
         if peptide.sequence not in peptides_added:
             if peptide.note2 == 'wr':
-                add_label = 'L'
+                add_label = settings.get('input', 'decoy prefix')
             else:
                 add_label = ''
             for protein in peptide.parentproteins:
@@ -502,7 +502,7 @@ def PSMs_info(peptides, valid_proteins, settings, fig=False, printresults=True, 
         if tofile:
             peptide.sumI = round(peptide.sumI / peptide.it, 2)
         if peptide.note2 == 'wr':
-            add_label = 'L'
+            add_label = settings.get('input', 'decoy prefix')
         else:
             add_label = ''
 
@@ -579,7 +579,7 @@ def PSMs_info(peptides, valid_proteins, settings, fig=False, printresults=True, 
         T = protsL['total peptides']
         for peptide in new_peptides.peptideslist:
             if peptide.note2 == 'wr':
-                add_label = 'L'
+                add_label = settings.get('input', 'decoy prefix')
             else:
                 add_label = ''
             for protein in peptide.parentproteins:
@@ -594,9 +594,10 @@ def PSMs_info(peptides, valid_proteins, settings, fig=False, printresults=True, 
             prots_full[k]['expect'] = calc_expect_log(prots_full[k]['evalues'], s, N, T)
 
         FDR_type = settings.get('options', 'FDR_type')
+        remove_decoy = settings.getint('advanced options', 'remove_decoy')
         if FDR_type == 'protein':
             protFDR = settings.getfloat('options', 'FDR')
-            prots = filter_evalue_prots(prots, FDR=protFDR)
+            prots = filter_evalue_prots(prots, FDR=protFDR, remove_decoy=remove_decoy, dec_prefix=settings.get('input', 'decoy prefix'))
             all_prots = set()
             for v in prots.itervalues():
                 all_prots.update(v['fullgroup'].split(';'))
@@ -604,13 +605,19 @@ def PSMs_info(peptides, valid_proteins, settings, fig=False, printresults=True, 
                 if k not in all_prots:
                     del prots_full[k]
         else:
-            peptides.filter_decoy()
-            for k in prots.keys():
-                if k.startswith('L'):
-                    del prots[k]
-            for k in prots_full.keys():
-                if k.startswith('L'):
-                    del prots_full[k]
+            if remove_decoy:
+                peptides.filter_decoy()
+                for k in prots.keys():
+                    if k.startswith(settings.get('input', 'decoy prefix')):
+                        del prots[k]
+                for k in prots_full.keys():
+                    if k.startswith(settings.get('input', 'decoy prefix')):
+                        del prots_full[k]
+        if not remove_decoy:
+            for prtemp in protsL.keys():
+                protsL[settings.get('input', 'decoy prefix') + prtemp] = protsL[prtemp]
+            for prtemp in protsN.keys():
+                protsN[settings.get('input', 'decoy prefix') + prtemp] = protsN[prtemp]
 
         prots_full, _ = nsaf(prots_full, norm=False)
         prots_full, _ = calc_emPAI(prots_full, protsN, norm=False)
@@ -648,9 +655,9 @@ def PSMs_info(peptides, valid_proteins, settings, fig=False, printresults=True, 
         output_proteins_full = open('%s/%s_proteins_full.csv' % (ffolder, fname), 'w')
         output_proteins_full.write('dbname\tdescription\tPSMs\tpeptides\tsequence coverage\tLFQ(SIn)\tLFQ(NSAF)\tLFQ(emPAI)\tprotein LN(e-value)\tall proteins\n')
         output_PSMs = open('%s/%s_PSMs.csv' % (ffolder, fname), 'w')
-        output_PSMs.write('sequence\tmodified_sequence\tm/z exp\tcharge\tm/z error in ppm\tmissed cleavages\te-value\tMPscore\tRT exp\tspectrum\tproteins\tproteins description\tSIn\tmassdiff')
+        output_PSMs.write('sequence\tmodified_sequence\tm/z exp\tcharge\tm/z error in ppm\tmissed cleavages\te-value\tMPscore\tRT exp\tspectrum\tproteins\tproteins description\tSIn\tmassdiff\tdecoy')
         output_peptides_detailed = open('%s/%s_peptides.csv' % (ffolder, fname), 'w')
-        output_peptides_detailed.write('sequence\tPSM count\tmodified_sequence\tm/z exp\tcharge\tmissed cleavages\te-value\tMPscore\tRT exp\tspectrum\tproteins\tproteins description\tSIn\tmassdiff')
+        output_peptides_detailed.write('sequence\tPSM count\tmodified_sequence\tm/z exp\tcharge\tmissed cleavages\te-value\tMPscore\tRT exp\tspectrum\tproteins\tproteins description\tSIn\tmassdiff\tdecoy')
         if settings.getboolean('advanced options', 'fragments_info'):
             for itype in peptides.peptideslist[0].fragments:
                 output_peptides_detailed.write('\t%s_ions' % (itype))
@@ -685,7 +692,7 @@ def PSMs_info(peptides, valid_proteins, settings, fig=False, printresults=True, 
                 output_PSMs.write('\t')
                 for protein in peptide.parentproteins:
                     output_PSMs.write('%s;' % (protein.description, ))
-                output_PSMs.write('\t%s\t%s' % (peptide.sumI, peptide.massdiff))
+                output_PSMs.write('\t%s\t%s\t%s' % (peptide.sumI, peptide.massdiff, peptide.note2))
                 if settings.getboolean('advanced options', 'fragments_info'):
                     for itype, val in peptide.fragments.iteritems():
                         output_PSMs.write('\t')
@@ -712,7 +719,7 @@ def PSMs_info(peptides, valid_proteins, settings, fig=False, printresults=True, 
                     output_peptides_detailed.write('\t')
                     for protein in peptide.parentproteins:
                         output_peptides_detailed.write('%s;' % (protein.description, ))
-                    output_peptides_detailed.write('\t%s\t%s' % (peptide.sumI, peptide.massdiff))
+                    output_peptides_detailed.write('\t%s\t%s\t%s' % (peptide.sumI, peptide.massdiff, peptide.note2))
                     if settings.getboolean('advanced options', 'fragments_info'):
                         for itype, val in peptide.fragments.iteritems():
                             output_peptides_detailed.write('\t')
@@ -732,8 +739,8 @@ def PSMs_info(peptides, valid_proteins, settings, fig=False, printresults=True, 
     if printresults:
         print 'PSMs: %s' % (len([1 for x in peptides.peptideslist if x.note2 == 'tr']), )
         print 'Peptides: %d' % (len(set(p.sequence for p in peptides.peptideslist if p.note2 == 'tr')))
-        print 'Protein groups: %s' % (sum(1 for k in prots if not k.startswith('L')))
-        print 'Protein groups with >= 2 peptides: %s' % (sum([1 for k, v in prots.iteritems() if v['Peptides'] >= 2 and not k.startswith('L')]))
+        print 'Protein groups: %s' % (sum(1 for k in prots if not k.startswith(settings.get('input', 'decoy prefix'))))
+        print 'Protein groups with >= 2 peptides: %s' % (sum([1 for k, v in prots.iteritems() if v['Peptides'] >= 2 and not k.startswith(settings.get('input', 'decoy prefix'))]))
         if valid_proteins:
             print 'PSMs_true: %s' % (len([1 for x in peptides.peptideslist if x.note3]), )
             print 'Peptides_true: %d' % (len(set(x.sequence for x in peptides.peptideslist if x.note3)), )
@@ -1138,6 +1145,10 @@ def main(argv_in, union_custom=False):
     except:
         settings.set('advanced options', 'fragments_info_zeros', '0')
     try:
+        settings.getboolean('advanced options', 'remove_decoy')
+    except:
+        settings.set('advanced options', 'remove_decoy', '1')
+    try:
         settings.get('input', 'add decoy')
         settings.get('input', 'decoy prefix')
     except:
@@ -1181,13 +1192,20 @@ def main(argv_in, union_custom=False):
                         dbname = x[0]#.replace('>', ' ')
                     if dec_prefix not in x[0]:
                         protsS[dbname] = x[1]
+                    else:
+                        protsS[dec_prefix + dbname] = x[1]
                 else:
                     dbname = x[0].split('|')[1]
                     if dec_prefix not in x[0]:
-                        protsS[x[0].split('|')[1]] = x[1]
+                        protsS[dbname] = x[1]
+                    else:
+                        protsS[dec_prefix + dbname] = x[1]
                 if dec_prefix not in x[0]:
                     protsL[dbname] = len(x[1])
                     protsN[dbname] = len(parser.cleave(x[1], expasy, mc))
+                else:
+                    protsL[dec_prefix + dbname] = len(x[1])
+                    protsN[dec_prefix + dbname] = len(parser.cleave(x[1], expasy, mc))
                 protsL['total proteins'] += 1
                 protsL['total peptides'] += protsN.get(dbname, 0)
             except:

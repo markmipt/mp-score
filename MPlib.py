@@ -97,9 +97,9 @@ def get_aa_mass(settings):
                 aa_mass[mod + aa] = aa_mass[aa] + settings.getfloat('modifications', mod)
     return aa_mass
 
-def filter_evalue_prots(prots, FDR=1.0):
-    target_evalues = np.array([v['expect'] for k, v in prots.iteritems() if not k.startswith('L')])
-    decoy_evalues = np.array([v['expect'] for k, v in prots.iteritems() if k.startswith('L')])
+def filter_evalue_prots(prots, FDR=1.0, remove_decoy=True, dec_prefix='DECOY_'):
+    target_evalues = np.array([v['expect'] for k, v in prots.iteritems() if not k.startswith(dec_prefix)])
+    decoy_evalues = np.array([v['expect'] for k, v in prots.iteritems() if k.startswith(dec_prefix)])
     target_evalues.sort()
     best_cut_evalue = None
     real_FDR = 0
@@ -114,7 +114,7 @@ def filter_evalue_prots(prots, FDR=1.0):
     print real_FDR, best_cut_evalue, 'protein e-value'
     new_prots = {}
     for k, v in prots.iteritems():
-        if v['expect'] <= best_cut_evalue and not k.startswith('L'):
+        if v['expect'] <= best_cut_evalue and (not remove_decoy or not k.startswith(dec_prefix)):
             new_prots[k] = v
     return new_prots
 
