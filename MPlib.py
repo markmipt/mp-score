@@ -324,7 +324,7 @@ class PeptideList:
                                 if get_dbname(prot, self.pepxml_type, dec_prefix=prefix) not in [protein.dbname for protein in pept.parentproteins]:
                                     pept.parentproteins.append(Protein(dbname=get_dbname(prot, self.pepxml_type, dec_prefix=prefix), description=prot.get('protein_descr', None)))
 
-                            if len(pept.parentproteins) and (not modifications or Counter(v['position'] for v in modifications).most_common(1)[0][1] <= 2):
+                            if len(pept.parentproteins) and (not modifications or Counter(v['position'] for v in modifications).most_common(1)[0][1] <= 1):
                                 self.peptideslist.append(pept)
 
 
