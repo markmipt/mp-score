@@ -1199,22 +1199,21 @@ def main(argv_in, union_custom=False):
                         dbname = x[0].split(' ')[0]
                     else:
                         dbname = x[0]#.replace('>', ' ')
-                    if dec_prefix not in x[0]:
-                        protsS[dbname] = x[1]
-                    else:
-                        protsS[dec_prefix + dbname] = x[1]
+                    protsS[dbname] = x[1]
+                    protsL[dbname] = len(x[1])
+                    protsN[dbname] = len(parser.cleave(x[1], expasy, mc))
                 else:
                     dbname = x[0].split('|')[1]
                     if dec_prefix not in x[0]:
                         protsS[dbname] = x[1]
                     else:
                         protsS[dec_prefix + dbname] = x[1]
-                if dec_prefix not in x[0]:
-                    protsL[dbname] = len(x[1])
-                    protsN[dbname] = len(parser.cleave(x[1], expasy, mc))
-                else:
-                    protsL[dec_prefix + dbname] = len(x[1])
-                    protsN[dec_prefix + dbname] = len(parser.cleave(x[1], expasy, mc))
+                    if dec_prefix not in x[0]:
+                        protsL[dbname] = len(x[1])
+                        protsN[dbname] = len(parser.cleave(x[1], expasy, mc))
+                    else:
+                        protsL[dec_prefix + dbname] = len(x[1])
+                        protsN[dec_prefix + dbname] = len(parser.cleave(x[1], expasy, mc))
                 protsL['total proteins'] += 1
                 protsL['total peptides'] += protsN.get(dbname, 0)
             except:
