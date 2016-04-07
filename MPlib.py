@@ -724,4 +724,4 @@ class Peptide:
                 except:
                     add_modification(round(modif['mass'], 4))
                     self.aa_mass[self.modification_list[round(modif['mass'], 4)]] = float(modif['mass'])
-                    self.modified_sequence = self.modified_sequence[:pos] + self.modification_list[round(modif['mass'], 4)] + self.modified_sequence[pos:]
+                    self.modified_sequence = self.modified_sequence[:pos-1] + self.modification_list[round(modif['mass'], 4)] + self.modified_sequence[pos-1:]
