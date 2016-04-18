@@ -989,16 +989,17 @@ def plot_MP(descriptors, peptides, fig, FDR, FDR2, valid_proteins, settings, thr
     else:
         ax = fig.add_subplot(ox, oy, ox*oy)
     col=['#AE0066',]*len(PSMs_wrong)+['#000099',]*len(PSMs_true)
-    n=len(col)
-    scatterdata=[((PSMs_wrong+PSMs_true)[i][0],(PSMs_wrong+PSMs_true)[i][1],col[i]) for i in range(n)]
-    np.random.shuffle(scatterdata)
+    PSMs_all = PSMs_wrong+PSMs_true
+    idx_range = range(len(col))
+    np.random.shuffle(idx_range)
     x=[]
     y=[]
-    col=[]
-    for a in scatterdata:
-        x.append(a[0])
-        y.append(a[1])
-        col.append(a[2])
+    ncol=[]
+    for a in idx_range:
+        x.append(PSMs_all[a][0])
+        y.append(PSMs_all[a][1])
+        ncol.append(col[a])
+    col = ncol
     plt.scatter(x,y, s=2, color=col)
     ax.axvline(threshold1, color='g')
     if threshold2:
