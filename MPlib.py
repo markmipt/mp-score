@@ -322,6 +322,7 @@ class PeptideList:
 
                             for prot in record['search_hit'][0]['proteins']:
                                 if get_dbname(prot, self.pepxml_type, dec_prefix=prefix) not in [protein.dbname for protein in pept.parentproteins]:
+                                    pept.num_tol_term = prot['num_tol_term']
                                     pept.parentproteins.append(Protein(dbname=get_dbname(prot, self.pepxml_type, dec_prefix=prefix), description=prot.get('protein_descr', None)))
 
                             if len(pept.parentproteins) and (not modifications or Counter(v['position'] for v in modifications).most_common(1)[0][1] <= 1):

@@ -655,9 +655,9 @@ def PSMs_info(peptides, valid_proteins, settings, fig=False, printresults=True, 
         output_proteins_full = open('%s/%s_proteins_full.csv' % (ffolder, fname), 'w')
         output_proteins_full.write('dbname\tdescription\tPSMs\tpeptides\tsequence coverage\tLFQ(SIn)\tLFQ(NSAF)\tLFQ(emPAI)\tprotein LN(e-value)\tall proteins\n')
         output_PSMs = open('%s/%s_PSMs.csv' % (ffolder, fname), 'w')
-        output_PSMs.write('sequence\tmodified_sequence\tm/z exp\tcharge\tm/z error in ppm\tmissed cleavages\te-value\tMPscore\tRT exp\tspectrum\tproteins\tproteins description\tSIn\tmassdiff\tdecoy')
+        output_PSMs.write('sequence\tmodified_sequence\tm/z exp\tcharge\tm/z error in ppm\tmissed cleavages\tnum tol term\te-value\tMPscore\tRT exp\tspectrum\tproteins\tproteins description\tSIn\tmassdiff\tdecoy')
         output_peptides_detailed = open('%s/%s_peptides.csv' % (ffolder, fname), 'w')
-        output_peptides_detailed.write('sequence\tPSM count\tmodified_sequence\tm/z exp\tcharge\tmissed cleavages\te-value\tMPscore\tRT exp\tspectrum\tproteins\tproteins description\tSIn\tmassdiff\tdecoy')
+        output_peptides_detailed.write('sequence\tPSM count\tmodified_sequence\tm/z exp\tcharge\tmissed cleavages\tnum tol term\te-value\tMPscore\tRT exp\tspectrum\tproteins\tproteins description\tSIn\tmassdiff\tdecoy')
         if settings.getboolean('advanced options', 'fragments_info'):
             for itype in peptides.peptideslist[0].fragments:
                 output_peptides_detailed.write('\t%s_ions' % (itype))
@@ -686,7 +686,7 @@ def PSMs_info(peptides, valid_proteins, settings, fig=False, printresults=True, 
 
         for peptide in peptides.peptideslist:
             if any(protein.dbname in prots for protein in peptide.parentproteins):
-                output_PSMs.write('%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t' % (peptide.sequence, peptide.modified_sequence, peptide.mz, peptide.pcharge, peptide.mass_diff(), peptide.mc, peptide.evalue, peptide.peptscore, peptide.RT_exp, peptide.spectrum))
+                output_PSMs.write('%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t' % (peptide.sequence, peptide.modified_sequence, peptide.mz, peptide.pcharge, peptide.mass_diff(), peptide.mc, peptide.num_tol_term, peptide.evalue, peptide.peptscore, peptide.RT_exp, peptide.spectrum))
                 for protein in peptide.parentproteins:
                     output_PSMs.write('%s;' % (protein.dbname, ))
                 output_PSMs.write('\t')
@@ -713,7 +713,7 @@ def PSMs_info(peptides, valid_proteins, settings, fig=False, printresults=True, 
         for peptide in peptides.peptideslist:
             if peptide.spectrum == peptides_best_sp[peptide.sequence]:
                 if any(protein.dbname in prots for protein in peptide.parentproteins):
-                    output_peptides_detailed.write('%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t' % (peptide.sequence, peptides_count[peptide.sequence], peptide.modified_sequence, peptide.mz, peptide.pcharge, peptide.mc, peptide.evalue, peptide.peptscore, peptide.RT_exp, peptide.spectrum))
+                    output_peptides_detailed.write('%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t' % (peptide.sequence, peptides_count[peptide.sequence], peptide.modified_sequence, peptide.mz, peptide.pcharge, peptide.mc, peptide.num_tol_term, peptide.evalue, peptide.peptscore, peptide.RT_exp, peptide.spectrum))
                     for protein in peptide.parentproteins:
                         output_peptides_detailed.write('%s;' % (protein.dbname, ))
                     output_peptides_detailed.write('\t')
@@ -846,14 +846,17 @@ def plot_histograms(descriptors, peptides, FDR, curfile, savesvg=False, sepfigur
             rbin = rbin_s * 1.05
         rbin += 1.5 * binsize
         H1, _ = np.histogram(array_wrong, bins=np.arange(lbin, rbin+binsize, binsize))
-        H2, _ = np.histogram(array_valid, bins=np.arange(lbin, rbin+binsize, binsize))
+        H2, bins_valid = np.histogram(array_valid, bins=np.arange(lbin, rbin+binsize, binsize))
         if descriptor.group == 'B':
             H3, _ = np.histogram([np.log10(descriptor.formula(peptide)) for peptide in copy_peptides.peptideslist], bins=np.arange(lbin, rbin+binsize, binsize))
         else:
             H3, _ = np.histogram([descriptor.formula(peptide) for peptide in copy_peptides.peptideslist], bins=np.arange(lbin, rbin+binsize, binsize))
 
         if descriptor.name in ['precursor mass difference, ppm']:
-            print 'MEDIAN precursor mass difference of top PSMs=%s ppm' % (np.median([descriptor.formula(peptide) for peptide in copy_peptides.peptideslist]), )
+            mass_arr = np.array([descriptor.formula(peptide) for peptide in copy_peptides.peptideslist])
+            median_mass = np.median(mass_arr)
+            print 'MAX BIN precursor mass difference of top PSMs=%s ppm' % (bins_valid[:-1][H2 == H2.max()], )
+            print 'STD precursor mass difference of top PSMs=%s ppm' % (np.std(mass_arr - median_mass), )
         if descriptor.group == 'B':
             H1 = H1.clip(1)
             H2 = H2.clip(1)
@@ -968,9 +971,9 @@ def plot_MP(descriptors, peptides, fig, FDR, FDR2, valid_proteins, settings, thr
     else:
         fname = path.splitext(path.splitext(path.basename(curfile))[0])[0]
     output_PSMs_full = open('%s/%s_PSMs_full.csv' % (ffolder, fname), 'w')
-    output_PSMs_full.write('sequence\tmodified_sequence\tm/z exp\tm/z error in ppm\tmissed cleavages\te-value\tMPscore\tRT exp\tspectrum\tproteins\tproteins description\tSIn\tdecoy\n')
+    output_PSMs_full.write('sequence\tmodified_sequence\tm/z exp\tm/z error in ppm\tmissed cleavages\tnum tol term\te-value\tMPscore\tRT exp\tspectrum\tproteins\tproteins description\tSIn\tdecoy\n')
     for peptide in peptides.peptideslist:
-        output_PSMs_full.write('%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t' % (peptide.sequence, peptide.modified_sequence, peptide.mz, peptide.mass_diff(), peptide.mc, peptide.evalue, peptide.peptscore, peptide.RT_exp, peptide.spectrum))
+        output_PSMs_full.write('%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t' % (peptide.sequence, peptide.modified_sequence, peptide.mz, peptide.mass_diff(), peptide.mc, peptide.num_tol_term, peptide.evalue, peptide.peptscore, peptide.RT_exp, peptide.spectrum))
         for protein in peptide.parentproteins:
             output_PSMs_full.write('%s;' % (protein.dbname, ))
         output_PSMs_full.write('\t')
@@ -1158,6 +1161,10 @@ def main(argv_in, union_custom=False):
         settings.getboolean('advanced options', 'remove_decoy')
     except:
         settings.set('advanced options', 'remove_decoy', '1')
+    try:
+        settings.getboolean('advanced options', 'snp')
+    except:
+        settings.set('advanced options', 'snp', '0')
     try:
         settings.get('input', 'add decoy')
         settings.get('input', 'decoy prefix')
