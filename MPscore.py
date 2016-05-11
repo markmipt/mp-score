@@ -1166,6 +1166,16 @@ def main(argv_in, union_custom=False):
     except:
         settings.set('advanced options', 'snp', '0')
     try:
+        settings.getboolean('search', 'peptide maximum length')
+    except:
+        if not settings.has_section('search'):
+            settings.add_section('search')
+        settings.set('search', 'peptide maximum length', 35)
+    try:
+        settings.getboolean('search', 'peptide minimum length')
+    except:
+        settings.set('search', 'peptide minimum length', 5)
+    try:
         settings.get('input', 'add decoy')
         settings.get('input', 'decoy prefix')
     except:
@@ -1179,7 +1189,7 @@ def main(argv_in, union_custom=False):
     print 'decoy prefix', dec_prefix
 
     proteases = [x.strip() for x in settings.get('missed cleavages', 'protease1').split(',')]
-    proteases.extend([x.strip() for x in settings.get('missed cleavages', 'protease2').split(',')])
+    proteases.extend([x.strip() for x in settings.get('missed cleavages', 'protease2').split(',') if x.strip()])
     expasy = '|'.join((parser.expasy_rules[protease] if protease in parser.expasy_rules else protease for protease in proteases))
     try:
         mc = settings.getint('missed cleavages', 'number of missed cleavages')
@@ -1193,7 +1203,10 @@ def main(argv_in, union_custom=False):
 
     protsL['total proteins'] = 0
     protsL['total peptides'] = 0
-    def protein_handle(fq, fq_output, protsL, protsN, protsS, expasy, mc):
+    def protein_handle(fq, fq_output, protsL, protsN, protsS, expasy, mc, minl, maxl):
+        def get_number_of_peptides(prot, expasy, mc, minl, maxl):
+            return sum(minl <= len(x) <= maxl for x in parser.cleave(prot, expasy, mc))
+
         while 1:
             try:
                 x = fq.get(timeout=1)
@@ -1209,7 +1222,7 @@ def main(argv_in, union_custom=False):
                         dbname = x[0]#.replace('>', ' ')
                     protsS[dbname] = x[1]
                     protsL[dbname] = len(x[1])
-                    protsN[dbname] = len(parser.cleave(x[1], expasy, mc))
+                    protsN[dbname] = get_number_of_peptides(x[1], expasy, mc, minl, maxl)
                 else:
                     dbname = x[0].split('|')[1]
                     if dec_prefix not in x[0]:
@@ -1218,10 +1231,10 @@ def main(argv_in, union_custom=False):
                         protsS[dec_prefix + dbname] = x[1]
                     if dec_prefix not in x[0]:
                         protsL[dbname] = len(x[1])
-                        protsN[dbname] = len(parser.cleave(x[1], expasy, mc))
+                        protsN[dbname] = get_number_of_peptides(x[1], expasy, mc, minl, maxl)
                     else:
                         protsL[dec_prefix + dbname] = len(x[1])
-                        protsN[dec_prefix + dbname] = len(parser.cleave(x[1], expasy, mc))
+                        protsN[dec_prefix + dbname] = get_number_of_peptides(x[1], expasy, mc, minl, maxl)
                 protsL['total proteins'] += 1
                 protsL['total peptides'] += protsN.get(dbname, 0)
             except:
@@ -1237,8 +1250,11 @@ def main(argv_in, union_custom=False):
             for x in fasta.read(fastafile):
                 fq.put(x)
 
+    minl = settings.getint('search', 'peptide minimum length')
+    maxl = settings.getint('search', 'peptide maximum length')
+    print 'minl, maxl', minl, maxl
     for i in range(fnprocs):
-        p = multiprocessing.Process(target=protein_handle, args=(fq, fq_output, protsL, protsN, protsS, expasy, mc))
+        p = multiprocessing.Process(target=protein_handle, args=(fq, fq_output, protsL, protsN, protsS, expasy, mc, minl, maxl))
         fprocs.append(p)
         p.start()
 
