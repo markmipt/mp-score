@@ -451,7 +451,7 @@ def nsaf(prots, norm=True):
 
 def calc_emPAI(prots, protsN, norm=True):
     for dbname in prots:
-        PAI = float(prots[dbname]['PSMs']) / protsN[dbname]
+        PAI = float(prots[dbname]['PSMs']) / max(protsN[dbname], 1)
         emPAI = 10 ** PAI - 1
         prots[dbname]['emPAI'] = emPAI
 
