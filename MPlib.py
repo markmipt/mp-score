@@ -41,9 +41,9 @@ def get_dbname(prot, pepxml_type='tandem', dec_prefix='DECOY_'):
                 if any(prot['protein_descr'].startswith(tag) for tag in ['SWISS-PROT:', 'TREMBL:']):
                     return (dec_prefix if dec_prefix in prot['protein'] else '') + prot['protein']
                 if '|' not in prot['protein']:
-                    return (dec_prefix if dec_prefix in prot['protein'] else '') + str(prot['protein']+' '+prot['protein_descr'])#.replace(dec_prefix, '')
+                    return str(prot['protein']+' '+prot['protein_descr'])#.replace(dec_prefix, '')
                 else:
-                    return (dec_prefix if dec_prefix in prot['protein'] else '') + str(prot['protein']+'>'+prot['protein_descr'])#.replace(dec_prefix, '')
+                    return str(prot['protein']+'>'+prot['protein_descr'])#.replace(dec_prefix, '')
             else:
                 return (dec_prefix if dec_prefix in prot['protein'] else '') + str(prot['protein'].split('|')[1])#.replace(dec_prefix, '')
         except:
