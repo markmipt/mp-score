@@ -403,7 +403,6 @@ class PeptideList:
 
     def filter_evalue_new(self, FDR=1, FDR2=1, useMP=True, drop_decoy=True, toprint=True):
         "A function for filtering PSMs by e-value and MP-score with some FDR"
-        print self.get_infiles(), 'infiles'
         isdecoy = lambda x: x.note == 'decoy'
         escore = lambda x: float(x.evalue)
         mscore = lambda x: -float(x.peptscore)

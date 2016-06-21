@@ -468,7 +468,6 @@ def PSMs_info(peptides, valid_proteins, settings, fig=False, printresults=True, 
         v=list(d.values())
         k=list(d.keys())
         return k[v.index(max(v))]
-    # full_sequences = set((peptide.sequence for peptide in peptides.peptideslist))
     tostay = set()
     prots = defaultdict(int)
     prots_pep = defaultdict(set)
@@ -825,7 +824,6 @@ def plot_histograms(descriptors, peptides, FDR, curfile, savesvg=False, sepfigur
             fig.set_size_inches(300.0/float(DPI), 300.0/float(DPI))
             ax = fig.add_subplot(1, 1, 1)
         else:
-        # fig = plt.figure()
             ax = fig.add_subplot(ox, oy, idx + 10)
         array_wrong = [descriptor.formula(peptide) for peptide in peptides.peptideslist if peptide.note2 == 'wr']
         array_valid = [descriptor.formula(peptide) for peptide in peptides.peptideslist if peptide.note2 == 'tr']
@@ -1219,26 +1217,6 @@ def main(argv_in, union_custom=False):
                 protsS[dbname] = x[1]
                 protsL[dbname] = len(x[1])
                 protsN[dbname] = get_number_of_peptides(x[1], expasy, mc, minl, maxl)
-                # if not any(x[0].startswith(tag) for tag in ['sp', 'tr', dec_prefix + 'sp', dec_prefix + 'tr']):
-                #     if any(tag in x[0] for tag in ['SWISS-PROT:', 'TREMBL:']):
-                #         dbname = x[0].split(' ')[0]
-                #     else:
-                #         dbname = x[0]#.replace('>', ' ')
-                #     protsS[dbname] = x[1]
-                #     protsL[dbname] = len(x[1])
-                #     protsN[dbname] = get_number_of_peptides(x[1], expasy, mc, minl, maxl)
-                # else:
-                #     dbname = x[0].split('|')[1]
-                #     if dec_prefix not in x[0]:
-                #         protsS[dbname] = x[1]
-                #     else:
-                #         protsS[dec_prefix + dbname] = x[1]
-                #     if dec_prefix not in x[0]:
-                #         protsL[dbname] = len(x[1])
-                #         protsN[dbname] = get_number_of_peptides(x[1], expasy, mc, minl, maxl)
-                #     else:
-                #         protsL[dec_prefix + dbname] = len(x[1])
-                #         protsN[dec_prefix + dbname] = get_number_of_peptides(x[1], expasy, mc, minl, maxl)
                 protsL['total proteins'] += 1
                 protsL['total peptides'] += protsN.get(dbname, 0)
             except:
