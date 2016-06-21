@@ -163,7 +163,6 @@ class PeptideList:
     def __init__(self, settings=None, mods=None):
         self.peptideslist = []
         self.calibrate_coeff = None
-        self.pepxml_type = ''
         self.RC = False
         self.infiles = set()
         self.settings = settings
@@ -224,17 +223,6 @@ class PeptideList:
     def get_from_pepxmlfile(self, pepxmlfile, min_charge=1, max_charge=0, allowed_peptides=False, prefix='DECOY_'):
         if allowed_peptides:
             allowed_peptides_set = set([x.strip() for x in open(allowed_peptides)])
-        for line in open(pepxmlfile, 'r'):
-            if line.startswith('<search_summary') or line.startswith('    <search_summary'):
-                if "X! Tandem" in line:
-                    self.pepxml_type = 'tandem'
-                elif "OMSSA" in line:
-                    self.pepxml_type = 'omssa'
-                elif "MASCOT" in line:
-                    self.pepxml_type = 'mascot'
-                else:
-                    print "Unknown search_engine"
-                break
 
         try:
             pepxml_params = {k: v for d in pepxml.iterfind(pepxmlfile, 'parameter name', read_schema=False) for k, v in d.items()}
@@ -468,7 +456,6 @@ class PeptideList:
 
     def copy_empty(self):
         new_peptides = PeptideList(self.settings)
-        new_peptides.pepxml_type = self.pepxml_type
         new_peptides.total_number_of_spectra = self.total_number_of_spectra
         new_peptides.total_number_of_PSMs = self.total_number_of_PSMs
         new_peptides.total_number_of_PSMs_decoy = self.total_number_of_PSMs_decoy
@@ -481,9 +468,7 @@ class PeptideList:
         return new_peptides
 
     def update(self, new_peptides):
-        self.pepxml_type = new_peptides.pepxml_type
         self.settings = new_peptides.settings
-        self.pepxml_type = new_peptides.pepxml_type
         self.total_number_of_spectra = new_peptides.total_number_of_spectra
         self.total_number_of_PSMs = new_peptides.total_number_of_PSMs
         self.total_number_of_PSMs_decoy = new_peptides.total_number_of_PSMs_decoy
