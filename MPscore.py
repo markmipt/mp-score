@@ -1215,26 +1215,30 @@ def main(argv_in, union_custom=False):
                 break
 
             try:
-                if not any(x[0].startswith(tag) for tag in ['sp', 'tr', dec_prefix + 'sp', dec_prefix + 'tr']):
-                    if any(tag in x[0] for tag in ['SWISS-PROT:', 'TREMBL:']):
-                        dbname = x[0].split(' ')[0]
-                    else:
-                        dbname = x[0]#.replace('>', ' ')
-                    protsS[dbname] = x[1]
-                    protsL[dbname] = len(x[1])
-                    protsN[dbname] = get_number_of_peptides(x[1], expasy, mc, minl, maxl)
-                else:
-                    dbname = x[0].split('|')[1]
-                    if dec_prefix not in x[0]:
-                        protsS[dbname] = x[1]
-                    else:
-                        protsS[dec_prefix + dbname] = x[1]
-                    if dec_prefix not in x[0]:
-                        protsL[dbname] = len(x[1])
-                        protsN[dbname] = get_number_of_peptides(x[1], expasy, mc, minl, maxl)
-                    else:
-                        protsL[dec_prefix + dbname] = len(x[1])
-                        protsN[dec_prefix + dbname] = get_number_of_peptides(x[1], expasy, mc, minl, maxl)
+                dbname = x[0].split(' ')[0]
+                protsS[dbname] = x[1]
+                protsL[dbname] = len(x[1])
+                protsN[dbname] = get_number_of_peptides(x[1], expasy, mc, minl, maxl)
+                # if not any(x[0].startswith(tag) for tag in ['sp', 'tr', dec_prefix + 'sp', dec_prefix + 'tr']):
+                #     if any(tag in x[0] for tag in ['SWISS-PROT:', 'TREMBL:']):
+                #         dbname = x[0].split(' ')[0]
+                #     else:
+                #         dbname = x[0]#.replace('>', ' ')
+                #     protsS[dbname] = x[1]
+                #     protsL[dbname] = len(x[1])
+                #     protsN[dbname] = get_number_of_peptides(x[1], expasy, mc, minl, maxl)
+                # else:
+                #     dbname = x[0].split('|')[1]
+                #     if dec_prefix not in x[0]:
+                #         protsS[dbname] = x[1]
+                #     else:
+                #         protsS[dec_prefix + dbname] = x[1]
+                #     if dec_prefix not in x[0]:
+                #         protsL[dbname] = len(x[1])
+                #         protsN[dbname] = get_number_of_peptides(x[1], expasy, mc, minl, maxl)
+                #     else:
+                #         protsL[dec_prefix + dbname] = len(x[1])
+                #         protsN[dec_prefix + dbname] = get_number_of_peptides(x[1], expasy, mc, minl, maxl)
                 protsL['total proteins'] += 1
                 protsL['total peptides'] += protsN.get(dbname, 0)
             except:
