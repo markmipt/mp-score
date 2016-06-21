@@ -69,7 +69,6 @@ def handle(q, q_output, settings, protsL):
         except Empty:
             q_output.put('1')
             break
-        print 'inputfile = %s' % (','.join(f['.pep'] for f in filenames), )
         FDR = settings.getfloat('options', 'FDR')
         FDR_type = settings.get('options', 'FDR_type')
 
@@ -381,7 +380,6 @@ def handle(q, q_output, settings, protsL):
                         for p in cprocs:
                             p.terminate()
 
-                        print jk
                         j = len(peptides.peptideslist) - 1
                         while j >= 0:
                             if peptides.peptideslist[j].peptscore == 0:
@@ -443,7 +441,6 @@ def handle(q, q_output, settings, protsL):
                             k = 0
                         FDR_new = (((FDR / 100 - float(peptides.total_number_of_PSMs_decoy) / numPSMs_true * k)) / (1 - k)) * 100
                         k_temp.append(float(k))
-                    print k, 'k factor'
 
                     plot_MP(descriptors, peptides, fig, FDR, FDR_new, valid_proteins, settings, threshold0, curfile)
                 else:
@@ -757,7 +754,6 @@ def plot_useful_histograms(peptides, curfile, fig, separatefigs=False, savesvg=F
             tmp_dict[peptide.sequence] = min(tmp_dict.get(peptide.sequence, 1e6), peptide.evalue)
 
     for idx, form in enumerate(formulas):
-        print form[2]
         if form[1].endswith(', peptides'):
             array_valid = [form[0](peptide) for peptide in peptides.peptideslist if peptide.evalue == tmp_dict.get(peptide.sequence, None)]
         else:
@@ -1172,7 +1168,6 @@ def main(argv_in, union_custom=False):
     if union_custom:
         settings.set('options', 'files', 'union')
     dec_prefix = settings.get('input', 'decoy prefix')
-    print 'decoy prefix', dec_prefix
 
     proteases = [x.strip() for x in settings.get('missed cleavages', 'protease1').split(',')]
     proteases.extend([x.strip() for x in settings.get('missed cleavages', 'protease2').split(',') if x.strip()])
@@ -1222,7 +1217,6 @@ def main(argv_in, union_custom=False):
 
     minl = settings.getint('search', 'peptide minimum length')
     maxl = settings.getint('search', 'peptide maximum length')
-    print 'minl, maxl', minl, maxl
     for i in range(fnprocs):
         p = multiprocessing.Process(target=protein_handle, args=(fq, fq_output, protsL, protsN, protsS, expasy, mc, minl, maxl))
         fprocs.append(p)
