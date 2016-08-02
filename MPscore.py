@@ -117,8 +117,8 @@ def handle(q, q_output, settings, protsL):
                         spectra_ms2 = []
                         for spectrum in mzml.read(mzmlfile):
                             if spectrum['ms level'] == 2:
-                                spectra_dict[spectrum['spectrum title'].strip()] = spectrum['m/z array']
-                                spectra_dict_intensities[spectrum['spectrum title'].strip()] = spectrum['intensity array']
+                                spectra_dict[spectrum['id'].strip()] = spectrum['m/z array']
+                                spectra_dict_intensities[spectrum['id'].strip()] = spectrum['intensity array']
                                 #spectra_ms2.append(x)
                             # elif x['ms level'] == 1:
                             #     spectra_ms1.append(x)
