@@ -697,12 +697,12 @@ def PSMs_info(peptides, valid_proteins, settings, fig=False, printresults=True, 
                 temp_data.append([float(v['sumI']), protsC[k]])
             if int(v['Peptides']) > 0:
                 sqc = calc_sq(protsS.get(k, []), v['pept'])
-                output_proteins.write('%s\t%s\t%s\t%s\t%0.1f\t%s\t%s\t%s\t%s\t%s\n' % (k, v['description'], v['PSMs'], v['Peptides'], sqc, v['sumI'],v['NSAF'], v['emPAI'], v['expect'], v['fullgroup']))
+                output_proteins.write('%s\t%s\t%s\t%s\t%0.1f\t%0.2E\t%0.2E\t%0.2E\t%0.2E\t%s\n' % (k, v['description'], v['PSMs'], v['Peptides'], sqc, v['sumI'],v['NSAF'], v['emPAI'], v['expect'], v['fullgroup']))
 
         for k, v in prots_full.items():
             if int(v['Peptides']) > 0:
                 sqc = calc_sq(protsS.get(k, []), v['pept'])
-                output_proteins_full.write('%s\t%s\t%s\t%s\t%0.1f\t%s\t%s\t%s\t%s\t%s\n' % (k, v['description'], v['PSMs'], v['Peptides'], sqc, v['sumI'],v['NSAF'], v['emPAI'], v['expect'], v['fullgroup']))
+                output_proteins_full.write('%s\t%s\t%s\t%s\t%0.1f\t%0.2E\t%0.2E\t%0.2E\t%0.2E\t%s\n' % (k, v['description'], v['PSMs'], v['Peptides'], sqc, v['sumI'],v['NSAF'], v['emPAI'], v['expect'], v['fullgroup']))
 
         for peptide in peptides.peptideslist:
             if any(protein.dbname in prots for protein in peptide.parentproteins):
