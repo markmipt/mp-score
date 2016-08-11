@@ -31,7 +31,7 @@ def get_output_string(obj, type, fragments_info=False, fragments_info_zeros=Fals
         out = '%s\t' % (obj.sequence, )
         if peptide_count:
             out += '%s\t' % (peptide_count, )
-        out += '%s\t%0.3f\t%d\t%0.1f\t%d\t%d\t%0.2E\t%0.2E\t%0.1f\t%s\t' % (obj.modified_sequence, obj.mz, obj.pcharge, obj.mass_diff(), obj.mc,
+        out += '%s\t%0.3f\t%d\t%0.1f\t%d\t%d\t%0.2E\t%0.2E\t%0.2f\t%s\t' % (obj.modified_sequence, obj.mz, obj.pcharge, obj.mass_diff(), obj.mc,
                                                              obj.num_tol_term, obj.evalue, obj.peptscore, obj.RT_exp, obj.spectrum)
         for protein in obj.parentproteins:
             out += '%s;' % (protein.dbname,)
