@@ -253,17 +253,22 @@ def handle(q, q_output, settings, protsL):
                     pass
             Fragment_intensities = None
 
+            misprotflag = 0
             for peptide in peptides.peptideslist:
                 peptide.peptscore2 = pepts_dict[peptide.sequence]
                 for protein in peptide.parentproteins:
                     if protein.dbname not in protsL:
-                        print 'protein %s is missed in fasta, 5000 length and 50 theoretical peptides is used for normalization and emPAI calculation' % (protein.dbname, )
+                        misprotflag = +1
                         protsL[protein.dbname] = 5000
                         protsN[protein.dbname] = 50
                         protsL['total proteins'] += 1
                         protsL['total peptides'] += 50
                     if peptide.protscore2 < float(prots_dict[protein.dbname]) / protsL[protein.dbname] * 500:
                         peptide.protscore2 = float(prots_dict[protein.dbname]) / protsL[protein.dbname] * 500
+
+            if misprotflag:
+                print '\nWARNING: Some proteins are missed in fasta, 5000 length and 50 theoretical peptides is used for normalization and emPAI calculation\n' \
+                      'It is highly recommended to check the fasta file for correct work of MPscore\n'
             pepts_dict = None
             prots_dict = None
             copy_peptides, threshold0, _ = peptides.filter_evalue_new(FDR=FDR, useMP=False)
