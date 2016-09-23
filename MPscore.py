@@ -1,5 +1,6 @@
 from MPlib import PeptideList, Descriptor, get_settings, filter_evalue_prots, FDbinSize
 from sys import argv
+import os
 import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
@@ -1117,141 +1118,90 @@ def main(argv_in, union_custom=False):
     files = update_dict(files)
 
     if configfile:
-        settings = get_settings(configfile)
-    else:
-        settings = get_settings('default.cfg')
-    try:
-        settings.getboolean('advanced options', 'saveSVG')
-    except:
-        settings.set('advanced options', 'saveSVG', '0')
-    try:
-        settings.get('advanced options', 'allowed peptides')
-    except:
-        settings.set('advanced options', 'allowed peptides', '')
-    try:
-        settings.getboolean('advanced options', 'separatefigures')
-    except:
-        settings.set('advanced options', 'separatefigures', '0')
-    try:
-        settings.getboolean('advanced options', 'fragments_info')
-    except:
-        settings.set('advanced options', 'fragments_info', '0')
-    try:
-        settings.getboolean('advanced options', 'choose_best_spectra_results')
-    except:
-        settings.set('advanced options', 'choose_best_spectra_results', '0')
-    try:
-        settings.getboolean('advanced options', 'fragments_info_zeros')
-    except:
-        settings.set('advanced options', 'fragments_info_zeros', '0')
-    try:
-        settings.getboolean('advanced options', 'remove_decoy')
-    except:
-        settings.set('advanced options', 'remove_decoy', '1')
-    try:
-        settings.getboolean('advanced options', 'snp')
-    except:
-        settings.set('advanced options', 'snp', '0')
-    try:
-        settings.getboolean('search', 'peptide maximum length')
-    except:
-        if not settings.has_section('search'):
-            settings.add_section('search')
-        settings.set('search', 'peptide maximum length', 35)
-    try:
-        settings.getboolean('search', 'peptide minimum length')
-    except:
-        settings.set('search', 'peptide minimum length', 5)
-    try:
-        settings.get('input', 'add decoy')
-        settings.get('input', 'decoy prefix')
-    except:
-        if 'input' not in settings.sections():
-            settings.add_section('input')
-        settings.set('input', 'add decoy', 'no')
-        settings.set('input', 'decoy prefix', 'DECOY_')
-    if union_custom:
-        settings.set('options', 'files', 'union')
-    dec_prefix = settings.get('input', 'decoy prefix')
+        settings = get_settings(os.path.join(os.path.dirname(os.path.abspath(__file__)), 'default.cfg'))
+        settings.read(configfile)
+        if union_custom:
+            settings.set('options', 'files', 'union')
 
-    proteases = [x.strip() for x in settings.get('missed cleavages', 'protease1').split(',')]
-    proteases.extend([x.strip() for x in settings.get('missed cleavages', 'protease2').split(',') if x.strip()])
-    expasy = '|'.join((parser.expasy_rules[protease] if protease in parser.expasy_rules else protease for protease in proteases))
-    try:
-        mc = settings.getint('missed cleavages', 'number of missed cleavages')
-    except:
-        print 'Number of missed cleavages is missed in parameters, using 2 for normalization and emPAI calculation'
-        mc = 2
-    fprocs = []
-    fnprocs = 12
-    fq = multiprocessing.Queue()
-    fq_output = multiprocessing.Queue()
+        proteases = [x.strip() for x in settings.get('missed cleavages', 'protease1').split(',')]
+        proteases.extend([x.strip() for x in settings.get('missed cleavages', 'protease2').split(',') if x.strip()])
+        expasy = '|'.join((parser.expasy_rules[protease] if protease in parser.expasy_rules else protease for protease in proteases))
+        try:
+            mc = settings.getint('missed cleavages', 'number of missed cleavages')
+        except:
+            print 'Number of missed cleavages is missed in parameters, using 2 for normalization and emPAI calculation'
+            mc = 2
+        fprocs = []
+        fnprocs = 12
+        fq = multiprocessing.Queue()
+        fq_output = multiprocessing.Queue()
 
-    protsL['total proteins'] = 0
-    protsL['total peptides'] = 0
-    def protein_handle(fq, fq_output, protsL, protsN, protsS, expasy, mc, minl, maxl):
-        def get_number_of_peptides(prot, expasy, mc, minl, maxl):
-            return sum(minl <= len(x) <= maxl for x in parser.cleave(prot, expasy, mc))
+        protsL['total proteins'] = 0
+        protsL['total peptides'] = 0
+        def protein_handle(fq, fq_output, protsL, protsN, protsS, expasy, mc, minl, maxl):
+            def get_number_of_peptides(prot, expasy, mc, minl, maxl):
+                return sum(minl <= len(x) <= maxl for x in parser.cleave(prot, expasy, mc))
 
-        while 1:
-            try:
-                x = fq.get(timeout=1)
-            except Empty:
-                fq_output.put('1')
-                break
+            while 1:
+                try:
+                    x = fq.get(timeout=1)
+                except Empty:
+                    fq_output.put('1')
+                    break
 
-            try:
-                dbname = x[0].split(' ')[0]
-                protsS[dbname] = x[1]
-                protsL[dbname] = len(x[1])
-                protsN[dbname] = get_number_of_peptides(x[1], expasy, mc, minl, maxl)
-                protsL['total proteins'] += 1
-                protsL['total peptides'] += protsN.get(dbname, 0)
-            except:
-                print 'Smth wrong with reading of FASTA file'
+                try:
+                    dbname = x[0].split(' ')[0]
+                    protsS[dbname] = x[1]
+                    protsL[dbname] = len(x[1])
+                    protsN[dbname] = get_number_of_peptides(x[1], expasy, mc, minl, maxl)
+                    protsL['total proteins'] += 1
+                    protsL['total peptides'] += protsN.get(dbname, 0)
+                except:
+                    print 'Smth wrong with reading of FASTA file'
 
-    if fastafile:
-        if settings.get('input', 'add decoy') == 'yes':
-            decoy_method = settings.get('input', 'decoy method')
-            decoy_prefix = settings.get('input', 'decoy prefix')
-            for x in fasta.decoy_db(fastafile, mode=decoy_method, prefix=decoy_prefix):
-                fq.put(x)
+        if fastafile:
+            if settings.get('input', 'add decoy') == 'yes':
+                decoy_method = settings.get('input', 'decoy method')
+                decoy_prefix = settings.get('input', 'decoy prefix')
+                for x in fasta.decoy_db(fastafile, mode=decoy_method, prefix=decoy_prefix):
+                    fq.put(x)
+            else:
+                for x in fasta.read(fastafile):
+                    fq.put(x)
+
+        minl = settings.getint('search', 'peptide minimum length')
+        maxl = settings.getint('search', 'peptide maximum length')
+        for i in range(fnprocs):
+            p = multiprocessing.Process(target=protein_handle, args=(fq, fq_output, protsL, protsN, protsS, expasy, mc, minl, maxl))
+            fprocs.append(p)
+            p.start()
+
+        while fq_output.qsize() != fnprocs:
+            sleep(10)
+        for p in fprocs:
+            p.terminate()
+
+        procs = []
+        nprocs = 1
+        q = multiprocessing.Queue()
+        q_output = multiprocessing.Queue()
+
+        files_processing = settings.get('options', 'files')
+        if files_processing == 'union':
+            q.put(sorted(files.values()))
         else:
-            for x in fasta.read(fastafile):
-                fq.put(x)
+            for filename in sorted(files.values()):
+                q.put([filename, ])
+        for i in range(nprocs):
+            p = multiprocessing.Process(target=handle, args=(q, q_output, settings, protsL))
+            procs.append(p)
+            p.start()
 
-    minl = settings.getint('search', 'peptide minimum length')
-    maxl = settings.getint('search', 'peptide maximum length')
-    for i in range(fnprocs):
-        p = multiprocessing.Process(target=protein_handle, args=(fq, fq_output, protsL, protsN, protsS, expasy, mc, minl, maxl))
-        fprocs.append(p)
-        p.start()
-
-    while fq_output.qsize() != fnprocs:
-        sleep(10)
-    for p in fprocs:
-        p.terminate()
-
-    procs = []
-    nprocs = 1
-    q = multiprocessing.Queue()
-    q_output = multiprocessing.Queue()
-
-    files_processing = settings.get('options', 'files')
-    if files_processing == 'union':
-        q.put(sorted(files.values()))
+        while q_output.qsize() != nprocs:
+            sleep(10)
+        for p in procs:
+            p.terminate()
     else:
-        for filename in sorted(files.values()):
-            q.put([filename, ])
-    for i in range(nprocs):
-        p = multiprocessing.Process(target=handle, args=(q, q_output, settings, protsL))
-        procs.append(p)
-        p.start()
-
-    while q_output.qsize() != nprocs:
-        sleep(10)
-    for p in procs:
-        p.terminate()
-
+        print '\nERROR: .cfg file with parameters is missing\n'
 if __name__ == '__main__':
     main(argv)
