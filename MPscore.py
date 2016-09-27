@@ -92,7 +92,6 @@ def handle(q, q_output, settings, protsL):
         else:
             valid_proteins = []
 
-        Fragment_intensities = {}
         spectra_dict = dict()
         spectra_dict_intensities = dict()
 
@@ -106,7 +105,7 @@ def handle(q, q_output, settings, protsL):
         def getpepxml(iq, iq_output, settings, mods=False):
             for curfile in iter(iq.get, None):
                 qpeptides = PeptideList(settings, mods)
-                qpeptides.get_from_pepxmlfile(curfile['.pep'], min_charge=min_charge, max_charge=max_charge, allowed_peptides=settings.get('advanced options', 'allowed peptides'), prefix=settings.get('input', 'decoy prefix'))
+                qpeptides.get_from_pepxmlfile(curfile['.pep'], min_charge=min_charge, max_charge=max_charge, allowed_peptides=settings.get('advanced options', 'allowed peptides'), prefix=settings.get('input', 'decoy prefix'), FDR_type=settings.get('options', 'FDR_type'))
 
                 if len(qpeptides.peptideslist):
                     mzmlfile = curfile.get('.mzML', None)
@@ -234,6 +233,7 @@ def handle(q, q_output, settings, protsL):
             peptides.total_number_of_PSMs_decoy = sum(1 for pept in peptides.peptideslist if pept.note2 == 'wr')
 
             if FDR_type == 'peptide':
+                print 'Choosing best PSM pep peptide sequence'
                 peptidesdict = dict()
                 for peptide in peptides.peptideslist:
                     if peptide.sequence not in peptidesdict:
@@ -247,13 +247,7 @@ def handle(q, q_output, settings, protsL):
                         peptides.peptideslist.pop(j)
                     j -= 1
 
-            for peptide in peptides.peptideslist:
-                try:
-                    peptide.sumI = Fragment_intensities[peptide.start_scan]
-                except:
-                    pass
-            Fragment_intensities = None
-
+            print 'Calculating number of peptides per protein'
             misprotflag = 0
             for peptide in peptides.peptideslist:
                 peptide.peptscore2 = pepts_dict[peptide.sequence]
@@ -272,6 +266,7 @@ def handle(q, q_output, settings, protsL):
                       'It is highly recommended to check the fasta file for correct work of MPscore\n'
             pepts_dict = None
             prots_dict = None
+            print 'Starting first FDR filtering...'
             copy_peptides, threshold0, _ = peptides.filter_evalue_new(FDR=FDR, useMP=False)
 
             print 'Default filtering:'

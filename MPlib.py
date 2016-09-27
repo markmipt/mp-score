@@ -223,7 +223,7 @@ class PeptideList:
         else:
             return self.total_number_of_PSMs
 
-    def get_from_pepxmlfile(self, pepxmlfile, min_charge=1, max_charge=0, allowed_peptides=False, prefix='DECOY_'):
+    def get_from_pepxmlfile(self, pepxmlfile, min_charge=1, max_charge=0, allowed_peptides=False, prefix='DECOY_', FDR_type=None):
         if allowed_peptides:
             allowed_peptides_set = set([x.strip() for x in open(allowed_peptides)])
 
@@ -236,6 +236,7 @@ class PeptideList:
             print 'smth wrong with .pep.xml file'
             return 0
 
+        best_scores = {}
         standard_aminoacids = set(k for k in mass.std_aa_comp if '-' not in k)
         first_psm = True
         for record in pepxml.read(pepxmlfile, read_schema=False):
@@ -254,17 +255,19 @@ class PeptideList:
                         first_psm = False
                     if 'peptide' in record['search_hit'][0]:
                         sequence = record['search_hit'][0]['peptide']
-                        if not set(sequence).difference(standard_aminoacids) and (not allowed_peptides or sequence in allowed_peptides_set):
+                        try:
+                            evalue = record['search_hit'][0]['search_score']['expect']
+                            # evalue = 1/record['search_hit'][0]['search_score']['hyperscore']
+                        except:
+                            try:
+                                evalue = 1.0 / float(record['search_hit'][0]['search_score']['ionscore'])
+                            except IOError:
+                                'Cannot read e-value!'
+                        if not (FDR_type=='peptide' and best_scores.get(sequence, 1e6) < evalue) and not set(sequence).difference(standard_aminoacids) and (not allowed_peptides or sequence in allowed_peptides_set):
+                            if FDR_type == 'peptide':
+                                best_scores[sequence] = evalue
                             mc = record['search_hit'][0].get('num_missed_cleavages', 0)
                             modifications = record['search_hit'][0]['modifications']
-                            try:
-                                evalue = record['search_hit'][0]['search_score']['expect']
-                                # evalue = 1/record['search_hit'][0]['search_score']['hyperscore']
-                            except:
-                                try:
-                                    evalue = 1.0 / float(record['search_hit'][0]['search_score']['ionscore'])
-                                except IOError:
-                                    'Cannot read e-value!'
                             try:
                                 sumI = 10 ** float(record['search_hit'][0]['search_score']['sumI'])
                             except:
@@ -305,13 +308,16 @@ class PeptideList:
 
                             if len(self.proteins_dict[pept.sequence]) and (not modifications or Counter(v['position'] for v in modifications).most_common(1)[0][1] <= 1):
                                 self.peptideslist.append(pept)
-                                if not os.path.isfile('/tmp/markpsm.pickle'):
-                                    pickle.dump(pept, open('/tmp/markpsm.pickle', 'w'))
-
-
-    def modified_peptides(self):
-        for peptide in self.peptideslist:
-            peptide.modified_peptide()
+        if FDR_type == 'peptide':
+            j = len(self.peptideslist) - 1
+            while j >= 0:
+                if self.peptideslist[j].evalue > best_scores.get(self.peptideslist[j].sequence, 1e6):
+                    self.peptideslist.pop(j)
+                j -= 1
+    #
+    # def modified_peptides(self):
+    #     for peptide in self.peptideslist:
+    #         peptide.modified_peptide()
 
     def get_RC(self):
         try:
@@ -513,16 +519,19 @@ class Protein:
         self.description = description
 
 class Peptide:
+    __slots__ = ['sequence', 'modified_sequence', 'modification_list', 'pcharge',
+                 'aa_mass', 'pmass', 'mz', 'RT_exp', 'RT_predicted', 'evalue', 'massdiff',
+                 'num_missed_cleavages', 'mc', 'note', 'note2', 'note3', 'protscore2', 'peptscore',
+                 'peptscore2', 'spectrum', 'spectrum_mz', 'fragment_mt', 'sumI', 'it',
+                 'infile', 'fragments', 'valid_sequence']
     def __init__(self, sequence, settings, pcharge=0, RT_exp=False, evalue=0, note='unknown', spectrum='', mass_exp=0, modifications=[], modification_list={}, custom_aa_mass=None, sumI=0, mc=None, infile='unknown', frag_mt=None):
         self.sequence = sequence
         self.modified_sequence = sequence
-        self.modifications = modifications
         self.modification_list = modification_list
         self.pcharge = int(pcharge)
-        self.nomodifications = 0
         self.aa_mass = custom_aa_mass
         self.pmass = float(mass.calculate_mass(sequence=self.sequence, charge=0)) - mass.fast_mass('') + settings.getfloat('modifications', 'protein nterm cleavage') + settings.getfloat('modifications', 'protein cterm cleavage')
-        for modif in self.modifications:
+        for modif in modifications:
             self.pmass += modif['mass']
             if modif['position'] not in [0, len(self.sequence) + 1]:
                 aminoacid = self.sequence[modif['position'] - 1]
@@ -534,8 +543,7 @@ class Peptide:
                     self.pmass -= settings.getfloat('modifications', 'protein cterm cleavage')
 
         self.mz = (mass_exp + pcharge * 1.007276) / pcharge
-        self.mass_exp = mass_exp
-        self.modified_peptide()
+        self.modified_peptide(modifications)
         self.RT_exp = RT_exp
         self.RT_predicted = False
         self.evalue = float(evalue)
@@ -546,7 +554,6 @@ class Peptide:
         self.note = note
         self.note2 = ''
         self.note3 = ''
-        self.possible_mass = []
         self.protscore2 = 1
         self.peptscore = 1
         self.peptscore2 = 1
@@ -652,7 +659,7 @@ class Peptide:
         """Calculates a difference between theoretical and experimental masses. Takes into account an isotope mass difference error"""
         return (self.massdiff - round(self.massdiff, 0) * 1.0033548378) / (self.pmass - round(self.massdiff, 0) * 1.0033548378) * 1e6
 
-    def modified_peptide(self):
+    def modified_peptide(self, modifications):
         def add_modification(arg, term=None):
             i = ''
             done_flag = 0
@@ -677,7 +684,7 @@ class Peptide:
                     break
 
         self.modified_sequence = str(self.sequence)
-        for modif in sorted(self.modifications, key=itemgetter('position'), reverse=True):
+        for modif in sorted(modifications, key=itemgetter('position'), reverse=True):
             if modif['position'] == 0:
                 try:
                     self.modified_sequence = self.modification_list[round(modif['mass'], 4)] + self.modified_sequence
