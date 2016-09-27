@@ -12,7 +12,8 @@ from copy import copy
 from scipy.spatial import cKDTree
 from collections import Counter, defaultdict
 from operator import itemgetter
-
+import cPickle as pickle
+import os
 try:
     from configparser import RawConfigParser
 except ImportError:
@@ -67,7 +68,7 @@ def get_aa_mass(settings):
     vmods = settings.get('modifications', 'variable')
     if vmods:
         mods = [custom_split_label(mod) for mod in re.split(r',\s*', vmods)]#[(l[:-1], l[-1]) for l in re.split(r',\s*', vmods)]
-        if settings.get('advanced options', 'snp'):
+        if settings.getboolean('advanced options', 'snp'):
             for k, v in mass.std_aa_mass.items():
                 for kk in mass.std_aa_mass.keys():
                     aa_mass['snp' + kk.lower()] = v
@@ -188,7 +189,7 @@ class PeptideList:
         vmods = settings.get('modifications', 'variable')
         if vmods:
             mods = [custom_split_label(mod) for mod in re.split(r',\s*', vmods)]#[(l[:-1], l[-1]) for l in re.split(r',\s*', vmods)]
-            if settings.get('advanced options', 'snp'):
+            if settings.getboolean('advanced options', 'snp'):
                 for k, v in mass.std_aa_mass.items():
                     mods.append(('snp' + k.lower(), round(v, 4), 'snp'))
             for (mod, aa, term), char in zip(mods, punctuation):
@@ -304,6 +305,8 @@ class PeptideList:
 
                             if len(self.proteins_dict[pept.sequence]) and (not modifications or Counter(v['position'] for v in modifications).most_common(1)[0][1] <= 1):
                                 self.peptideslist.append(pept)
+                                if not os.path.isfile('/tmp/markpsm.pickle'):
+                                    pickle.dump(pept, open('/tmp/markpsm.pickle', 'w'))
 
 
     def modified_peptides(self):
