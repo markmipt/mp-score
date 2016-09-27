@@ -255,7 +255,6 @@ class PeptideList:
                         sequence = record['search_hit'][0]['peptide']
                         if not set(sequence).difference(standard_aminoacids) and (not allowed_peptides or sequence in allowed_peptides_set):
                             mc = record['search_hit'][0].get('num_missed_cleavages', 0)
-                            modified_code = record['search_hit'][0]['modified_peptide']
                             modifications = record['search_hit'][0]['modifications']
                             try:
                                 evalue = record['search_hit'][0]['search_score']['expect']
@@ -280,7 +279,7 @@ class PeptideList:
                             if pepxmlfile not in infiles_dict:
                                 infiles_dict[pepxmlfile] = len(infiles_dict)
                             infile_current = infiles_dict[pepxmlfile]
-                            pept = Peptide(sequence=sequence, settings=self.settings, modified_code=modified_code, evalue=evalue, spectrum=spectrum, pcharge=pcharge, mass_exp=mass_exp, modifications=modifications, modification_list=self.modification_list, custom_aa_mass=self.aa_list, sumI=sumI, mc=mc, infile=infile_current, frag_mt=frag_mt)
+                            pept = Peptide(sequence=sequence, settings=self.settings, evalue=evalue, spectrum=spectrum, pcharge=pcharge, mass_exp=mass_exp, modifications=modifications, modification_list=self.modification_list, custom_aa_mass=self.aa_list, sumI=sumI, mc=mc, infile=infile_current, frag_mt=frag_mt)
                             try:
                                 pept.RT_exp = float(record['retention_time_sec']) / 60
                             except:
@@ -394,11 +393,8 @@ class PeptideList:
         return aux_RT
 
     def filter_modifications(self, RT_type=None):
-        j = len(self.peptideslist) - 1
-        while j >= 0:
-            if self.peptideslist[j].modified_code.count('[') - sum(self.peptideslist[j].modified_code.count('[%s]' % (x, )) for x in ([160, 181, 166, 243] if RT_type=='biolccc' else [160, ]) ) != 0:
-                self.peptideslist.pop(j)
-            j -= 1
+        #TODO
+        pass
 
     def filter_decoy(self):
         j = len(self.peptideslist) - 1
@@ -514,9 +510,8 @@ class Protein:
         self.description = description
 
 class Peptide:
-    def __init__(self, sequence, settings, modified_code='', pcharge=0, RT_exp=False, evalue=0, note='unknown', spectrum='', mass_exp=0, modifications=[], modification_list={}, custom_aa_mass=None, sumI=0, mc=None, infile='unknown', frag_mt=None):
+    def __init__(self, sequence, settings, pcharge=0, RT_exp=False, evalue=0, note='unknown', spectrum='', mass_exp=0, modifications=[], modification_list={}, custom_aa_mass=None, sumI=0, mc=None, infile='unknown', frag_mt=None):
         self.sequence = sequence
-        self.modified_code = modified_code
         self.modified_sequence = sequence
         self.modifications = modifications
         self.modification_list = modification_list
