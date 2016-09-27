@@ -150,7 +150,7 @@ def handle(q, q_output, settings, protsL):
                         #         print 'Smth wrong with mzML indexes'
                         #         print peptide.spectrum.split('.')[1], itimes[-1]
 
-                    if not qpeptides.peptideslist[0].fragment_mt:
+                    if qpeptides.settings.getboolean('descriptors', 'fragment mass tolerance, Da') and not qpeptides.peptideslist[0].fragment_mt:
                         mgffile = curfile.get('.mgf', None)
                         if mgffile:
                             print 'mgf is processing'
@@ -161,7 +161,7 @@ def handle(q, q_output, settings, protsL):
                             protsL['total spectra'] = len(spectra_dict)
                             if not qpeptides.total_number_of_spectra:
                                 qpeptides.total_number_of_spectra = len(spectra_dict)
-                        if not spectra_dict:
+                        if not spectra_dict and qpeptides.settings.getboolean('descriptors', 'fragment mass tolerance, Da'):
                             qpeptides.settings.set('descriptors', 'fragment mass tolerance, Da', '0')
                             print 'fragment mass tolerance was turned off due to missed mgf file'
                         if qpeptides.settings.getboolean('descriptors', 'fragment mass tolerance, Da'):
