@@ -178,6 +178,8 @@ class PeptideList:
         self.nterm_mass = self.settings.getfloat('modifications', 'protein nterm cleavage')
         self.cterm_mass = self.settings.getfloat('modifications', 'protein cterm cleavage')
         self.aa_list = get_aa_mass(settings)
+        self.proteins_dict = defaultdict(list)
+
         fmods = self.settings.get('modifications', 'fixed')
         if fmods:
             for mod in re.split(r'[,;]\s*', fmods):
@@ -291,13 +293,17 @@ class PeptideList:
                                 pept.note = 'target'
                             else:
                                 pept.note = 'decoy'
+                            pept.num_tol_term = record['search_hit'][0]['proteins'][0]['num_tol_term']
 
-                            for prot in record['search_hit'][0]['proteins']:
-                                if get_dbname(prot) not in [protein.dbname for protein in pept.parentproteins]:
-                                    pept.num_tol_term = prot['num_tol_term']
-                                    pept.parentproteins.append(Protein(dbname=get_dbname(prot), description=prot.get('protein_descr', None)))
+                            if pept.sequence not in self.proteins_dict:
+                                for prot in record['search_hit'][0]['proteins']:
+                                    prot_name = get_dbname(prot)
+                                    if prot_name not in [protein.dbname for protein in self.proteins_dict[pept.sequence]]:
+                                        #pept.num_tol_term = prot['num_tol_term']
+                                        self.proteins_dict[pept.sequence].append(Protein(dbname=get_dbname(prot), description=prot.get('protein_descr', None)))
+                                        #pept.parentproteins.append(Protein(dbname=get_dbname(prot), description=prot.get('protein_descr', None)))
 
-                            if len(pept.parentproteins) and (not modifications or Counter(v['position'] for v in modifications).most_common(1)[0][1] <= 1):
+                            if len(self.proteins_dict[pept.sequence]) and (not modifications or Counter(v['position'] for v in modifications).most_common(1)[0][1] <= 1):
                                 self.peptideslist.append(pept)
 
 
@@ -464,6 +470,7 @@ class PeptideList:
         new_peptides.RC = self.RC
         new_peptides.modification_list = self.modification_list
         new_peptides.infiles = self.infiles
+        new_peptides.proteins_dict = self.proteins_dict
         return new_peptides
 
     def update(self, new_peptides):
@@ -477,6 +484,7 @@ class PeptideList:
         self.RC = new_peptides.RC
         self.modification_list = new_peptides.modification_list
         self.peptideslist.extend(new_peptides.peptideslist)
+        self.proteins_dict.update(new_peptides.proteins_dict)
 
     def remove_duplicate_spectra(self):
         sdict = dict()
@@ -499,6 +507,8 @@ class PeptideList:
         return new_peptides
 
 class Protein:
+    __slots__ = ['dbname', 'description']
+
     def __init__(self, dbname, description='Unknown'):
         self.dbname = dbname
         self.description = description
@@ -531,7 +541,7 @@ class Peptide:
         self.RT_exp = RT_exp
         self.RT_predicted = False
         self.evalue = float(evalue)
-        self.parentproteins = []
+        #self.parentproteins = []
         self.massdiff = float(mass_exp) - float(self.pmass)
         self.num_missed_cleavages = dict()
         self.mc = mc

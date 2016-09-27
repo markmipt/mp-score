@@ -27,17 +27,17 @@ protsS = manager.dict()
 protsN = manager.dict()
 stime = time()
 
-def get_output_string(obj, type, fragments_info=False, fragments_info_zeros=False, peptide_count=False):
+def get_output_string(obj, type, fragments_info=False, fragments_info_zeros=False, peptide_count=False, proteins_dict={}):
     if type == 'psm':
         out = '%s\t' % (obj.sequence, )
         if peptide_count:
             out += '%s\t' % (peptide_count, )
         out += '%s\t%0.3f\t%d\t%0.1f\t%d\t%d\t%0.2E\t%0.2E\t%0.2f\t%s\t' % (obj.modified_sequence, obj.mz, obj.pcharge, obj.mass_diff(), obj.mc,
                                                              obj.num_tol_term, obj.evalue, obj.peptscore, obj.RT_exp, obj.spectrum)
-        for protein in obj.parentproteins:
+        for protein in proteins_dict[obj.sequence]:#obj.parentproteins:
             out += '%s;' % (protein.dbname,)
         out += '\t'
-        for protein in obj.parentproteins:
+        for protein in proteins_dict[obj.sequence]:#obj.parentproteins:
             out += '%s;' % (protein.description,)
         out += '\t%s\t%0.3f\t%s' % (obj.sumI, obj.massdiff, obj.note)
         if fragments_info:
@@ -220,7 +220,7 @@ def handle(q, q_output, settings, protsL):
             pepts_dict = defaultdict(int)
             for peptide in peptides.peptideslist:
                 pepts_dict[peptide.sequence] += 1
-                for protein in peptide.parentproteins:
+                for protein in peptides.proteins_dict[peptide.sequence]:#peptide.parentproteins:
                     prots_dict[protein.dbname] += 1
                     if peptide.note == 'decoy':
                         protein.note = 'W'
@@ -257,7 +257,7 @@ def handle(q, q_output, settings, protsL):
             misprotflag = 0
             for peptide in peptides.peptideslist:
                 peptide.peptscore2 = pepts_dict[peptide.sequence]
-                for protein in peptide.parentproteins:
+                for protein in peptides.proteins_dict[peptide.sequence]:#peptide.parentproteins:
                     if protein.dbname not in protsL:
                         misprotflag = +1
                         protsL[protein.dbname] = 5000
@@ -504,7 +504,7 @@ def PSMs_info(peptides, valid_proteins, settings, fig=False, printresults=True, 
                 add_label = settings.get('input', 'decoy prefix')
             else:
                 add_label = ''
-            for protein in peptide.parentproteins:
+            for protein in peptides.proteins_dict[peptide.sequence]:#peptide.parentproteins:
                 tmp_dbname = add_label + protein.dbname
                 prots[tmp_dbname] += 1
                 prots_pep[tmp_dbname].add(peptide.sequence)
@@ -531,7 +531,7 @@ def PSMs_info(peptides, valid_proteins, settings, fig=False, printresults=True, 
         else:
             add_label = ''
 
-        for protein in peptide.parentproteins:
+        for protein in peptides.proteins_dict[peptide.sequence]:#peptide.parentproteins:
             tmp_dbname = add_label + protein.dbname
             Total_prots.add(tmp_dbname)
             try:
@@ -549,7 +549,7 @@ def PSMs_info(peptides, valid_proteins, settings, fig=False, printresults=True, 
             if tmp_dbname in valid_proteins and peptide.note != 'decoy':
                 true_prots.add(tmp_dbname)
         if peptide.sequence not in peptides_added:
-            for protein in peptide.parentproteins:
+            for protein in peptides.proteins_dict[peptide.sequence]:#peptide.parentproteins:
                 tmp_dbname = add_label + protein.dbname
                 try:
                     prots[tmp_dbname]['Peptides'] += 1
@@ -583,7 +583,7 @@ def PSMs_info(peptides, valid_proteins, settings, fig=False, printresults=True, 
         prots[k]['fullgroup'] = set()
 
     for pep in peptides.peptideslist:
-        tprots = set([pr.dbname for pr in pep.parentproteins])
+        tprots = set([pr.dbname for pr in peptides.proteins_dict[pep.sequence]])#pep.parentproteins])
         for k in tostay:
             if k in tprots:
                 prots[k]['fullgroup'].update(tprots)
@@ -607,7 +607,7 @@ def PSMs_info(peptides, valid_proteins, settings, fig=False, printresults=True, 
                 add_label = settings.get('input', 'decoy prefix')
             else:
                 add_label = ''
-            for protein in peptide.parentproteins:
+            for protein in peptides.proteins_dict[peptide.sequence]:#peptide.parentproteins:
                 tmp_dbname = add_label + protein.dbname
                 if tmp_dbname in prots: # <---- WTF??? not works with tmp_dbname in tostay
                     prots[tmp_dbname]['evalues'].append(peptide.qval)
@@ -711,8 +711,8 @@ def PSMs_info(peptides, valid_proteins, settings, fig=False, printresults=True, 
                 output_proteins_full.write('%s\t%s\t%s\t%s\t%0.1f\t%0.2E\t%0.2E\t%0.2E\t%0.2E\t%s\n' % (k, v['description'], v['PSMs'], v['Peptides'], sqc, v['sumI'],v['NSAF'], v['emPAI'], v['expect'], v['fullgroup']))
 
         for peptide in peptides.peptideslist:
-            if any(protein.dbname in prots for protein in peptide.parentproteins):
-                output_PSMs.write(get_output_string(peptide, type='psm', fragments_info=framents_info, fragments_info_zeros=framents_info_zeroes))
+            if any(protein.dbname in prots for protein in peptides.proteins_dict[peptide.sequence]):#peptide.parentproteins):
+                output_PSMs.write(get_output_string(peptide, type='psm', fragments_info=framents_info, fragments_info_zeros=framents_info_zeroes, proteins_dict=peptides.proteins_dict))
         peptides_best = dict()
         peptides_best_sp = dict()
         peptides_count = Counter()
@@ -723,8 +723,8 @@ def PSMs_info(peptides, valid_proteins, settings, fig=False, printresults=True, 
             peptides_count[peptide.sequence] += 1
         for peptide in peptides.peptideslist:
             if peptide.spectrum == peptides_best_sp[peptide.sequence]:
-                if any(protein.dbname in prots for protein in peptide.parentproteins):
-                    output_peptides_detailed.write(get_output_string(peptide, type='psm', fragments_info=framents_info, fragments_info_zeros=framents_info_zeroes, peptide_count=peptides_count[peptide.sequence]))
+                if any(protein.dbname in prots for protein in peptides.proteins_dict[peptide.sequence]):#peptide.parentproteins):
+                    output_peptides_detailed.write(get_output_string(peptide, type='psm', fragments_info=framents_info, fragments_info_zeros=framents_info_zeroes, peptide_count=peptides_count[peptide.sequence], proteins_dict=peptides.proteins_dict))
         if protsC:
             temp_sum = sum([x[0] for x in temp_data])
             temp_data = [[x[0] / temp_sum, x[1]] for x in temp_data]
@@ -967,7 +967,7 @@ def plot_MP(descriptors, peptides, fig, FDR, FDR2, valid_proteins, settings, thr
     output_PSMs_full = open('%s/%s_PSMs_full.csv' % (ffolder, fname), 'w')
     output_PSMs_full.write('sequence\tmodified_sequence\tm/z exp\tcharge\tm/z error in ppm\tmissed cleavages\tnum tol term\te-value\tMPscore\tRT exp\tspectrum\tproteins\tproteins description\tSIn\tmassdiff\tis decoy\n')
     for peptide in peptides.peptideslist:
-        output_PSMs_full.write(get_output_string(peptide, type='psm', fragments_info=False, fragments_info_zeros=False))
+        output_PSMs_full.write(get_output_string(peptide, type='psm', fragments_info=False, fragments_info_zeros=False, proteins_dict=peptides.proteins_dict))
     print 'Without filtering, after removing outliers:'
     PSMs_info(peptides, valid_proteins, settings, loop=False)
 
