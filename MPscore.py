@@ -345,87 +345,14 @@ def handle(q, q_output, settings, protsL):
                     descriptors = prepare_hist(descriptors, copy_peptides, first=False)
                     fig = plot_histograms(descriptors, peptides, FDR, curfile, savesvg=settings.getboolean('advanced options', 'saveSVG'), sepfigures=settings.getboolean('advanced options', 'separatefigures'))
 
-                    if len(copy_peptides.peptideslist) > 100:
-                        jk = manager.dict()
-                        cprocs = []
-                        cnprocs = peptides.settings.getint('options', 'threads')
-                        cq = multiprocessing.Queue()
-                        cq_output = multiprocessing.Queue()
-                        cq_finish = multiprocessing.Queue()
+                    for idx, cpeptscore in calc_peptscore(peptides.peptideslist, descriptors):
+                        peptides.peptideslist[idx].peptscore = cpeptscore
 
-                        for i in range(cnprocs):
-                            p = multiprocessing.Process(target=calc_peptscore, args=(cq, cq_output, descriptors, jk, cq_finish))
-                            cprocs.append(p)
-                            p.start()
-
-                        counter = 0
-                        for idx, peptide in enumerate(peptides.peptideslist):
-                            # if counter < 10000:
-                            cq.put([idx, peptide])
-                            counter += 1
-                            if counter >= 10000:
-                                while counter != 0:
-                                    ind, pscore = cq_output.get()
-                                    peptides.peptideslist[ind].peptscore = float(pscore)
-                                    counter -= 1
-                        while counter != 0:
-                            ind, pscore = cq_output.get()
-                            peptides.peptideslist[ind].peptscore = float(pscore)
-                            counter -= 1
-
-                        for i in range(cnprocs):
-                            cq.put(None)
-                        while cq_finish.qsize() != cnprocs:
-                            sleep(5)
-
-                        for p in cprocs:
-                            p.terminate()
-
-                        j = len(peptides.peptideslist) - 1
-                        while j >= 0:
-                            if peptides.peptideslist[j].peptscore == 0:
-                                peptides.peptideslist.pop(j)
-                            else:
-                                peptides.peptideslist[j].peptscore = 1.0
-                            j -= 1
-
-                    copy_peptides, _, _ = peptides.filter_evalue_new(FDR=FDR, useMP=False)
-                    descriptors = prepare_hist(descriptors, copy_peptides)
-
-                    jk = manager.dict()
-                    cprocs = []
-                    cnprocs = peptides.settings.getint('options', 'threads')
-                    cq = multiprocessing.Queue()
-                    cq_output = multiprocessing.Queue()
-                    cq_finish = multiprocessing.Queue()
-
-                    for i in range(cnprocs):
-                        p = multiprocessing.Process(target=calc_peptscore, args=(cq, cq_output, descriptors, jk, cq_finish))
-                        cprocs.append(p)
-                        p.start()
-
-                    counter = 0
-                    for idx, peptide in enumerate(peptides.peptideslist):
-                        # if counter < 10000:
-                        cq.put([idx, peptide])
-                        counter += 1
-                        if counter >= 10000:
-                            while counter != 0:
-                                ind, pscore = cq_output.get()
-                                peptides.peptideslist[ind].peptscore = float(pscore)
-                                counter -= 1
-                    while counter != 0:
-                        ind, pscore = cq_output.get()
-                        peptides.peptideslist[ind].peptscore = float(pscore)
-                        counter -= 1
-
-                    for i in range(cnprocs):
-                        cq.put(None)
-                    while cq_finish.qsize() != cnprocs:
-                        sleep(5)
-
-                    for p in cprocs:
-                        p.terminate()
+                    j = len(peptides.peptideslist) - 1
+                    while j >= 0:
+                        if peptides.peptideslist[j].peptscore == 0:
+                            peptides.peptideslist.pop(j)
+                        j -= 1
 
                     k_temp = []
                     while len(k_temp) < 3 or k_temp[-1] != k_temp[-3]:
@@ -1035,18 +962,15 @@ def prepare_hist(descriptors, copy_peptides, first=False):
                 if not descriptor.hist[0][0]:
                     descriptor.hist[0][0] = 1
             del descriptor.array
+            descriptor.hsum = sum(descriptor.hist[0])
     return descriptors
 
 
-def calc_peptscore(cq, cq_output, descriptors, jk, cq_finish):
-    for idx, peptide in iter(cq.get, None):
+def calc_peptscore(cq, descriptors):
+    for idx, peptide in enumerate(cq):
         tmp_peptscore = peptide.peptscore
         for descriptor in descriptors:
             descriptor_value = descriptor.formula(peptide)
-            if tmp_peptscore != 0:
-                flag = 1
-            else:
-                flag = 0
             if descriptor.group == 'A':
                 if descriptor_value < descriptor.hist[1][0] or descriptor_value >= descriptor.hist[1][-1]:
                     tmp_peptscore = 0
@@ -1055,7 +979,7 @@ def calc_peptscore(cq, cq_output, descriptors, jk, cq_finish):
                     if descriptor_value < descriptor.hist[1][j]:
                         j -= 1
                     try:
-                        tmp_peptscore *= float(descriptor.hist[0][j]) / sum(descriptor.hist[0])
+                        tmp_peptscore *= float(descriptor.hist[0][j]) / descriptor.hsum#sum(descriptor.hist[0])
                     except:
                         print descriptor.name
                         print descriptor.hist[0]
@@ -1064,14 +988,7 @@ def calc_peptscore(cq, cq_output, descriptors, jk, cq_finish):
             elif descriptor.group == 'B':
                 tmp_peptscore *= float(descriptor.array.searchsorted(descriptor_value, side='right')) / descriptor.array.size
 
-            if flag and not tmp_peptscore:
-                try:
-                    jk[descriptor.name] += 1
-                except:
-                    jk[descriptor.name] = 1
-        cq_output.put([idx, tmp_peptscore])
-    cq_finish.put(True)
-
+        yield (idx, tmp_peptscore)
 
 def main(argv_in, union_custom=False):
     inputfile = argv_in[1]
