@@ -165,6 +165,8 @@ class Descriptor():
 
 class PeptideList:
     def __init__(self, settings=None, mods=None):
+        self.listing = ['peptideslist', 'spectrumlist']
+        self.listing_nparrays = ['spectrumlist']
         self.peptideslist = []
         self.spectrumlist = []
         self.calibrate_coeff = None
@@ -223,10 +225,19 @@ class PeptideList:
 
     def rem_elements(self, js):
         js.sort(reverse=True)
-        for j in js:
-            self.peptideslist.pop(j)
-        js_stay = [x for x in range(self.spectrumlist.size) if x not in js]
-        self.spectrumlist = self.spectrumlist[js_stay]
+        js_set = set(js)
+        js_stay = [x for x in range(self.spectrumlist.size) if x not in js_set]
+        for l in self.listing:
+            tmp = getattr(self, l)
+            if isinstance(tmp, list):
+                for j in js:
+                    tmp.pop(j)
+                setattr(self, l, tmp)
+            elif isinstance(tmp, np.ndarray):
+                tmp = tmp[js_stay]
+                setattr(self, l, tmp)
+            else:
+                print '\nUnknown type of PeptidesList attribute. Smth wrong in the Code!\n'
 
     def get_number_of_spectra(self):
         """Returns the number of MS/MS spectra used for the search. If mgf file is not available,
@@ -485,6 +496,11 @@ class PeptideList:
             new_peptides.filter_decoy()
         return (new_peptides, best_cut_evalue, best_cut_peptscore)
 
+    def get_izip_full(self):
+        #TODO check the memory usage for this place
+        for val in izip(*(getattr(self, l) for l in self.listing)):
+            yield val
+
     def copy_empty(self):
         new_peptides = PeptideList(self.settings)
         new_peptides.total_number_of_spectra = self.total_number_of_spectra
@@ -509,8 +525,16 @@ class PeptideList:
         self.calibrate_coeff = new_peptides.calibrate_coeff
         self.RC = new_peptides.RC
         self.modification_list = new_peptides.modification_list
-        self.peptideslist.extend(new_peptides.peptideslist)
-        self.spectrumlist = np.append(self.spectrumlist, new_peptides.spectrumlist)
+
+        for l in self.listing:
+            new_peptides_attr = getattr(new_peptides, l)
+            if isinstance(new_peptides_attr, list):
+                tmp = getattr(self, l)
+                tmp.extend(new_peptides_attr)
+                setattr(self, l, tmp)
+            elif isinstance(new_peptides_attr, np.ndarray):
+                setattr(self, l, np.append(getattr(self, l), new_peptides_attr))
+
         self.proteins_dict.update(new_peptides.proteins_dict)
 
     def remove_duplicate_spectra(self):
@@ -524,17 +548,35 @@ class PeptideList:
                 js.append(idx)
         self.rem_elements(js)
 
+    def add_elem(self, val):
+        for l, v in zip(self.listing, val):
+            setattr(self, l, getattr(self, l) + [v])
+
+    def check_arrays(self):
+        for l in self.listing_nparrays:
+            tmp = getattr(self, l)
+            if not isinstance(tmp, np.ndarray):
+                setattr(self, l, np.array(tmp))
+
     def remove_duplicate_sequences(self):
         edict = dict()
         for peptide in self.peptideslist:
             edict[peptide.sequence] = min(float(peptide.evalue), edict.get(peptide.sequence, np.inf))
         new_peptides = self.copy_empty()
-        for peptide, spectrum in izip(self.peptideslist, self.spectrumlist):
-            if peptide.evalue != edict.get(peptide.sequence, None):
-                new_peptides.peptideslist.append(peptide)
-                new_peptides.spectrumlist.append(spectrum)
-        new_peptides.spectrumlist = np.array(new_peptides.spectrumlist)
+        for val in self.get_izip_full():
+            peptide_ind = self.listing.index('peptideslist')
+            if val[peptide_ind] != edict.get(val[peptide_ind], None):
+                new_peptides.add_elem(val)
+        new_peptides.check_arrays()
         return new_peptides
+
+    def cut_left(self, msize):
+        for l in self.listing:
+            setattr(self, l, getattr(self,l)[msize:])
+
+    def get_right(self, extpeptides, msize):
+        for l in self.listing:
+            setattr(self, l, getattr(extpeptides,l)[:msize])
 
 class Protein:
     __slots__ = ['dbname', 'description']

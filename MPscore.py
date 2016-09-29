@@ -184,11 +184,13 @@ def handle(q, q_output, settings, protsL):
                     tmp_peptides = qpeptides.copy_empty()
                     msize = 10000
                     while len(qpeptides.peptideslist):
-                        tmp_peptides.peptideslist = qpeptides.peptideslist[:msize]
-                        tmp_peptides.spectrumlist = qpeptides.spectrumlist[:msize]
+                        tmp_peptides.get_right(qpeptides, msize)
+                        # tmp_peptides.peptideslist = qpeptides.peptideslist[:msize]
+                        # tmp_peptides.spectrumlist = qpeptides.spectrumlist[:msize]
                         iq_output.put(copy(tmp_peptides))
-                        qpeptides.peptideslist = qpeptides.peptideslist[msize:]
-                        qpeptides.spectrumlist = qpeptides.spectrumlist[msize:]
+                        qpeptides.cut_left(msize)
+                        # qpeptides.peptideslist = qpeptides.peptideslist[msize:]
+                        # qpeptides.spectrumlist = qpeptides.spectrumlist[msize:]
                 iq_output.put(None)
 
         for filename in filenames:
@@ -236,7 +238,7 @@ def handle(q, q_output, settings, protsL):
             peptides.total_number_of_PSMs_decoy = sum(1 for pept in peptides.peptideslist if pept.note2 == 'wr')
 
             if FDR_type == 'peptide':
-                print 'Choosing best PSM pep peptide sequence'
+                print 'Choosing best PSM per peptide sequence'
                 peptidesdict = dict()
                 for peptide, spectrum in izip(peptides.peptideslist, peptides.spectrumlist):
                     if peptide.sequence not in peptidesdict:
