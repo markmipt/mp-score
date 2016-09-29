@@ -12,7 +12,7 @@ from copy import copy
 from scipy.spatial import cKDTree
 from collections import Counter, defaultdict
 from operator import itemgetter
-from itertools import izip
+from itertools import izip, izip_longest
 try:
     from configparser import RawConfigParser
 except ImportError:
@@ -135,16 +135,20 @@ def FDbinSize(X):
     return h
 
 class Descriptor():
-    def __init__(self, name, single_formula, group='A', binsize='auto'):
+    def __init__(self, name, single_formula=False, massive_formula=False, group='A', binsize='auto'):
         self.name = name
         self.single_formula = single_formula
+        self.massive_formula = massive_formula
         self.group = group
         self.binsize = binsize
         self.normK = None
         self.array = None
 
     def formula(self, peptides):
-        return [self.single_formula(peptide) for peptide in peptides.peptideslist]
+        if self.single_formula:
+            return [self.single_formula(peptide) for peptide in peptides.peptideslist]
+        else:
+            return self.massive_formula(peptides)
 
     def get_array(self, peptides):
         # tmp = np.array([self.formula(peptide) for peptide in peptides.peptideslist])
@@ -165,10 +169,12 @@ class Descriptor():
 
 class PeptideList:
     def __init__(self, settings=None, mods=None):
-        self.listing = ['peptideslist', 'spectrumlist']
-        self.listing_nparrays = ['spectrumlist']
+        self.listing = ['peptideslist', 'spectrumlist', 'RT_exp', 'RT_predicted']
+        self.listing_nparrays = ['spectrumlist', 'RT_exp', 'RT_predicted']
         self.peptideslist = []
         self.spectrumlist = []
+        self.RT_exp = []
+        self.RT_predicted = []
         self.calibrate_coeff = None
         self.RC = False
         self.infiles = set()
@@ -229,15 +235,16 @@ class PeptideList:
         js_stay = [x for x in range(self.spectrumlist.size) if x not in js_set]
         for l in self.listing:
             tmp = getattr(self, l)
-            if isinstance(tmp, list):
-                for j in js:
-                    tmp.pop(j)
-                setattr(self, l, tmp)
-            elif isinstance(tmp, np.ndarray):
-                tmp = tmp[js_stay]
-                setattr(self, l, tmp)
-            else:
-                print '\nUnknown type of PeptidesList attribute. Smth wrong in the Code!\n'
+            if len(tmp):
+                if isinstance(tmp, list):
+                    for j in js:
+                        tmp.pop(j)
+                    setattr(self, l, tmp)
+                elif isinstance(tmp, np.ndarray):
+                    tmp = tmp[js_stay]
+                    setattr(self, l, tmp)
+                else:
+                    print '\nUnknown type of PeptidesList attribute. Smth wrong in the Code!\n'
 
     def get_number_of_spectra(self):
         """Returns the number of MS/MS spectra used for the search. If mgf file is not available,
@@ -310,12 +317,12 @@ class PeptideList:
                             infile_current = infiles_dict[pepxmlfile]
                             pept = Peptide(sequence=sequence, settings=self.settings, evalue=evalue, pcharge=pcharge, mass_exp=mass_exp, modifications=modifications, modification_list=self.modification_list, custom_aa_mass=self.aa_list, sumI=sumI, mc=mc, infile=infile_current, frag_mt=frag_mt)
                             try:
-                                pept.RT_exp = float(record['retention_time_sec']) / 60
+                                RT_exp = float(record['retention_time_sec']) / 60
                             except:
                                 try:
-                                    pept.RT_exp = float(spectrum.split(',')[2].split()[0])
+                                    RT_exp = float(spectrum.split(',')[2].split()[0])
                                 except:
-                                    pept.RT_exp = 0
+                                    RT_exp = 0
 
                             if not all(protein['protein'].startswith(prefix) for protein in record['search_hit'][0]['proteins']):
                                 pept.note = 'target'
@@ -332,8 +339,9 @@ class PeptideList:
                                         #pept.parentproteins.append(Protein(dbname=get_dbname(prot), description=prot.get('protein_descr', None)))
 
                             if len(self.proteins_dict[pept.sequence]) and (not modifications or Counter(v['position'] for v in modifications).most_common(1)[0][1] <= 1):
-                                self.peptideslist.append(pept)
-                                self.spectrumlist.append(spectrum)
+                                self.add_elem((pept, spectrum, RT_exp))
+                                # self.peptideslist.append(pept)
+                                # self.spectrumlist.append(spectrum)
 
         self.spectrumlist = np.array(self.spectrumlist)
 
@@ -349,7 +357,7 @@ class PeptideList:
     def get_RC(self):
         try:
             seqs = [pept.modified_sequence for pept in self.peptideslist]
-            RTexp = [pept.RT_exp for pept in self.peptideslist]
+            RTexp = self.RT_exp#[pept.RT_exp for pept in self.peptideslist]
             RC_def = achrom.RCs_gilar_rp
             aa_labels = set(RC_def['aa'].keys())
             for pept in self.peptideslist:
@@ -377,39 +385,42 @@ class PeptideList:
         self.RC = RC_dict
 
     def calc_RT(self, calibrate_coeff=(1, 0, 0, 0), RTtype='achrom'):
+        self.RT_predicted = []
         if RTtype == 'ssrcalc':
             ps = list(set([peptide.sequence for peptide in self.peptideslist]))
             SSRCalc_RTs = SSRCalc.calculate_RH(ps[:], pore_size=100, ion_pairing_agent='FA')
 
         for peptide in self.peptideslist:
             if RTtype == 'achrom':
-                peptide.RT_predicted = achrom.calculate_RT(peptide.modified_sequence, self.RC, raise_no_mod=False)
-                if np.isinf(peptide.RT_predicted):
+                RT_predicted = achrom.calculate_RT(peptide.modified_sequence, self.RC, raise_no_mod=False)
+                if np.isinf(RT_predicted):
                     elems = peptide.modified_sequence.split('-')
                     if len(elems) > 1:
                         if not all(el in parser.std_amino_acids for el in elems[0]) and str(elems[0] + '-') not in self.RC['aa']:
                             self.RC['aa'][str(elems[0] + '-')] = self.RC['aa']['H-']
                         elif not all(el in parser.std_amino_acids for el in elems[-1]) and str('-' + elems[-1]) not in self.RC['aa']:
                             self.RC['aa'][str('-' + elems[-1])] = self.RC['aa']['-OH']
-                    peptide.RT_predicted = achrom.calculate_RT(peptide.modified_sequence, self.RC, raise_no_mod=False)
+                    RT_predicted = achrom.calculate_RT(peptide.modified_sequence, self.RC, raise_no_mod=False)
 
             elif RTtype == 'ssrcalc':
                 SSRCalc_RT = SSRCalc_RTs[peptide.sequence]
                 if SSRCalc_RT is not None:
-                    peptide.RT_predicted = float(SSRCalc_RT) * calibrate_coeff[0] + calibrate_coeff[1]
+                    RT_predicted = float(SSRCalc_RT) * calibrate_coeff[0] + calibrate_coeff[1]
                 else:
-                    peptide.RT_predicted = 0
+                    RT_predicted = 0
                     print 'SSRCalc error'
             elif RTtype == 'biolccc':
-                peptide.RT_predicted = biolccc.calculateRT(peptide.sequence, biolccc.rpAcnTfaChain, biolccc.standardChromoConditions)
+                RT_predicted = biolccc.calculateRT(peptide.sequence, biolccc.rpAcnTfaChain, biolccc.standardChromoConditions)
             else:
                 print 'RT_type error'
+            self.RT_predicted.append(RT_predicted)
+        self.check_arrays()
 
     def filter_RT(self, RT_tolerance):
         js = []
         j = len(self.peptideslist) - 1
         while j >= 0:
-            if abs(float(self.peptideslist[j].RT_predicted) - float(self.peptideslist[j].RT_exp)) > float(RT_tolerance):
+            if abs(float(self.RT_predicted[j]) - float(self.RT_exp[j])) > float(RT_tolerance):
                 js.append(j)
             j -= 1
         self.rem_elements(js)
@@ -417,16 +428,16 @@ class PeptideList:
     def get_calibrate_coeff(self):
         peptides = []
         peptides_added = {}
-        for peptide in self.peptideslist:
+        for peptide, RT_exp, RT_predicted in izip(self.peptideslist, self.RT_exp, self.RT_predicted):
             if peptide.sequence not in peptides_added:
-                peptides_added[peptide.sequence] = [peptide.RT_exp, ]
-                peptides.append([peptide.RT_predicted, peptide.RT_exp])
+                peptides_added[peptide.sequence] = [RT_exp, ]
+                peptides.append([RT_predicted, RT_exp])
             else:
-                if any(abs(peptide.RT_exp - v) < 2 for v in peptides_added[peptide.sequence]):
+                if any(abs(RT_exp - v) < 2 for v in peptides_added[peptide.sequence]):
                     pass
                 else:
-                    peptides_added[peptide.sequence].append(peptide.RT_exp)
-                    peptides.append([peptide.RT_predicted, peptide.RT_exp])
+                    peptides_added[peptide.sequence].append(RT_exp)
+                    peptides.append([RT_predicted, RT_exp])
         aux_RT = aux.linear_regression([val[0] for val in peptides], [val[1] for val in peptides])
         return aux_RT
 
@@ -453,9 +464,11 @@ class PeptideList:
         new_peptides = self.copy_empty()
         for infile in self.get_infiles():
             infile_peptides = []
-            for peptide, spectrum in izip(self.peptideslist, self.spectrumlist):
-                if peptide.infile == infile:
-                    infile_peptides.append((peptide, spectrum))
+            for val in self.get_izip_full():
+            # for peptide, spectrum in izip(self.peptideslist, self.spectrumlist):
+            #     if peptide.infile == infile:
+                if val[0].infile == infile:
+                    infile_peptides.append(val)
             filtered_peptides = aux.filter(infile_peptides, fdr=float(FDR)/100, key=escore, is_decoy=isdecoy, remove_decoy=False, formula=1, full_output=True)
             qvals_e = aux.qvalues(filtered_peptides, key=escore, is_decoy=isdecoy, reverse=False, remove_decoy=False, formula=1, full_output=True)
             try:
@@ -483,22 +496,28 @@ class PeptideList:
                 if toprint:
                     print real_FDR, best_cut_peptscore, 'MP score'
             for val in qvals_e:
-                new_peptides.peptideslist.append(val[-1][0])
-                new_peptides.peptideslist[-1].qval = val[-2]
-                new_peptides.spectrumlist.append(val[-1][1])
+                val[-1][0].qval = val[-2]
+                new_peptides.add_elem(val[-1])
+                # new_peptides.peptideslist.append(val[-1][0])
+                # new_peptides.peptideslist[-1].qval = val[-2]
+                # new_peptides.spectrumlist.append(val[-1][1])
             if useMP:
                 for val in qvals_m:
-                    new_peptides.peptideslist.append(val[-1][0])
-                    new_peptides.peptideslist[-1].qval = val[-2]
-                new_peptides.spectrumlist.append(val[-1][1])
-        new_peptides.spectrumlist = np.array(new_peptides.spectrumlist)
+                    val[-1][0].qval = val[-2]
+                    new_peptides.add_elem(val[-1])
+                    # new_peptides.peptideslist.append(val[-1][0])
+                    # new_peptides.peptideslist[-1].qval = val[-2]
+                    # new_peptides.spectrumlist.append(val[-1][1])
+        # new_peptides.spectrumlist = np.array(new_peptides.spectrumlist)
+        new_peptides.check_arrays()
         if drop_decoy:
             new_peptides.filter_decoy()
         return (new_peptides, best_cut_evalue, best_cut_peptscore)
 
     def get_izip_full(self):
         #TODO check the memory usage for this place
-        for val in izip(*(getattr(self, l) for l in self.listing)):
+        # for val in izip(*(getattr(self, l) for l in self.listing)):
+        for val in izip_longest(*(getattr(self, l) for l in self.listing)):
             yield val
 
     def copy_empty(self):
@@ -587,11 +606,11 @@ class Protein:
 
 class Peptide:
     __slots__ = ['sequence', 'modified_sequence', 'modification_list', 'pcharge',
-                 'aa_mass', 'pmass', 'mz', 'RT_exp', 'RT_predicted', 'evalue', 'massdiff',
+                 'aa_mass', 'pmass', 'mz', 'evalue', 'massdiff',
                  'num_missed_cleavages', 'mc', 'note', 'note2', 'note3', 'protscore2', 'peptscore',
                  'peptscore2', 'spectrum_mz', 'fragment_mt', 'sumI', 'it',
                  'infile', 'fragments', 'valid_sequence']
-    def __init__(self, sequence, settings, pcharge=0, RT_exp=False, evalue=0, note='unknown', spectrum='', mass_exp=0, modifications=[], modification_list={}, custom_aa_mass=None, sumI=0, mc=None, infile='unknown', frag_mt=None):
+    def __init__(self, sequence, settings, pcharge=0, evalue=0, note='unknown', mass_exp=0, modifications=[], modification_list={}, custom_aa_mass=None, sumI=0, mc=None, infile='unknown', frag_mt=None):
         self.sequence = sequence
         self.modified_sequence = sequence
         self.modification_list = modification_list
@@ -611,8 +630,8 @@ class Peptide:
 
         self.mz = (mass_exp + pcharge * 1.007276) / pcharge
         self.modified_peptide(modifications)
-        self.RT_exp = RT_exp
-        self.RT_predicted = False
+        # self.RT_exp = RT_exp
+        # self.RT_predicted = False
         self.evalue = float(evalue)
         #self.parentproteins = []
         self.massdiff = float(mass_exp) - float(self.pmass)

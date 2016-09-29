@@ -28,13 +28,13 @@ protsS = manager.dict()
 protsN = manager.dict()
 stime = time()
 
-def get_output_string(obj, spectrum, type, fragments_info=False, fragments_info_zeros=False, peptide_count=False, proteins_dict={}):
+def get_output_string(obj, spectrum, RT_exp, type, fragments_info=False, fragments_info_zeros=False, peptide_count=False, proteins_dict={}):
     if type == 'psm':
         out = '%s\t' % (obj.sequence, )
         if peptide_count:
             out += '%s\t' % (peptide_count, )
         out += '%s\t%0.3f\t%d\t%0.1f\t%d\t%d\t%0.2E\t%0.2E\t%0.2f\t%s\t' % (obj.modified_sequence, obj.mz, obj.pcharge, obj.mass_diff(), obj.mc,
-                                                             obj.num_tol_term, obj.evalue, obj.peptscore, obj.RT_exp, spectrum)
+                                                             obj.num_tol_term, obj.evalue, obj.peptscore, RT_exp, spectrum)
         for protein in proteins_dict[obj.sequence]:
             out += '%s;' % (protein.dbname,)
         out += '\t'
@@ -284,8 +284,8 @@ def handle(q, q_output, settings, protsL):
                 descriptors = []
                 if numPSMs >= 15:
                     dname = 'RT difference, min'
-                    if peptides.settings.getboolean('descriptors', dname) and not np.allclose([pep.RT_exp for pep in peptides.peptideslist], 0):
-                        descriptors.append(Descriptor(name=dname, single_formula=lambda peptide: peptide.RT_exp - peptide.RT_predicted, group='A', binsize='auto'))
+                    if peptides.settings.getboolean('descriptors', dname) and not np.allclose(peptides.RT_exp, 0):
+                        descriptors.append(Descriptor(name=dname, massive_formula=lambda peptides: peptides.RT_exp - peptides.RT_predicted, group='A', binsize='auto'))
                     dname = 'precursor mass difference, ppm'
                     if peptides.settings.getboolean('descriptors', dname):
                         descriptors.append(Descriptor(name=dname, single_formula=lambda peptide: peptide.mass_diff(), group='A', binsize='auto'))
@@ -353,7 +353,7 @@ def handle(q, q_output, settings, protsL):
                     descriptors = prepare_hist(descriptors, copy_peptides, first=False)
                     fig = plot_histograms(descriptors, peptides, FDR, curfile, savesvg=settings.getboolean('advanced options', 'saveSVG'), sepfigures=settings.getboolean('advanced options', 'separatefigures'))
 
-                    for idx, cpeptscore in calc_peptscore(peptides.peptideslist, descriptors):
+                    for idx, cpeptscore in calc_peptscore(peptides, descriptors):
                         peptides.peptideslist[idx].peptscore = cpeptscore
 
                     js = []
@@ -637,9 +637,9 @@ def PSMs_info(peptides, valid_proteins, settings, fig=False, printresults=True, 
                 sqc = calc_sq(protsS.get(k, []), v['pept'])
                 output_proteins_full.write('%s\t%s\t%s\t%s\t%0.1f\t%0.2E\t%0.2E\t%0.2E\t%0.2E\t%s\n' % (k, v['description'], v['PSMs'], v['Peptides'], sqc, v['sumI'],v['NSAF'], v['emPAI'], v['expect'], v['fullgroup']))
 
-        for peptide, spectrum in izip(peptides.peptideslist, peptides.spectrumlist):
+        for val in peptides.get_izip_full():
             if any(protein.dbname in prots for protein in peptides.proteins_dict[peptide.sequence]):#peptide.parentproteins):
-                output_PSMs.write(get_output_string(peptide, spectrum, type='psm', fragments_info=framents_info, fragments_info_zeros=framents_info_zeroes, proteins_dict=peptides.proteins_dict))
+                output_PSMs.write(get_output_string(val[0], val[1], val[2], type='psm', fragments_info=framents_info, fragments_info_zeros=framents_info_zeroes, proteins_dict=peptides.proteins_dict))
         peptides_best = dict()
         peptides_best_sp = dict()
         peptides_count = Counter()
@@ -648,10 +648,10 @@ def PSMs_info(peptides, valid_proteins, settings, fig=False, printresults=True, 
                 peptides_best[peptide.sequence] = peptide.evalue
                 peptides_best_sp[peptide.sequence] = spectrum
             peptides_count[peptide.sequence] += 1
-        for peptide, spectrum in izip(peptides.peptideslist, peptides.spectrumlist):
+        for val in peptides.get_izip_full():
             if spectrum == peptides_best_sp[peptide.sequence]:
                 if any(protein.dbname in prots for protein in peptides.proteins_dict[peptide.sequence]):#peptide.parentproteins):
-                    output_peptides_detailed.write(get_output_string(peptide, spectrum, type='psm', fragments_info=framents_info, fragments_info_zeros=framents_info_zeroes, peptide_count=peptides_count[peptide.sequence], proteins_dict=peptides.proteins_dict))
+                    output_peptides_detailed.write(get_output_string(val[0], val[1], val[2], type='psm', fragments_info=framents_info, fragments_info_zeros=framents_info_zeroes, peptide_count=peptides_count[peptide.sequence], proteins_dict=peptides.proteins_dict))
         if protsC:
             temp_sum = sum([x[0] for x in temp_data])
             temp_data = [[x[0] / temp_sum, x[1]] for x in temp_data]
@@ -674,10 +674,10 @@ def PSMs_info(peptides, valid_proteins, settings, fig=False, printresults=True, 
 
 def plot_useful_histograms(peptides, curfile, fig, separatefigs=False, savesvg=False, ox=False, oy=False):
     formulas = [
-        (lambda peptide: peptide.RT_exp, 'RT experimental', 'PSMs, RT experimental, min'),
+        (lambda peptides: peptides.RT_exp, 'RT experimental', 'PSMs, RT experimental, min'),
         (lambda peptide: peptide.mz, 'precursor mass', 'PSMs, precursor m/z'),
         (lambda peptide: len(peptide.sequence), 'peptide length', 'PSMs, peptide length'),
-        (lambda peptide: peptide.RT_exp, 'RT experimental, peptides', 'peptides, RT experimental, min'),
+        (lambda peptides: peptides.RT_exp, 'RT experimental, peptides', 'peptides, RT experimental, min'),
         (lambda peptide: peptide.mz, 'precursor mass, peptides', 'peptides, precursor m/z'),
         (lambda peptide: len(peptide.sequence), 'peptide length, peptides', 'peptides, peptide length')
     ]
@@ -687,10 +687,18 @@ def plot_useful_histograms(peptides, curfile, fig, separatefigs=False, savesvg=F
             tmp_dict[peptide.sequence] = min(tmp_dict.get(peptide.sequence, 1e6), peptide.evalue)
 
     for idx, form in enumerate(formulas):
-        if form[1].endswith(', peptides'):
-            array_valid = [form[0](peptide) for peptide in peptides.peptideslist if peptide.evalue == tmp_dict.get(peptide.sequence, None)]
+        if form[1].startswith('RT experimental'):
+            if form[1].endswith(', peptides'):
+                decarray = np.array([peptide.evalue != tmp_dict.get(peptide.sequence, None) for peptide in peptides.peptideslist])
+                array_valid = form[0](peptides)[not decarray]
+            else:
+                decarray = peptides.is_decoy_array()
+                array_valid = form[0](peptides)[not decarray]
         else:
-            array_valid = [form[0](peptide) for peptide in peptides.peptideslist if peptide.note2 == 'tr']
+            if form[1].endswith(', peptides'):
+                array_valid = [form[0](peptide) for peptide in peptides.peptideslist if peptide.evalue == tmp_dict.get(peptide.sequence, None)]
+            else:
+                array_valid = [form[0](peptide) for peptide in peptides.peptideslist if peptide.note2 == 'tr']
         if separatefigs:
             plt.clf()
             fig = plt.figure()
@@ -895,8 +903,8 @@ def plot_MP(descriptors, peptides, fig, FDR, FDR2, valid_proteins, settings, thr
         fname = path.splitext(path.splitext(path.basename(curfile))[0])[0]
     output_PSMs_full = open('%s/%s_PSMs_full.csv' % (ffolder, fname), 'w')
     output_PSMs_full.write('sequence\tmodified_sequence\tm/z exp\tcharge\tm/z error in ppm\tmissed cleavages\tnum tol term\te-value\tMPscore\tRT exp\tspectrum\tproteins\tproteins description\tSIn\tmassdiff\tis decoy\n')
-    for peptide, spectrum in izip(peptides.peptideslist, peptides.spectrumlist):
-        output_PSMs_full.write(get_output_string(peptide, spectrum, type='psm', fragments_info=False, fragments_info_zeros=False, proteins_dict=peptides.proteins_dict))
+    for val in peptides.get_izip_full():
+        output_PSMs_full.write(get_output_string(val[0], val[1], val[2], type='psm', fragments_info=False, fragments_info_zeros=False, proteins_dict=peptides.proteins_dict))
     print 'Without filtering, after removing outliers:'
     PSMs_info(peptides, valid_proteins, settings, loop=False)
 
@@ -974,10 +982,14 @@ def prepare_hist(descriptors, copy_peptides, first=False):
 
 
 def calc_peptscore(cq, descriptors):
-    for idx, peptide in enumerate(cq):
+    desc_dict = {}
+    for descriptor in descriptors:
+        desc_dict[descriptor.name] = np.array(descriptor.formula(cq))
+    for idx, peptide in enumerate(cq.peptideslist):
         tmp_peptscore = peptide.peptscore
         for descriptor in descriptors:
-            descriptor_value = descriptor.single_formula(peptide)
+            # descriptor_value = descriptor.single_formula(peptide)
+            descriptor_value = desc_dict[descriptor.name][idx]
             if descriptor.group == 'A':
                 if descriptor_value < descriptor.hist[1][0] or descriptor_value >= descriptor.hist[1][-1]:
                     tmp_peptscore = 0
