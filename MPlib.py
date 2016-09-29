@@ -12,8 +12,7 @@ from copy import copy
 from scipy.spatial import cKDTree
 from collections import Counter, defaultdict
 from operator import itemgetter
-import cPickle as pickle
-import os
+from itertools import izip
 try:
     from configparser import RawConfigParser
 except ImportError:
@@ -136,16 +135,20 @@ def FDbinSize(X):
     return h
 
 class Descriptor():
-    def __init__(self, name, formula, group='A', binsize='auto'):
+    def __init__(self, name, single_formula, group='A', binsize='auto'):
         self.name = name
-        self.formula = formula
+        self.single_formula = single_formula
         self.group = group
         self.binsize = binsize
         self.normK = None
         self.array = None
 
+    def formula(self, peptides):
+        return [self.single_formula(peptide) for peptide in peptides.peptideslist]
+
     def get_array(self, peptides):
-        tmp = np.array([self.formula(peptide) for peptide in peptides.peptideslist])
+        # tmp = np.array([self.formula(peptide) for peptide in peptides.peptideslist])
+        tmp = np.array(self.formula(peptides))
         tmp.sort()
         self.array = tmp
         return tmp
@@ -163,6 +166,7 @@ class Descriptor():
 class PeptideList:
     def __init__(self, settings=None, mods=None):
         self.peptideslist = []
+        self.spectrumlist = []
         self.calibrate_coeff = None
         self.RC = False
         self.infiles = set()
@@ -213,6 +217,16 @@ class PeptideList:
             self.infiles.update(p.infile for p in self.peptideslist)
         return self.infiles
 
+    def is_decoy_array(self):
+        return np.array([peptide.note2 == 'wr' for peptide in self.peptideslist])
+
+
+    def rem_elements(self, js):
+        js.sort(reverse=True)
+        for j in js:
+            self.peptideslist.pop(j)
+        js_stay = [x for x in range(self.spectrumlist.size) if x not in js]
+        self.spectrumlist = self.spectrumlist[js_stay]
 
     def get_number_of_spectra(self):
         """Returns the number of MS/MS spectra used for the search. If mgf file is not available,
@@ -283,12 +297,12 @@ class PeptideList:
                             if pepxmlfile not in infiles_dict:
                                 infiles_dict[pepxmlfile] = len(infiles_dict)
                             infile_current = infiles_dict[pepxmlfile]
-                            pept = Peptide(sequence=sequence, settings=self.settings, evalue=evalue, spectrum=spectrum, pcharge=pcharge, mass_exp=mass_exp, modifications=modifications, modification_list=self.modification_list, custom_aa_mass=self.aa_list, sumI=sumI, mc=mc, infile=infile_current, frag_mt=frag_mt)
+                            pept = Peptide(sequence=sequence, settings=self.settings, evalue=evalue, pcharge=pcharge, mass_exp=mass_exp, modifications=modifications, modification_list=self.modification_list, custom_aa_mass=self.aa_list, sumI=sumI, mc=mc, infile=infile_current, frag_mt=frag_mt)
                             try:
                                 pept.RT_exp = float(record['retention_time_sec']) / 60
                             except:
                                 try:
-                                    pept.RT_exp = float(record['spectrum'].split(',')[2].split()[0])
+                                    pept.RT_exp = float(spectrum.split(',')[2].split()[0])
                                 except:
                                     pept.RT_exp = 0
 
@@ -308,16 +322,18 @@ class PeptideList:
 
                             if len(self.proteins_dict[pept.sequence]) and (not modifications or Counter(v['position'] for v in modifications).most_common(1)[0][1] <= 1):
                                 self.peptideslist.append(pept)
+                                self.spectrumlist.append(spectrum)
+
+        self.spectrumlist = np.array(self.spectrumlist)
+
         if FDR_type == 'peptide':
+            js = []
             j = len(self.peptideslist) - 1
             while j >= 0:
                 if self.peptideslist[j].evalue > best_scores.get(self.peptideslist[j].sequence, 1e6):
-                    self.peptideslist.pop(j)
+                    js.append(j)
                 j -= 1
-    #
-    # def modified_peptides(self):
-    #     for peptide in self.peptideslist:
-    #         peptide.modified_peptide()
+            self.rem_elements(js)
 
     def get_RC(self):
         try:
@@ -379,11 +395,13 @@ class PeptideList:
                 print 'RT_type error'
 
     def filter_RT(self, RT_tolerance):
+        js = []
         j = len(self.peptideslist) - 1
         while j >= 0:
             if abs(float(self.peptideslist[j].RT_predicted) - float(self.peptideslist[j].RT_exp)) > float(RT_tolerance):
-                self.peptideslist.pop(j)
+                js.append(j)
             j -= 1
+        self.rem_elements(js)
 
     def get_calibrate_coeff(self):
         peptides = []
@@ -406,28 +424,31 @@ class PeptideList:
         pass
 
     def filter_decoy(self):
+        js = []
         j = len(self.peptideslist) - 1
         while j >= 0:
             if self.peptideslist[j].note == 'decoy':
-                self.peptideslist.pop(j)
+                js.append(j)
+                #self.peptideslist.pop(j)
             j -= 1
+        self.rem_elements(js)
 
     def filter_evalue_new(self, FDR=1, FDR2=1, useMP=True, drop_decoy=True, toprint=True):
         "A function for filtering PSMs by e-value and MP-score with some FDR"
-        isdecoy = lambda x: x.note == 'decoy'
-        escore = lambda x: float(x.evalue)
-        mscore = lambda x: -float(x.peptscore)
+        isdecoy = lambda x: x[0].note == 'decoy'
+        escore = lambda x: float(x[0].evalue)
+        mscore = lambda x: -float(x[0].peptscore)
 
         new_peptides = self.copy_empty()
         for infile in self.get_infiles():
             infile_peptides = []
-            for peptide in self.peptideslist:
+            for peptide, spectrum in izip(self.peptideslist, self.spectrumlist):
                 if peptide.infile == infile:
-                    infile_peptides.append(peptide)
+                    infile_peptides.append((peptide, spectrum))
             filtered_peptides = aux.filter(infile_peptides, fdr=float(FDR)/100, key=escore, is_decoy=isdecoy, remove_decoy=False, formula=1, full_output=True)
             qvals_e = aux.qvalues(filtered_peptides, key=escore, is_decoy=isdecoy, reverse=False, remove_decoy=False, formula=1, full_output=True)
             try:
-                best_cut_evalue = max(float(p.evalue) for p in filtered_peptides)
+                best_cut_evalue = max(escore(p) for p in filtered_peptides)
                 real_FDR = round(aux.fdr(filtered_peptides, is_decoy=isdecoy) * 100, 1)
             except:
                 best_cut_evalue = 0
@@ -437,13 +458,13 @@ class PeptideList:
             best_cut_peptscore = 1.1
             if useMP:
                 tmp_peptides = []
-                for peptide in infile_peptides:
-                    if peptide.evalue >= best_cut_evalue:
-                        tmp_peptides.append(peptide)
+                for p in infile_peptides:
+                    if escore(p) >= best_cut_evalue:
+                        tmp_peptides.append(p)
                 filtered_peptides = aux.filter(tmp_peptides, fdr=float(FDR2)/100, key=mscore, is_decoy=isdecoy, remove_decoy=False, formula=1, full_output=True)
                 qvals_m = aux.qvalues(filtered_peptides, key=mscore, is_decoy=isdecoy, reverse=False, remove_decoy=False, formula=1, full_output=True)
                 try:
-                    best_cut_peptscore = min(float(p.peptscore) for p in filtered_peptides)
+                    best_cut_peptscore = min(float(p[0].peptscore) for p in filtered_peptides)
                     real_FDR = round(aux.fdr(filtered_peptides, is_decoy=isdecoy) * 100, 1)
                 except:
                     best_cut_peptscore = 1.1
@@ -451,15 +472,15 @@ class PeptideList:
                 if toprint:
                     print real_FDR, best_cut_peptscore, 'MP score'
             for val in qvals_e:
-                new_peptides.peptideslist.append(val[-1])
+                new_peptides.peptideslist.append(val[-1][0])
                 new_peptides.peptideslist[-1].qval = val[-2]
+                new_peptides.spectrumlist.append(val[-1][1])
             if useMP:
                 for val in qvals_m:
-                    new_peptides.peptideslist.append(val[-1])
+                    new_peptides.peptideslist.append(val[-1][0])
                     new_peptides.peptideslist[-1].qval = val[-2]
-            # for peptide in infile_peptides:
-            #     if peptide.evalue <= best_cut_evalue or (useMP and peptide.peptscore >= best_cut_peptscore):
-            #         new_peptides.peptideslist.append(peptide)
+                new_peptides.spectrumlist.append(val[-1][1])
+        new_peptides.spectrumlist = np.array(new_peptides.spectrumlist)
         if drop_decoy:
             new_peptides.filter_decoy()
         return (new_peptides, best_cut_evalue, best_cut_peptscore)
@@ -489,26 +510,30 @@ class PeptideList:
         self.RC = new_peptides.RC
         self.modification_list = new_peptides.modification_list
         self.peptideslist.extend(new_peptides.peptideslist)
+        self.spectrumlist = np.append(self.spectrumlist, new_peptides.spectrumlist)
         self.proteins_dict.update(new_peptides.proteins_dict)
 
     def remove_duplicate_spectra(self):
         sdict = dict()
-        for peptide in self.peptideslist:
-            if peptide.spectrum not in sdict or peptide.evalue < sdict[peptide.spectrum]:
-                sdict[peptide.spectrum] = peptide
-        self.peptideslist = []
-        for pep in sdict.values():
-            self.peptideslist.append(pep)
+        for peptide, spectrum in izip(self.peptideslist, self.spectrumlist):
+            if spectrum not in sdict or peptide.evalue < sdict[spectrum]:
+                sdict[spectrum] = peptide
+        js = []
+        for idx, spectrum in enumerate(self.spectrumlist):
+            if spectrum not in sdict:
+                js.append(idx)
+        self.rem_elements(js)
 
     def remove_duplicate_sequences(self):
         edict = dict()
         for peptide in self.peptideslist:
             edict[peptide.sequence] = min(float(peptide.evalue), edict.get(peptide.sequence, np.inf))
         new_peptides = self.copy_empty()
-        for peptide in self.peptideslist:
-            if peptide.evalue == edict.get(peptide.sequence, None):
+        for peptide, spectrum in izip(self.peptideslist, self.spectrumlist):
+            if peptide.evalue != edict.get(peptide.sequence, None):
                 new_peptides.peptideslist.append(peptide)
-                del edict[peptide.sequence]
+                new_peptides.spectrumlist.append(spectrum)
+        new_peptides.spectrumlist = np.array(new_peptides.spectrumlist)
         return new_peptides
 
 class Protein:
@@ -522,7 +547,7 @@ class Peptide:
     __slots__ = ['sequence', 'modified_sequence', 'modification_list', 'pcharge',
                  'aa_mass', 'pmass', 'mz', 'RT_exp', 'RT_predicted', 'evalue', 'massdiff',
                  'num_missed_cleavages', 'mc', 'note', 'note2', 'note3', 'protscore2', 'peptscore',
-                 'peptscore2', 'spectrum', 'spectrum_mz', 'fragment_mt', 'sumI', 'it',
+                 'peptscore2', 'spectrum_mz', 'fragment_mt', 'sumI', 'it',
                  'infile', 'fragments', 'valid_sequence']
     def __init__(self, sequence, settings, pcharge=0, RT_exp=False, evalue=0, note='unknown', spectrum='', mass_exp=0, modifications=[], modification_list={}, custom_aa_mass=None, sumI=0, mc=None, infile='unknown', frag_mt=None):
         self.sequence = sequence
@@ -557,7 +582,6 @@ class Peptide:
         self.protscore2 = 1
         self.peptscore = 1
         self.peptscore2 = 1
-        self.spectrum = spectrum
         self.spectrum_mz = None
         self.fragment_mt = frag_mt
         self.sumI = sumI# / self.pcharge
