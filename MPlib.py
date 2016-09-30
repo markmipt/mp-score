@@ -2,10 +2,8 @@ import sys
 import re
 import SSRCalc
 from string import punctuation, lowercase
-from pyteomics import parser, biolccc, pepxml
-from pyteomics import mass
-from pyteomics import auxiliary as aux
-from pyteomics import achrom
+from pyteomics import parser, biolccc, mass, auxiliary as aux, achrom
+import pepxml
 import numpy as np
 from scipy.stats import scoreatpercentile
 from copy import copy
