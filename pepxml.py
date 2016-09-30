@@ -96,7 +96,7 @@ This module requires :py:mod:`lxml`.
 
 from lxml import etree
 from pyteomics import auxiliary as aux
-from . import xml
+import xml
 
 class PepXML(xml.XML):
     """Parser class for pepXML files."""
