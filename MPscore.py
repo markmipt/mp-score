@@ -624,17 +624,24 @@ def PSMs_info(peptides, valid_proteins, settings, fig=False, printresults=True, 
         if protsC:
             output_proteins_valid = open('%s/%s_proteins_valid.csv' % (ffolder, fname), 'w')
             temp_data = []
+
+        for k, v in prots_full.iteritems():
+            sq_tmp = calc_sq(protsS.get(k, []), v['pept'])
+            prots_full[k]['sq'] = sq_tmp
+            if k in prots:
+                prots[k]['sq'] = sq_tmp
+
         for k, v in prots.items():
             if protsC and k in valid_proteins:
                 output_proteins_valid.write('%s,%s,%s,%s,%s\n' % (k, v['PSMs'], v['Peptides'], v['sumI'], protsC[k]))
                 temp_data.append([float(v['sumI']), protsC[k]])
             if int(v['Peptides']) > 0:
-                sqc = calc_sq(protsS.get(k, []), v['pept'])
+                sqc = v['sq']#calc_sq(protsS.get(k, []), v['pept'])
                 output_proteins.write('%s\t%s\t%s\t%s\t%0.1f\t%0.2E\t%0.2E\t%0.2E\t%0.2E\t%s\n' % (k, v['description'], v['PSMs'], v['Peptides'], sqc, v['sumI'],v['NSAF'], v['emPAI'], v['expect'], v['fullgroup']))
 
         for k, v in prots_full.items():
             if int(v['Peptides']) > 0:
-                sqc = calc_sq(protsS.get(k, []), v['pept'])
+                sqc = v['sq']#calc_sq(protsS.get(k, []), v['pept'])
                 output_proteins_full.write('%s\t%s\t%s\t%s\t%0.1f\t%0.2E\t%0.2E\t%0.2E\t%0.2E\t%s\n' % (k, v['description'], v['PSMs'], v['Peptides'], sqc, v['sumI'],v['NSAF'], v['emPAI'], v['expect'], v['fullgroup']))
 
         for val in peptides.get_izip_full():
