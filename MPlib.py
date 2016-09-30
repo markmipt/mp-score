@@ -616,7 +616,7 @@ class Peptide:
         self.modification_list = modification_list
         self.pcharge = int(pcharge)
         self.aa_mass = custom_aa_mass
-        self.pmass = float(mass.calculate_mass(sequence=self.sequence, charge=0)) - mass.fast_mass('') + settings.getfloat('modifications', 'protein nterm cleavage') + settings.getfloat('modifications', 'protein cterm cleavage')
+        self.pmass = float(mass.fast_mass(sequence=self.sequence, charge=0)) - 18.0105646837 + settings.getfloat('modifications', 'protein nterm cleavage') + settings.getfloat('modifications', 'protein cterm cleavage')
         for modif in modifications:
             self.pmass += modif['mass']
             if modif['position'] not in [0, len(self.sequence) + 1]:
