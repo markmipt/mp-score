@@ -645,7 +645,7 @@ def PSMs_info(peptides, valid_proteins, settings, fig=False, printresults=True, 
                 output_proteins_full.write('%s\t%s\t%s\t%s\t%0.1f\t%0.2E\t%0.2E\t%0.2E\t%0.2E\t%s\n' % (k, v['description'], v['PSMs'], v['Peptides'], sqc, v['sumI'],v['NSAF'], v['emPAI'], v['expect'], v['fullgroup']))
 
         for val in peptides.get_izip_full():
-            if any(protein.dbname in prots for protein in peptides.proteins_dict[peptide.sequence]):#peptide.parentproteins):
+            if any(protein.dbname in prots for protein in peptides.proteins_dict[val[0].sequence]):#peptide.parentproteins):
                 output_PSMs.write(get_output_string(val[0], val[1], val[2], type='psm', fragments_info=framents_info, fragments_info_zeros=framents_info_zeroes, proteins_dict=peptides.proteins_dict))
         peptides_best = dict()
         peptides_best_sp = dict()
@@ -656,9 +656,11 @@ def PSMs_info(peptides, valid_proteins, settings, fig=False, printresults=True, 
                 peptides_best_sp[peptide.sequence] = spectrum
             peptides_count[peptide.sequence] += 1
         for val in peptides.get_izip_full():
-            if spectrum == peptides_best_sp[peptide.sequence]:
-                if any(protein.dbname in prots for protein in peptides.proteins_dict[peptide.sequence]):#peptide.parentproteins):
+            if val[1] == peptides_best_sp[val[0].sequence]:
+                if any(protein.dbname in prots for protein in peptides.proteins_dict[val[0].sequence]):#peptide.parentproteins):
                     output_peptides_detailed.write(get_output_string(val[0], val[1], val[2], type='psm', fragments_info=framents_info, fragments_info_zeros=framents_info_zeroes, peptide_count=peptides_count[peptide.sequence], proteins_dict=peptides.proteins_dict))
+        output_peptides_detailed.close()
+        output_PSMs.close()
         if protsC:
             temp_sum = sum([x[0] for x in temp_data])
             temp_data = [[x[0] / temp_sum, x[1]] for x in temp_data]

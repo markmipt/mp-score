@@ -481,7 +481,7 @@ class PeptideList:
             if useMP:
                 tmp_peptides = []
                 for p in infile_peptides:
-                    if escore(p) >= best_cut_evalue:
+                    if escore(p) > best_cut_evalue:
                         tmp_peptides.append(p)
                 filtered_peptides = aux.filter(tmp_peptides, fdr=float(FDR2)/100, key=mscore, is_decoy=isdecoy, remove_decoy=False, formula=1, full_output=True)
                 qvals_m = aux.qvalues(filtered_peptides, key=mscore, is_decoy=isdecoy, reverse=False, remove_decoy=False, formula=1, full_output=True)
