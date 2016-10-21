@@ -327,6 +327,8 @@ class PeptideList:
                             else:
                                 pept.note = 'decoy'
                             pept.num_tol_term = record['search_hit'][0]['proteins'][0]['num_tol_term']
+                            pept.next_aa = record['search_hit'][0]['proteins'][0]['peptide_next_aa']
+                            pept.prev_aa = record['search_hit'][0]['proteins'][0]['peptide_prev_aa']
 
                             if pept.sequence not in self.proteins_dict:
                                 for prot in record['search_hit'][0]['proteins']:
@@ -607,7 +609,7 @@ class Peptide:
                  'aa_mass', 'pmass', 'mz', 'evalue', 'massdiff',
                  'num_missed_cleavages', 'mc', 'note', 'note2', 'note3', 'protscore2', 'peptscore',
                  'peptscore2', 'spectrum_mz', 'fragment_mt', 'sumI', 'it',
-                 'infile', 'fragments', 'valid_sequence']
+                 'infile', 'fragments', 'valid_sequence', 'prev_aa', 'next_aa', 'num_tol_term']
     def __init__(self, sequence, settings, pcharge=0, evalue=0, note='unknown', mass_exp=0, modifications=[], modification_list={}, custom_aa_mass=None, sumI=0, mc=None, infile='unknown', frag_mt=None):
         self.sequence = sequence
         self.modified_sequence = sequence
