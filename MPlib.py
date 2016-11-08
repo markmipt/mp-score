@@ -81,24 +81,21 @@ def get_aa_mass(settings):
     return aa_mass
 
 def filter_evalue_prots(prots, FDR=1.0, remove_decoy=True, dec_prefix='DECOY_'):
-    target_evalues = np.array([v['expect'] for k, v in prots.iteritems() if not k.startswith(dec_prefix)])
-    decoy_evalues = np.array([v['expect'] for k, v in prots.iteritems() if k.startswith(dec_prefix)])
-    target_evalues.sort()
-    best_cut_evalue = None
-    real_FDR = 0
-    for cut_evalue in target_evalues:
-        counter_target = target_evalues[target_evalues <= cut_evalue].size
-        counter_decoy = decoy_evalues[decoy_evalues <= cut_evalue].size
-        if counter_target and (float(counter_decoy) / float(counter_target)) * 100 <= float(FDR):
-            best_cut_evalue = cut_evalue
-            real_FDR = round(float(counter_decoy) / float(counter_target) * 100, 1)
-    if not best_cut_evalue:
-        best_cut_evalue = 0
-    print real_FDR, best_cut_evalue, 'protein e-value'
+
+    proteins = prots.items()
+
+    isdecoy = lambda x: x[0].startswith(dec_prefix)
+    escore = lambda x: float(x[1]['expect'])
+    filtered_proteins = aux.filter(proteins, fdr=float(FDR) / 100, key=escore, is_decoy=isdecoy,
+                                   remove_decoy=False, formula=1, full_output=True)
+    qvals_e = aux.qvalues(filtered_proteins, key=escore, is_decoy=isdecoy, reverse=False, remove_decoy=False, formula=1,
+                          full_output=True)
     new_prots = {}
-    for k, v in prots.iteritems():
-        if v['expect'] <= best_cut_evalue and (not remove_decoy or not k.startswith(dec_prefix)):
-            new_prots[k] = v
+    for val in qvals_e:
+        val[-1][1]['qval'] = val[-2]
+        if (not remove_decoy or not val[-1][0].startswith(dec_prefix)):
+            new_prots[val[-1][0]] = val[-1][1]
+    print aux.fdr(filtered_proteins, is_decoy=isdecoy), max(escore(v) for v in filtered_proteins), 'protein e-value'
     return new_prots
 
 def get_settings(fname=None, default_name='default.cfg'):
