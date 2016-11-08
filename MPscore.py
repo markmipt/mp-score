@@ -603,7 +603,7 @@ def PSMs_info(peptides, valid_proteins, settings, fig=False, printresults=True, 
         except:
             print 'Cannot plot quantitation figures'
         output_proteins = open('%s/%s_proteins.csv' % (ffolder, fname), 'w')
-        output_proteins.write('dbname\tdescription\tPSMs\tpeptides\tsequence coverage\tLFQ(SIn)\tLFQ(NSAF)\tLFQ(emPAI)\tprotein LN(e-value)\tall proteins\n')
+        output_proteins.write('dbname\tdescription\tPSMs\tpeptides\tsequence coverage\tLFQ(SIn)\tLFQ(NSAF)\tLFQ(emPAI)\tprotein LN(e-value)\tq-value\tall proteins\n')
         output_proteins_full = open('%s/%s_proteins_full.csv' % (ffolder, fname), 'w')
         output_proteins_full.write('dbname\tdescription\tPSMs\tpeptides\tsequence coverage\tLFQ(SIn)\tLFQ(NSAF)\tLFQ(emPAI)\tprotein LN(e-value)\tall proteins\n')
         output_PSMs = open('%s/%s_PSMs.csv' % (ffolder, fname), 'w')
@@ -637,7 +637,7 @@ def PSMs_info(peptides, valid_proteins, settings, fig=False, printresults=True, 
                 temp_data.append([float(v['sumI']), protsC[k]])
             if int(v['Peptides']) > 0:
                 sqc = v['sq']#calc_sq(protsS.get(k, []), v['pept'])
-                output_proteins.write('%s\t%s\t%s\t%s\t%0.1f\t%0.2E\t%0.2E\t%0.2E\t%0.2E\t%s\n' % (k, v['description'], v['PSMs'], v['Peptides'], sqc, v['sumI'],v['NSAF'], v['emPAI'], v['expect'], v['fullgroup']))
+                output_proteins.write('%s\t%s\t%s\t%s\t%0.1f\t%0.2E\t%0.2E\t%0.2E\t%0.2E\t%0.4f\t%s\n' % (k, v['description'], v['PSMs'], v['Peptides'], sqc, v['sumI'],v['NSAF'], v['emPAI'], v['expect'], v['qval'], v['fullgroup']))
 
         for k, v in prots_full.items():
             if int(v['Peptides']) > 0:
