@@ -259,8 +259,9 @@ class PeptideList:
             self.total_number_of_peptides_in_searchspace = int(pepxml_params.get('modelling, total peptides used', self.total_number_of_peptides_in_searchspace))
             self.total_number_of_proteins_in_searchspace = int(pepxml_params.get('modelling, total proteins used', self.total_number_of_proteins_in_searchspace))
             self.total_number_of_spectra = int(pepxml_params.get('modelling, total spectra used', self.total_number_of_spectra))
-        except:
+        except Exception as e:
             print 'smth wrong with .pep.xml file'
+            print e, e.args
             return 0
 
         best_scores = {}
