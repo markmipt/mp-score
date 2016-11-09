@@ -71,8 +71,12 @@ def handle(q, q_output, settings, protsL):
         except Empty:
             q_output.put('1')
             break
-        FDR = settings.getfloat('options', 'FDR')
+
         FDR_type = settings.get('options', 'FDR_type')
+        if FDR_type == 'protein':
+            FDR = 1.0
+        else:
+            FDR = settings.getfloat('options', 'FDR')
 
         RT_type = settings.get('retention time', 'model')
 
