@@ -561,6 +561,7 @@ def PSMs_info(peptides, valid_proteins, settings, fig=False, printresults=True, 
                 if k not in all_prots:
                     del prots_full[k]
         else:
+            prots = filter_evalue_prots(prots, FDR=100.0, remove_decoy=remove_decoy, dec_prefix=settings.get('input', 'decoy prefix'))
             if remove_decoy:
                 peptides.filter_decoy()
                 for k in prots.keys():
