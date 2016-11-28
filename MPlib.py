@@ -357,6 +357,8 @@ class PeptideList:
             seqs = [pept.modified_sequence for pept in self.peptideslist]
             RTexp = self.RT_exp#[pept.RT_exp for pept in self.peptideslist]
             RC_def = achrom.RCs_gilar_rp
+            RC_def['aa'].setdefault('U', RC_def['aa'].get('C', 0.0))
+            RC_def['aa'].setdefault('O', RC_def['aa'].get('K', 0.0))
             aa_labels = set(RC_def['aa'].keys())
             for pept in self.peptideslist:
                 for v in pept.modification_list.itervalues():
