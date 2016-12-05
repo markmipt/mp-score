@@ -10,6 +10,7 @@ from os import path, listdir
 from pyteomics import mzml, fasta, auxiliary, mgf, parser
 from Queue import Empty
 import multiprocessing
+import shutil
 from time import sleep, time
 import pickle
 from copy import copy, deepcopy
@@ -1067,6 +1068,12 @@ def main(argv_in, union_custom=False):
         settings.read(configfile)
         if union_custom:
             settings.set('options', 'files', 'union')
+
+        if settings.get('advanced options', 'copy_params_to_output_folder') == 'yes':
+            try:
+                shutil.copy(configfile, os.path.join(os.path.dirname(os.path.abspath(files.values()[0]['.pep'])), os.path.basename(configfile)))
+            except:
+                pass
 
         proteases = [x.strip() for x in settings.get('missed cleavages', 'protease1').split(',')]
         proteases.extend([x.strip() for x in settings.get('missed cleavages', 'protease2').split(',') if x.strip()])
