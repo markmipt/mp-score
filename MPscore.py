@@ -745,8 +745,10 @@ def plot_useful_histograms(peptides, curfile, fig, separatefigs=False, savesvg=F
                 fname = 'union'
             else:
                 fname = path.splitext(path.splitext(path.basename(curfile))[0])[0]
-            tmpfname = '%s/%s_%s' % (path.dirname(path.realpath(curfile)), fname, form[1])
+            # tmpfname = '%s/%s_%s' % (path.dirname(path.realpath(curfile)), fname, form[1])
+            tmpfname = '%s_%s' % (fname, form[1])
             tmpfname = tmpfname.replace(' ', '_').replace(',', '')
+            tmpfname = path.join(path.dirname(path.realpath(curfile)), tmpfname)
             plt.savefig(tmpfname + '.png')
             if savesvg:
                 plt.savefig(tmpfname + '.svg')
@@ -856,8 +858,10 @@ def plot_histograms(descriptors, peptides, FDR, curfile, savesvg=False, sepfigur
             ax.set_ylabel('Log(# of identifications)')
         if sepfigures:
             plt.gcf().subplots_adjust(bottom=0.15, left=0.2, top=0.95, right=0.9)
-            tmpfname = '%s/%s_%s' % (path.dirname(path.realpath(curfile)), fname, descriptor.name)
+            # tmpfname = '%s/%s_%s' % (path.dirname(path.realpath(curfile)), fname, descriptor.name)
+            tmpfname = '%s_%s' % (fname, descriptor.name)
             tmpfname = tmpfname.replace(' ', '_').replace(',', '')
+            tmpfname = path.join(path.dirname(path.realpath(curfile)), tmpfname)
             plt.savefig(tmpfname + '.png' )
             if savesvg:
                 plt.savefig(tmpfname + '.svg')
@@ -885,8 +889,10 @@ def plot_quantiation(prots, curfile, settings, fig, separatefigs, ox, oy):
             fname = path.splitext(path.splitext(path.basename(curfile))[0])[0]
         if separatefigs:
             plt.gcf().subplots_adjust(bottom=0.15, left=0.2, top=0.95, right=0.9)
-            tmpfname = '%s/%s_%s' % (path.dirname(path.realpath(curfile)), fname, idx)
+            # tmpfname = '%s/%s_%s' % (path.dirname(path.realpath(curfile)), fname, idx)
+            tmpfname = '%s_%s' % (fname, idx)
             tmpfname = tmpfname.replace(' ', '_').replace(',', '')
+            tmpfname = path.join(path.dirname(path.realpath(curfile)), tmpfname)
             plt.savefig(tmpfname + '.png')
             if settings.getboolean('advanced options', 'saveSVG'):
                 plt.savefig(tmpfname + '.svg')
@@ -960,15 +966,19 @@ def plot_MP(descriptors, peptides, fig, FDR, FDR2, valid_proteins, settings, thr
     ax.set_ylabel('LOG(MPscore)')
     if sepfigures:
         plt.gcf().subplots_adjust(bottom=0.15, left=0.2, top=0.95, right=0.9)
-        tmpfname = '%s/%s_%s' % (path.dirname(path.realpath(curfile)), fname, 'scores')
+        # tmpfname = '%s/%s_%s' % (path.dirname(path.realpath(curfile)), fname, 'scores')
+        tmpfname = '%s_%s' % (fname, 'scores')
         tmpfname = tmpfname.replace(' ', '_').replace(',', '')
+        tmpfname = path.join(path.dirname(path.realpath(curfile)), tmpfname)
         plt.savefig(tmpfname + '.png')
         if settings.getboolean('advanced options', 'saveSVG'):
             plt.savefig(tmpfname + '.svg')
     else:
         plt.gcf().subplots_adjust(bottom=0.05, left=0.05, top=0.95, right=0.95)
-        tmpfname = '%s/%s' % (path.dirname(path.realpath(curfile)), fname)
+        # tmpfname = '%s/%s' % (path.dirname(path.realpath(curfile)), fname)
+        tmpfname = str(fname)
         tmpfname = tmpfname.replace(' ', '_').replace(',', '')
+        tmpfname = path.join(path.dirname(path.realpath(curfile)), tmpfname)
         plt.savefig(tmpfname + '.png')
         if settings.getboolean('advanced options', 'saveSVG'):
             plt.savefig(tmpfname + '.svg')
