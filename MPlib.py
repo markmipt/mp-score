@@ -192,7 +192,7 @@ class PeptideList:
         if fmods:
             for mod in re.split(r'[,;]\s*', fmods):
                 m, aa = parser._split_label(mod)
-                self.modification_list[round(mass.std_aa_mass[aa] + settings.getfloat('modifications', m), 4)] = m
+                self.modification_list[str(round(mass.std_aa_mass[aa] + settings.getfloat('modifications', m), 4)) + aa] = m
         vmods = settings.get('modifications', 'variable')
         if vmods:
             mods = [custom_split_label(mod) for mod in re.split(r',\s*', vmods)]#[(l[:-1], l[-1]) for l in re.split(r',\s*', vmods)]
@@ -203,11 +203,11 @@ class PeptideList:
                 if term == 'snp':
                     self.modification_list[aa] = mod
                 elif term == '[' and aa == '-':
-                    self.modification_list[round(self.nterm_mass + settings.getfloat('modifications', mod), 4)] = mod + '-'
+                    self.modification_list[str(round(self.nterm_mass + settings.getfloat('modifications', mod), 4))+'n'] = mod + '-'
                 elif term == ']' and aa == '-':
-                    self.modification_list[round(self.cterm_mass + settings.getfloat('modifications', mod), 4)] = '-' + mod
+                    self.modification_list[str(round(self.cterm_mass + settings.getfloat('modifications', mod), 4))+'c'] = '-' + mod
                 else:
-                    self.modification_list[round(self.aa_list[aa] + settings.getfloat('modifications', mod), 4)] = mod
+                    self.modification_list[str(round(self.aa_list[aa] + settings.getfloat('modifications', mod), 4))+aa] = mod
 
     def __len__(self):
         return len(self.peptideslist)
@@ -772,25 +772,25 @@ class Peptide:
         for modif in sorted(modifications, key=itemgetter('position'), reverse=True):
             if modif['position'] == 0:
                 try:
-                    self.modified_sequence = self.modification_list[round(modif['mass'], 4)] + self.modified_sequence
+                    self.modified_sequence = self.modification_list[str(round(modif['mass'], 4))+'n'] + self.modified_sequence
                 except:
-                    add_modification(round(modif['mass'], 4), term='n')
+                    add_modification(str(round(modif['mass'], 4))+'n', term='n')
                     print 'label for %s nterm modification is missing in parameters, using %s label' % (round(modif['mass'], 4), self.modification_list[round(modif['mass'], 4)])
-                    self.aa_mass[self.modification_list[round(modif['mass'], 4)]] = float(modif['mass'])
-                    self.modified_sequence = self.modification_list[round(modif['mass'], 4)] + self.modified_sequence
+                    self.aa_mass[self.modification_list[str(round(modif['mass'], 4))+'n']] = float(modif['mass'])
+                    self.modified_sequence = self.modification_list[str(round(modif['mass'], 4))+'n'] + self.modified_sequence
             elif modif['position'] == len(self.sequence) + 1:
                 try:
-                    self.modified_sequence = self.modified_sequence + self.modification_list[round(modif['mass'], 4)]
+                    self.modified_sequence = self.modified_sequence + self.modification_list[str(round(modif['mass'], 4))+'c']
                 except:
-                    add_modification(round(modif['mass'], 4), term='c')
+                    add_modification(str(round(modif['mass'], 4))+'c', term='c')
                     print 'label for %s cterm modification is missing in parameters, using label %s' % (round(modif['mass'], 4), self.modification_list[round(modif['mass'], 4)])
-                    self.aa_mass[self.modification_list[round(modif['mass'], 4)]] = float(modif['mass'])
-                    self.modified_sequence = self.modified_sequence + self.modification_list[round(modif['mass'], 4)]
+                    self.aa_mass[self.modification_list[str(round(modif['mass'], 4))+'c']] = float(modif['mass'])
+                    self.modified_sequence = self.modified_sequence + self.modification_list[str(round(modif['mass'], 4))+'c']
             else:
                 pos = modif['position']
                 try:
-                    self.modified_sequence = self.modified_sequence[:pos-1] + self.modification_list[round(modif['mass'], 4)] + self.modified_sequence[pos-1:]
+                    self.modified_sequence = self.modified_sequence[:pos-1] + self.modification_list[str(round(modif['mass'], 4))+self.modified_sequence[pos-1]] + self.modified_sequence[pos-1:]
                 except:
-                    add_modification(round(modif['mass'], 4))
-                    self.aa_mass[self.modification_list[round(modif['mass'], 4)]] = float(modif['mass'])
-                    self.modified_sequence = self.modified_sequence[:pos-1] + self.modification_list[round(modif['mass'], 4)] + self.modified_sequence[pos-1:]
+                    add_modification(str(round(modif['mass'], 4))+self.modified_sequence[pos-1])
+                    self.aa_mass[self.modification_list[str(round(modif['mass'], 4))+self.modified_sequence[pos-1]]] = float(modif['mass'])
+                    self.modified_sequence = self.modified_sequence[:pos-1] + self.modification_list[str(round(modif['mass'], 4))+self.modified_sequence[pos-1]] + self.modified_sequence[pos-1:]
