@@ -56,9 +56,10 @@ def calc_sq(protein, peptides):
     if not protein:
         return 0
     psq = [False for x in protein]
+    plen = len(protein)
     for pep in peptides:
         csize = len(pep)
-        for j in range(len(protein)):
+        for j in range(plen):
             if protein[j:j+csize] == pep:
                 for y in range(csize):
                     psq[j + y] = True
