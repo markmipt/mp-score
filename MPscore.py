@@ -819,18 +819,19 @@ def plot_histograms(descriptors, peptides, FDR, curfile, savesvg=False, sepfigur
             H1=np.append(H1[0],np.append(0,H1[1:]))
             H2=np.append(H2[0],np.append(0,H2[1:]))
             H3=np.append(H3[0],np.append(0,H3[1:]))
+        step_ind = ind[:-1]+float(width)/2
         if len(ind)>50: 
             ax.bar(ind[:-1], H1, width, color='#AE0066', alpha=0.4, edgecolor='#AE0066')
             ax.bar(ind[:-1], H2, width, color='#000099', alpha=0.4, edgecolor='#000099')
             ax.bar(ind[:-1], H3, width, color='#007E08', alpha=1, edgecolor='#007E08')
-            ax.step(ind, np.append(0,H2), color='#000099',alpha=0.8)
-            ax.step(ind, np.append(0,H1), color='#AE0066',alpha=0.8)
+            ax.step(step_ind, H2, color='#000099',alpha=0.8)
+            ax.step(step_ind, H1, color='#AE0066',alpha=0.8)
         else:
             ax.bar(ind[:-1], H1, width, color='#AE0066', alpha=0.4)
             ax.bar(ind[:-1], H2, width, color='#000099', alpha=0.4)
             ax.bar(ind[:-1], H3, width, color='#007E08', alpha=1)
-            ax.step(ind, np.append(0,H2), color='#000099',alpha=0.8)
-            ax.step(ind, np.append(0,H1), color='#AE0066',alpha=0.8)
+            ax.step(step_ind, H2, color='#000099',alpha=0.8)
+            ax.step(step_ind, H1, color='#AE0066',alpha=0.8)
         if any(descriptor.name.startswith(clabel) for clabel in ['missed cleavages', 'charge states', 'isotopes mass difference, Da']):
             ax.set_xticks(np.arange(0.5, 5.5, 1.0))
             fig.canvas.draw()
