@@ -569,7 +569,7 @@ class PeptideList:
 
     def add_elem(self, val):
         for l, v in zip(self.listing, val):
-            setattr(self, l, getattr(self, l) + [v])
+            getattr(self, l).append(v)
 
     def check_arrays(self):
         for l in self.listing_nparrays:
