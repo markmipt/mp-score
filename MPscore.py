@@ -705,10 +705,10 @@ def plot_useful_histograms(peptides, curfile, fig, separatefigs=False, savesvg=F
         if form[1].startswith('RT experimental'):
             if form[1].endswith(', peptides'):
                 decarray = np.array([peptide.evalue != tmp_dict.get(peptide.sequence, None) for peptide in peptides.peptideslist])
-                array_valid = form[0](peptides)[not decarray]
+                array_valid = form[0](peptides)[~decarray]
             else:
                 decarray = peptides.is_decoy_array()
-                array_valid = form[0](peptides)[not decarray]
+                array_valid = form[0](peptides)[~decarray]
         else:
             if form[1].endswith(', peptides'):
                 array_valid = [form[0](peptide) for peptide in peptides.peptideslist if peptide.evalue == tmp_dict.get(peptide.sequence, None)]
