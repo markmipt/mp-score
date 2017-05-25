@@ -729,30 +729,31 @@ def plot_useful_histograms(peptides, curfile, fig, separatefigs=False, savesvg=F
             binsize = 1
             lbin = lbin-0.5
         else: binsize = FDbinSize(array_valid)
-        H1, _ = np.histogram(array_valid, bins=np.arange(lbin, rbin+binsize, binsize))
-        ind = np.arange(lbin, rbin, binsize)
-        width = binsize
-        ax.bar(ind, H1, width, color='#AE0066', alpha=0.8)
-        ax.set_ylabel('# of identifications')
-        ax.set_xlabel(form[2])
-        
-        from matplotlib.ticker import MaxNLocator
-        ax.get_xaxis().set_major_locator(MaxNLocator(nbins=6))
+        if lbin != rbin:
+            H1, _ = np.histogram(array_valid, bins=np.arange(lbin, rbin+binsize, binsize))
+            ind = np.arange(lbin, rbin, binsize)
+            width = binsize
+            ax.bar(ind, H1, width, color='#AE0066', alpha=0.8)
+            ax.set_ylabel('# of identifications')
+            ax.set_xlabel(form[2])
+            
+            from matplotlib.ticker import MaxNLocator
+            ax.get_xaxis().set_major_locator(MaxNLocator(nbins=6))
 
-        if separatefigs:
-            plt.gcf().subplots_adjust(bottom=0.15, left=0.2, top=0.95, right=0.9)
+            if separatefigs:
+                plt.gcf().subplots_adjust(bottom=0.15, left=0.2, top=0.95, right=0.9)
 
-            if peptides.settings.get('options', 'files') == 'union':
-                fname = 'union'
-            else:
-                fname = path.splitext(path.splitext(path.basename(curfile))[0])[0]
-            # tmpfname = '%s/%s_%s' % (path.dirname(path.realpath(curfile)), fname, form[1])
-            tmpfname = '%s_%s' % (fname, form[1])
-            tmpfname = tmpfname.replace(' ', '_').replace(',', '')
-            tmpfname = path.join(path.dirname(path.realpath(curfile)), tmpfname)
-            plt.savefig(tmpfname + '.png')
-            if savesvg:
-                plt.savefig(tmpfname + '.svg')
+                if peptides.settings.get('options', 'files') == 'union':
+                    fname = 'union'
+                else:
+                    fname = path.splitext(path.splitext(path.basename(curfile))[0])[0]
+                # tmpfname = '%s/%s_%s' % (path.dirname(path.realpath(curfile)), fname, form[1])
+                tmpfname = '%s_%s' % (fname, form[1])
+                tmpfname = tmpfname.replace(' ', '_').replace(',', '')
+                tmpfname = path.join(path.dirname(path.realpath(curfile)), tmpfname)
+                plt.savefig(tmpfname + '.png')
+                if savesvg:
+                    plt.savefig(tmpfname + '.svg')
     del tmp_dict
     return fig
 
