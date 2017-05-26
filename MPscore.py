@@ -332,7 +332,7 @@ def handle(q, q_output, settings, protsL):
                     if peptides.settings.getboolean('descriptors', dname):
                         descriptors.append(Descriptor(name=dname, single_formula=lambda peptide: peptide.PIF, group='B'))
 
-                if 'RT difference, min' in [d.name for d in descriptors]:
+                if 'RT difference, min' in [d.name for d in descriptors] and numPSMs >= 50:
                     if RT_type == 'achrom':
                         copy_peptides.get_RC()
                         peptides.RC = copy_peptides.RC

@@ -139,11 +139,11 @@ def calculate_RT(peptide, RC_dict, raise_no_mod=True):
     for aa in peptide_dict:
         if aa not in RC_dict['aa']:
             if len(aa) == 1:
-                raise PyteomicsError('No RC for residue "{}".'.format(aa))
+                raise aux.PyteomicsError('No RC for residue "{}".'.format(aa))
             if (not raise_no_mod) and aa[-1] in RC_dict['aa']:
                 RT += RC_dict['aa'][aa[-1]]
             else:
-                raise PyteomicsError(
+                raise aux.PyteomicsError(
                     'Residue "{0}" not found in RC_dict. '.format(aa) +
                     'Set raise_no_mod=False to ignore this error ' +
                     'and use the RC for "{0}"" instead.'.format(aa[-1]))
