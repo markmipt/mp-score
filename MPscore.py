@@ -315,7 +315,8 @@ def handle(q, q_output, settings, protsL):
                         temp = settings.get('modifications', 'variable')
                         if temp:
                             for mod in temp.replace(' ', '').split(','):
-                                descriptors.append(Descriptor(name='%s, %s' % (dname, mod), single_formula=lambda peptide, mod=mod: peptide.count_modifications(mod), group='A', binsize='1'))
+                                if '[' not in mod and ']' not in mod:
+                                    descriptors.append(Descriptor(name='%s, %s' % (dname, mod), single_formula=lambda peptide, mod=mod: peptide.count_modifications(mod), group='A', binsize='1'))
                     dname = 'isotopes mass difference, Da'
                     if peptides.settings.getboolean('descriptors', dname):
                         descriptors.append(Descriptor(name=dname, single_formula=lambda peptide: round(peptide.massdiff, 0), group='A', binsize='1'))
