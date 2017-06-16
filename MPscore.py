@@ -18,7 +18,8 @@ from collections import defaultdict, Counter
 from itertools import izip
 try:
     import seaborn
-    seaborn.set(rc={'axes.facecolor':'#eeeeff'})
+    seaborn.set(rc={'axes.facecolor':'#ffffff'})
+    seaborn.set_style('whitegrid')
 except:
     pass
 
@@ -28,7 +29,9 @@ protsL = manager.dict()
 protsS = manager.dict()
 protsN = manager.dict()
 stime = time()
-
+redcolor='#FC6264'
+bluecolor='#70aed1'
+greencolor='#8AA413'
 def get_output_string(obj, spectrum, RT_exp, type, fragments_info=False, fragments_info_zeros=False, peptide_count=False, proteins_dict={}):
     if type == 'psm':
         out = '%s\t' % (obj.sequence, )
@@ -309,17 +312,17 @@ def handle(q, q_output, settings, protsL):
 
                     dname = 'charge states'
                     if peptides.settings.getboolean('descriptors', dname):
-                        descriptors.append(Descriptor(name=dname, single_formula=lambda peptide: peptide.pcharge, group='A', binsize='1'))
+                        descriptors.append(Descriptor(name=dname, single_formula=lambda peptide: peptide.pcharge, group='A', binsize=1))
                     dname = 'potential modifications'
                     if peptides.settings.getboolean('descriptors', dname):
                         temp = settings.get('modifications', 'variable')
                         if temp:
                             for mod in temp.replace(' ', '').split(','):
                                 if '[' not in mod and ']' not in mod:
-                                    descriptors.append(Descriptor(name='%s, %s' % (dname, mod), single_formula=lambda peptide, mod=mod: peptide.count_modifications(mod), group='A', binsize='1'))
+                                    descriptors.append(Descriptor(name='%s, %s' % (dname, mod), single_formula=lambda peptide, mod=mod: peptide.count_modifications(mod), group='A', binsize=1))
                     dname = 'isotopes mass difference, Da'
                     if peptides.settings.getboolean('descriptors', dname):
-                        descriptors.append(Descriptor(name=dname, single_formula=lambda peptide: round(peptide.massdiff, 0), group='A', binsize='1'))
+                        descriptors.append(Descriptor(name=dname, single_formula=lambda peptide: round(peptide.massdiff, 0), group='A', binsize=1))
                     dname = 'PSMs per protein'
                     if peptides.settings.getboolean('descriptors', dname):
                         descriptors.append(Descriptor(name=dname, single_formula=lambda peptide: peptide.protscore2, group='B'))
@@ -720,7 +723,7 @@ def plot_useful_histograms(peptides, curfile, fig, separatefigs=False, savesvg=F
             plt.clf()
             fig = plt.figure()
             DPI = fig.get_dpi()
-            fig.set_size_inches(300.0/float(DPI), 300.0/float(DPI))
+            fig.set_size_inches(500.0/float(DPI), 400.0/float(DPI))
             ax = fig.add_subplot(1, 1, 1)
         else:
             ax = fig.add_subplot(ox, oy, idx+1)
@@ -734,12 +737,14 @@ def plot_useful_histograms(peptides, curfile, fig, separatefigs=False, savesvg=F
             H1, _ = np.histogram(array_valid, bins=np.arange(lbin, rbin+binsize, binsize))
             ind = np.arange(lbin, rbin, binsize)
             width = binsize
-            ax.bar(ind, H1, width, color='#AE0066', alpha=0.8)
+            ax.bar(ind, H1, width, align='edge', color=redcolor, alpha=0.8)
             ax.set_ylabel('# of identifications')
             ax.set_xlabel(form[2])
-            
+            plt.grid(color='#EEEEEE')
+
             from matplotlib.ticker import MaxNLocator
             ax.get_xaxis().set_major_locator(MaxNLocator(nbins=6))
+
 
             if separatefigs:
                 plt.gcf().subplots_adjust(bottom=0.15, left=0.2, top=0.95, right=0.9)
@@ -752,6 +757,8 @@ def plot_useful_histograms(peptides, curfile, fig, separatefigs=False, savesvg=F
                 tmpfname = '%s_%s' % (fname, form[1])
                 tmpfname = tmpfname.replace(' ', '_').replace(',', '')
                 tmpfname = path.join(path.dirname(path.realpath(curfile)), tmpfname)
+                plt.grid(color='#EEEEEE')
+        #        seaborn.despine()
                 plt.savefig(tmpfname + '.png')
                 if savesvg:
                     plt.savefig(tmpfname + '.svg')
@@ -772,7 +779,7 @@ def plot_histograms(descriptors, peptides, FDR, curfile, savesvg=False, sepfigur
             plt.clf()
             fig = plt.figure()
             DPI = fig.get_dpi()
-            fig.set_size_inches(300.0/float(DPI), 300.0/float(DPI))
+            fig.set_size_inches(500.0/float(DPI), 400.0/float(DPI))
             ax = fig.add_subplot(1, 1, 1)
         else:
             ax = fig.add_subplot(ox, oy, idx + 10)
@@ -818,34 +825,45 @@ def plot_histograms(descriptors, peptides, FDR, curfile, savesvg=False, sepfigur
         ind = np.arange(lbin, rbin+binsize, binsize)
         width = binsize
         if descriptor.name.startswith('potential modifications'):
-            ind=np.append(ind[0]-1,ind)
-            H1=np.append(H1[0],np.append(0,H1[1:]))
-            H2=np.append(H2[0],np.append(0,H2[1:]))
-            H3=np.append(H3[0],np.append(0,H3[1:]))
-        step_ind = ind[:-1]+float(width)/2
+            ind=np.append(-2,ind)
+            H1=np.append([H1[0],0],H1[1:])
+            H2=np.append([H2[0],0],H2[1:])
+            H3=np.append([H3[0],0],H3[1:])
+      #  step_ind = ind[:-1]+float(width)/2
+        
         if len(ind)>50: 
-            ax.bar(ind[:-1], H1, width, color='#AE0066', alpha=0.4, edgecolor='#AE0066')
-            ax.bar(ind[:-1], H2, width, color='#000099', alpha=0.4, edgecolor='#000099')
-            ax.bar(ind[:-1], H3, width, color='#007E08', alpha=1, edgecolor='#007E08')
-            ax.step(step_ind, H2, color='#000099',alpha=0.8)
-            ax.step(step_ind, H1, color='#AE0066',alpha=0.8)
+            ax.bar(ind[:-1], H1, width, align='edge',color=redcolor, alpha=0.4, edgecolor=redcolor)
+            ax.bar(ind[:-1], H2, width, align='edge',color=bluecolor, alpha=0.4, edgecolor=bluecolor)
+            ax.bar(ind[:-1], H3, width, align='edge',color=greencolor, alpha=1, edgecolor=greencolor)
+            ind=np.append(ind[0],ind)
+            H1=np.append(0,H1)
+            H2=np.append(0,H2)
+            H3=np.append(0,H3)
+            ax.step(ind[:-1], H2, where='post', color=bluecolor,alpha=0.8)
+            ax.step(ind[:-1], H1, where='post', color=redcolor,alpha=0.8)
         else:
-            ax.bar(ind[:-1], H1, width, color='#AE0066', alpha=0.4)
-            ax.bar(ind[:-1], H2, width, color='#000099', alpha=0.4)
-            ax.bar(ind[:-1], H3, width, color='#007E08', alpha=1)
-            ax.step(step_ind, H2, color='#000099',alpha=0.8)
-            ax.step(step_ind, H1, color='#AE0066',alpha=0.8)
+            ax.bar(ind[:-1], H1, width, align='edge',color=redcolor, alpha=0.4)
+            ax.bar(ind[:-1], H2, width, align='edge',color=bluecolor, alpha=0.4)
+            ax.bar(ind[:-1], H3, width, align='edge',color=greencolor, alpha=1)
+            ind=np.append(ind[0],ind)
+            H1=np.append(0,H1)
+            H2=np.append(0,H2)
+            H3=np.append(0,H3)
+            ax.step(ind[:-1], H2, where='post', color=bluecolor,alpha=0.8)
+            ax.step(ind[:-1], H1, where='post', color=redcolor,alpha=0.8)
         if any(descriptor.name.startswith(clabel) for clabel in ['missed cleavages', 'charge states', 'isotopes mass difference, Da']):
+            print descriptor.name, ind
             ax.set_xticks(np.arange(0.5, 5.5, 1.0))
             fig.canvas.draw()
             labels = [item.get_text() for item in ax.get_xticklabels()]
             ax.set_xticklabels([int(float(l)) for l in labels])
         elif descriptor.name.startswith('potential modifications'):
+            print descriptor.name, ind
             ax.set_xticks(np.arange(-1.5,5.5,1))
             ax.set_xticklabels(['NA','']+list(np.arange(0, 6, 1)))
-        else:
-            from matplotlib.ticker import MaxNLocator
-            ax.get_xaxis().set_major_locator(MaxNLocator(nbins=6))
+       # else:
+        #    from matplotlib.ticker import MaxNLocator
+         #   ax.get_xaxis().set_major_locator(MaxNLocator(nbins=6))
         
             
 
@@ -866,6 +884,8 @@ def plot_histograms(descriptors, peptides, FDR, curfile, savesvg=False, sepfigur
             tmpfname = '%s_%s' % (fname, descriptor.name)
             tmpfname = tmpfname.replace(' ', '_').replace(',', '')
             tmpfname = path.join(path.dirname(path.realpath(curfile)), tmpfname)
+            plt.grid(color="#EEEEEE")
+         #   seaborn.despine()
             plt.savefig(tmpfname + '.png' )
             if savesvg:
                 plt.savefig(tmpfname + '.svg')
@@ -880,10 +900,12 @@ def plot_quantiation(prots, curfile, settings, fig, separatefigs, ox, oy):
             fig = plt.figure()
             ax = fig.add_subplot(1, 1, 1)
             DPI = fig.get_dpi()
-            fig.set_size_inches(300.0/float(DPI), 300.0/float(DPI))
+            fig.set_size_inches(500.0/float(DPI), 400.0/float(DPI))
         else:
             ax = fig.add_subplot(ox, oy, i+7)
-        ax.hist(dots, bins = 10, alpha=0.8, color='#000099')
+        ax.hist(dots, bins = 10, alpha=0.8, color=bluecolor)
+        plt.grid(color="#EEEEEE")
+        #seaborn.despine()
         ax.set_xlabel('LOG10(%s)' % (idx, ))
         ax.set_ylabel('Number of proteins')
         ax.locator_params(axis='x', nbins=4)
@@ -937,11 +959,11 @@ def plot_MP(descriptors, peptides, fig, FDR, FDR2, valid_proteins, settings, thr
         plt.clf()
         fig = plt.figure()
         DPI = fig.get_dpi()
-        fig.set_size_inches(300.0/float(DPI), 300.0/float(DPI))
+        fig.set_size_inches(500.0/float(DPI), 400.0/float(DPI))
         ax = fig.add_subplot(1, 1, 1)
     else:
         ax = fig.add_subplot(ox, oy, ox*oy)
-    col=['#AE0066',]*len(PSMs_wrong)+['#000099',]*len(PSMs_true)
+    col=[redcolor,]*len(PSMs_wrong)+[bluecolor,]*len(PSMs_true)
     PSMs_all = PSMs_wrong+PSMs_true
     idx_range = range(len(col))
     np.random.shuffle(idx_range)
@@ -954,12 +976,12 @@ def plot_MP(descriptors, peptides, fig, FDR, FDR2, valid_proteins, settings, thr
         ncol.append(col[a])
     col = ncol
     plt.scatter(x,y, s=2, color=col)
-    ax.axvline(threshold1, color='g')
+    ax.axvline(threshold1, color=greencolor)
     if threshold2:
-        ax.axhline(threshold2, color='g')
+        ax.axhline(threshold2, color=greencolor)
     if threshold0:
         threshold0 = -np.log(threshold0)
-        ax.axvline(threshold0, color='#AE0066')
+        ax.axvline(threshold0, color=redcolor)
     ax.set_ylim(min(y) - 1, max(y) + 1)
     ax.set_xlim(min(x) - 1, max(x) + 1)
     if peptides.settings.get('options', 'files') == 'union':
@@ -968,6 +990,8 @@ def plot_MP(descriptors, peptides, fig, FDR, FDR2, valid_proteins, settings, thr
         fname = path.splitext(path.splitext(path.basename(curfile))[0])[0]
     ax.set_xlabel('-LOG(evalue)')
     ax.set_ylabel('LOG(MPscore)')
+    plt.grid(color='#EEEEEE')
+  #  seaborn.despine()
     if sepfigures:
         plt.gcf().subplots_adjust(bottom=0.15, left=0.2, top=0.95, right=0.9)
         # tmpfname = '%s/%s_%s' % (path.dirname(path.realpath(curfile)), fname, 'scores')
@@ -983,6 +1007,7 @@ def plot_MP(descriptors, peptides, fig, FDR, FDR2, valid_proteins, settings, thr
         tmpfname = str(fname)
         tmpfname = tmpfname.replace(' ', '_').replace(',', '')
         tmpfname = path.join(path.dirname(path.realpath(curfile)), tmpfname)
+        plt.tight_layout()
         plt.savefig(tmpfname + '.png')
         if settings.getboolean('advanced options', 'saveSVG'):
             plt.savefig(tmpfname + '.svg')
