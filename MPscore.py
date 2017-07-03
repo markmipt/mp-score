@@ -737,7 +737,7 @@ def plot_useful_histograms(peptides, curfile, fig, separatefigs=False, savesvg=F
             H1, _ = np.histogram(array_valid, bins=np.arange(lbin, rbin+binsize, binsize))
             ind = np.arange(lbin, rbin, binsize)
             width = binsize
-            ax.bar(ind, H1, width, align='edge', color=redcolor, alpha=0.8)
+            ax.bar(ind, H1, width, align='edge', color=redcolor, alpha=0.8,edgecolor='#EEEEEE')
             ax.set_ylabel('# of identifications')
             ax.set_xlabel(form[2])
             plt.grid(color='#EEEEEE')
@@ -842,9 +842,9 @@ def plot_histograms(descriptors, peptides, FDR, curfile, savesvg=False, sepfigur
             ax.step(ind, H2, where='post', color=bluecolor,alpha=0.8)
             ax.step(ind, H1, where='post', color=redcolor,alpha=0.8)
         else:
-            ax.bar(ind[:-1], H1, width, align='edge',color=redcolor, alpha=0.4)
-            ax.bar(ind[:-1], H2, width, align='edge',color=bluecolor, alpha=0.4)
-            ax.bar(ind[:-1], H3, width, align='edge',color=greencolor, alpha=1)
+            ax.bar(ind[:-1], H1, width, align='edge',color=redcolor, alpha=0.4,edgecolor='#EEEEEE')
+            ax.bar(ind[:-1], H2, width, align='edge',color=bluecolor, alpha=0.4,edgecolor='#EEEEEE')
+            ax.bar(ind[:-1], H3, width, align='edge',color=greencolor, alpha=1,edgecolor='#EEEEEE')
             ind=np.append(ind[0],ind)
             H1=np.append(np.append(0,H1),0)
             H2=np.append(np.append(0,H2),0)
@@ -902,7 +902,7 @@ def plot_quantiation(prots, curfile, settings, fig, separatefigs, ox, oy):
             fig.set_size_inches(500.0/float(DPI), 400.0/float(DPI))
         else:
             ax = fig.add_subplot(ox, oy, i+7)
-        ax.hist(dots, bins = 10, alpha=0.8, color=bluecolor)
+        ax.hist(dots, bins = 10, alpha=0.8, color=bluecolor,edgecolor='#EEEEEE')
         plt.grid(color="#EEEEEE")
         #seaborn.despine()
         ax.set_xlabel('LOG10(%s)' % (idx, ))
