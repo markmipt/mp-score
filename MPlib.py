@@ -18,6 +18,11 @@ except ImportError:
 
 infiles_dict = dict()
 
+
+def get_modif_name(modif, aa=''):
+    return str(round(modif['mass'], 4)) + aa
+
+
 def get_RCs(sequences, RTs, lcp = -0.21,
             term_aa = False, **kwargs):
 
@@ -911,26 +916,29 @@ class Peptide:
         self.modified_sequence = str(self.sequence)
         for modif in sorted(modifications, key=itemgetter('position'), reverse=True):
             if modif['position'] == 0:
+                modname = get_modif_name(modif, 'n')
                 try:
-                    self.modified_sequence = self.modification_list[str(round(modif['mass'], 4))+'n'] + self.modified_sequence
+                    self.modified_sequence = self.modification_list[modname] + self.modified_sequence
                 except:
-                    add_modification(str(round(modif['mass'], 4))+'n', term='n')
-                    print 'label for %s nterm modification is missing in parameters, using %s label' % (round(modif['mass'], 4), self.modification_list[round(modif['mass'], 4)])
-                    self.aa_mass[self.modification_list[str(round(modif['mass'], 4))+'n']] = float(modif['mass'])
-                    self.modified_sequence = self.modification_list[str(round(modif['mass'], 4))+'n'] + self.modified_sequence
+                    add_modification(modname, term='n')
+                    print 'label for %s nterm modification is missing in parameters, using %s label' % (modname, self.modification_list[modname])
+                    self.aa_mass[self.modification_list[modname]] = float(modif['mass'])
+                    self.modified_sequence = self.modification_list[modname] + self.modified_sequence
             elif modif['position'] == len(self.sequence) + 1:
+                modname = get_modif_name(modif, 'c')
                 try:
-                    self.modified_sequence = self.modified_sequence + self.modification_list[str(round(modif['mass'], 4))+'c']
+                    self.modified_sequence = self.modified_sequence + self.modification_list[modname]
                 except:
-                    add_modification(str(round(modif['mass'], 4))+'c', term='c')
-                    print 'label for %s cterm modification is missing in parameters, using label %s' % (round(modif['mass'], 4), self.modification_list[round(modif['mass'], 4)])
-                    self.aa_mass[self.modification_list[str(round(modif['mass'], 4))+'c']] = float(modif['mass'])
-                    self.modified_sequence = self.modified_sequence + self.modification_list[str(round(modif['mass'], 4))+'c']
+                    add_modification(modname, term='c')
+                    print 'label for %s cterm modification is missing in parameters, using label %s' % (modname, self.modification_list[modname])
+                    self.aa_mass[self.modification_list[modname]] = float(modif['mass'])
+                    self.modified_sequence = self.modified_sequence + self.modification_list[modname]
             else:
                 pos = modif['position']
+                modname = get_modif_name(modif, self.modified_sequence[pos - 1])
                 try:
-                    self.modified_sequence = self.modified_sequence[:pos-1] + self.modification_list[str(round(modif['mass'], 4))+self.modified_sequence[pos-1]] + self.modified_sequence[pos-1:]
+                    self.modified_sequence = self.modified_sequence[:pos - 1] + self.modification_list[modname] + self.modified_sequence[pos - 1:]
                 except:
-                    add_modification(str(round(modif['mass'], 4))+self.modified_sequence[pos-1])
-                    self.aa_mass[self.modification_list[str(round(modif['mass'], 4))+self.modified_sequence[pos-1]]] = float(modif['mass'])
-                    self.modified_sequence = self.modified_sequence[:pos-1] + self.modification_list[str(round(modif['mass'], 4))+self.modified_sequence[pos-1]] + self.modified_sequence[pos-1:]
+                    add_modification(modname)
+                    self.aa_mass[self.modification_list[modname]] = float(modif['mass'])
+                    self.modified_sequence = self.modified_sequence[:pos - 1] + self.modification_list[modname] + self.modified_sequence[pos - 1:]
