@@ -428,63 +428,64 @@ class PeptideList:
                         first_psm = False
                     if 'peptide' in record['search_hit'][0]:
                         sequence = record['search_hit'][0]['peptide']
-                        try:
-                            evalue = record['search_hit'][0]['search_score']['expect']
-                            # evalue = 1/record['search_hit'][0]['search_score']['hyperscore']
-                        except:
+                        if (not allowed_peptides or sequence in allowed_peptides_set):
                             try:
-                                evalue = 1.0 / float(record['search_hit'][0]['search_score']['ionscore'])
-                            except IOError:
-                                'Cannot read e-value!'
-                        if not (FDR_type=='peptide' and best_scores.get(sequence, 1e6) < evalue) and not set(sequence).difference(standard_aminoacids) and (not allowed_peptides or sequence in allowed_peptides_set):
-                            if FDR_type == 'peptide':
-                                best_scores[sequence] = evalue
-                            mc = record['search_hit'][0].get('num_missed_cleavages', 0)
-                            modifications = record['search_hit'][0]['modifications']
-                            try:
-                                sumI = 10 ** float(record['search_hit'][0]['search_score']['sumI'])
-                            except:
-                                sumI = 0
-                            try:
-                                frag_mt = float(record['search_hit'][0]['search_score']['fragmentMT'])
-                            except:
-                                frag_mt = None
-                            spectrum = record['spectrum']
-                            pcharge = record['assumed_charge']
-                            mass_exp = record['precursor_neutral_mass']
-
-                            if pepxmlfile not in infiles_dict:
-                                infiles_dict[pepxmlfile] = len(infiles_dict)
-                            infile_current = infiles_dict[pepxmlfile]
-                            pept = Peptide(sequence=sequence, settings=self.settings, evalue=evalue, pcharge=pcharge, mass_exp=mass_exp, modifications=modifications, modification_list=self.modification_list, custom_aa_mass=self.aa_list, sumI=sumI, mc=mc, infile=infile_current, frag_mt=frag_mt)
-                            try:
-                                RT_exp = float(record['retention_time_sec']) / 60
+                                evalue = record['search_hit'][0]['search_score']['expect']
+                                # evalue = 1/record['search_hit'][0]['search_score']['hyperscore']
                             except:
                                 try:
-                                    RT_exp = float(spectrum.split(',')[2].split()[0])
+                                    evalue = 1.0 / float(record['search_hit'][0]['search_score']['ionscore'])
+                                except IOError:
+                                    'Cannot read e-value!'
+                            if not (FDR_type=='peptide' and best_scores.get(sequence, 1e6) < evalue) and not set(sequence).difference(standard_aminoacids):
+                                if FDR_type == 'peptide':
+                                    best_scores[sequence] = evalue
+                                mc = record['search_hit'][0].get('num_missed_cleavages', 0)
+                                modifications = record['search_hit'][0]['modifications']
+                                try:
+                                    sumI = 10 ** float(record['search_hit'][0]['search_score']['sumI'])
                                 except:
-                                    RT_exp = 0
+                                    sumI = 0
+                                try:
+                                    frag_mt = float(record['search_hit'][0]['search_score']['fragmentMT'])
+                                except:
+                                    frag_mt = None
+                                spectrum = record['spectrum']
+                                pcharge = record['assumed_charge']
+                                mass_exp = record['precursor_neutral_mass']
 
-                            if not all(protein['protein'].startswith(prefix) for protein in record['search_hit'][0]['proteins']):
-                                pept.note = 'target'
-                            else:
-                                pept.note = 'decoy'
-                            pept.num_tol_term = record['search_hit'][0]['proteins'][0]['num_tol_term']
-                            pept.next_aa = record['search_hit'][0]['proteins'][0]['peptide_next_aa']
-                            pept.prev_aa = record['search_hit'][0]['proteins'][0]['peptide_prev_aa']
+                                if pepxmlfile not in infiles_dict:
+                                    infiles_dict[pepxmlfile] = len(infiles_dict)
+                                infile_current = infiles_dict[pepxmlfile]
+                                pept = Peptide(sequence=sequence, settings=self.settings, evalue=evalue, pcharge=pcharge, mass_exp=mass_exp, modifications=modifications, modification_list=self.modification_list, custom_aa_mass=self.aa_list, sumI=sumI, mc=mc, infile=infile_current, frag_mt=frag_mt)
+                                try:
+                                    RT_exp = float(record['retention_time_sec']) / 60
+                                except:
+                                    try:
+                                        RT_exp = float(spectrum.split(',')[2].split()[0])
+                                    except:
+                                        RT_exp = 0
 
-                            if pept.sequence not in self.proteins_dict:
-                                for prot in record['search_hit'][0]['proteins']:
-                                    prot_name = get_dbname(prot)
-                                    if prot_name not in [protein.dbname for protein in self.proteins_dict[pept.sequence]]:
-                                        #pept.num_tol_term = prot['num_tol_term']
-                                        self.proteins_dict[pept.sequence].append(Protein(dbname=get_dbname(prot), description=prot.get('protein_descr', None)))
-                                        #pept.parentproteins.append(Protein(dbname=get_dbname(prot), description=prot.get('protein_descr', None)))
+                                if not all(protein['protein'].startswith(prefix) for protein in record['search_hit'][0]['proteins']):
+                                    pept.note = 'target'
+                                else:
+                                    pept.note = 'decoy'
+                                pept.num_tol_term = record['search_hit'][0]['proteins'][0]['num_tol_term']
+                                pept.next_aa = record['search_hit'][0]['proteins'][0]['peptide_next_aa']
+                                pept.prev_aa = record['search_hit'][0]['proteins'][0]['peptide_prev_aa']
 
-                            if len(self.proteins_dict[pept.sequence]) and (not modifications or Counter(v['position'] for v in modifications).most_common(1)[0][1] <= 1):
-                                self.add_elem((pept, spectrum, RT_exp))
-                                # self.peptideslist.append(pept)
-                                # self.spectrumlist.append(spectrum)
+                                if pept.sequence not in self.proteins_dict:
+                                    for prot in record['search_hit'][0]['proteins']:
+                                        prot_name = get_dbname(prot)
+                                        if prot_name not in [protein.dbname for protein in self.proteins_dict[pept.sequence]]:
+                                            #pept.num_tol_term = prot['num_tol_term']
+                                            self.proteins_dict[pept.sequence].append(Protein(dbname=get_dbname(prot), description=prot.get('protein_descr', None)))
+                                            #pept.parentproteins.append(Protein(dbname=get_dbname(prot), description=prot.get('protein_descr', None)))
+
+                                if len(self.proteins_dict[pept.sequence]) and (not modifications or Counter(v['position'] for v in modifications).most_common(1)[0][1] <= 1):
+                                    self.add_elem((pept, spectrum, RT_exp))
+                                    # self.peptideslist.append(pept)
+                                    # self.spectrumlist.append(spectrum)
 
         self.spectrumlist = np.array(self.spectrumlist)
 
