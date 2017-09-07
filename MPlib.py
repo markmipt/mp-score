@@ -2,7 +2,7 @@ import sys
 import re
 import SSRCalc
 from string import punctuation, lowercase
-from pyteomics import parser, biolccc, mass, auxiliary as aux, achrom
+from pyteomics import parser, mass, auxiliary as aux, achrom
 import pepxml
 import numpy as np
 from scipy.stats import scoreatpercentile
@@ -15,6 +15,11 @@ try:
     from configparser import RawConfigParser
 except ImportError:
     from ConfigParser import RawConfigParser
+
+try:
+    from pyteomics import biolccc
+except ImportError:
+    pass
 
 infiles_dict = dict()
 
