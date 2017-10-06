@@ -4,7 +4,8 @@ MPscore is available as a standalone script, MPscore.py. Requirements:
  - scipy
  - matplotlib
  - pyteomics
- - pyteomics.biolccc
+ - pyteomics.biolccc (optional)
+ - pyteomics.pepxmltk
 
 The pepXML, FASTA and .cfg files are required for basic operation of the script.
 Cfg file contains settings for the algorithm. For some descriptors, MGF or
