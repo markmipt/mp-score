@@ -7,7 +7,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 from scipy.stats import scoreatpercentile
 from os import path, listdir
-from pyteomics import mzml, fasta, auxiliary, mgf, parser
+from pyteomics import mzml, fasta, auxiliary, mgf, parser, pepxmltk
 from Queue import Empty
 import multiprocessing
 import shutil
@@ -618,6 +618,7 @@ def PSMs_info(peptides, valid_proteins, settings, fig=False, printresults=True, 
         output_proteins_full = open('%s/%s_proteins_full.csv' % (ffolder, fname), 'w')
         output_proteins_full.write('dbname\tdescription\tPSMs\tpeptides\tsequence coverage\tLFQ(SIn)\tLFQ(NSAF)\tLFQ(emPAI)\tprotein LN(e-value)\tall proteins\n')
         output_PSMs = open('%s/%s_PSMs.csv' % (ffolder, fname), 'w')
+        output_PSMs_pepxml = '%s/%s_PSMs.pep.xml' % (ffolder, fname)
         output_PSMs.write('sequence\tmodified_sequence\tm/z exp\tcharge\tm/z error in ppm\tmissed cleavages\tnum tol term\tprev_aa\tnext_aa\te-value\tMPscore\tRT exp\tspectrum\tproteins\tproteins description\tSIn\tmassdiff\tis decoy')
         output_peptides_detailed = open('%s/%s_peptides.csv' % (ffolder, fname), 'w')
         output_peptides_detailed.write('sequence\tPSM count\tmodified_sequence\tm/z exp\tcharge\tm/z error in ppm\tmissed cleavages\tnum tol term\tprev_aa\tnext_aa\te-value\tMPscore\tRT exp\tspectrum\tproteins\tproteins description\tSIn\tmassdiff\tis decoy')
@@ -672,6 +673,8 @@ def PSMs_info(peptides, valid_proteins, settings, fig=False, printresults=True, 
                     output_peptides_detailed.write(get_output_string(val[0], val[1], val[2], type='psm', fragments_info=framents_info, fragments_info_zeros=framents_info_zeroes, peptide_count=peptides_count[val[0].sequence], proteins_dict=peptides.proteins_dict))
         output_peptides_detailed.close()
         output_PSMs.close()
+
+        pepxmltk.easy_write_pepxml([curfile], output_PSMs_pepxml, {val[1] for val in peptides.get_izip_full()})
         if protsC:
             temp_sum = sum([x[0] for x in temp_data])
             temp_data = [[x[0] / temp_sum, x[1]] for x in temp_data]
