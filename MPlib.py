@@ -1,6 +1,9 @@
 import sys
 import re
-import SSRCalc
+try:
+    import SSRCalc
+except ImportError:
+    SSRCalc = None
 from string import punctuation, lowercase
 from pyteomics import parser, mass, auxiliary as aux, achrom
 import pepxml
@@ -397,6 +400,9 @@ class PeptideList:
     def calc_RT(self, calibrate_coeff=(1, 0, 0, 0), RTtype='achrom'):
         self.RT_predicted = []
         if RTtype == 'ssrcalc':
+            if SSRCalc is None:
+                print 'SSRCalc not available. Make sure that mechanize is installed.'
+                sys.exit(1)
             ps = list(set([peptide.sequence for peptide in self.peptideslist]))
             SSRCalc_RTs = SSRCalc.calculate_RH(ps[:], pore_size=100, ion_pairing_agent='FA')
 
