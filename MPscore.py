@@ -291,7 +291,7 @@ def handle(q, q_output, settings, protsL):
             numPSMs, numpeptides_true, numprots_true = PSMs_info(copy_peptides, valid_proteins, settings)
             if numPSMs > 1:
                 descriptors = []
-                if numPSMs >= 15:
+                if numPSMs >= 50:
                     dname = 'RT difference, min'
                     if peptides.settings.getboolean('descriptors', dname) and not np.allclose(peptides.RT_exp, 0):
                         descriptors.append(Descriptor(name=dname, massive_formula=lambda peptides: peptides.RT_exp - peptides.RT_predicted, group='A', binsize='auto'))
