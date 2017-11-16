@@ -25,9 +25,9 @@ except:
 
 manager = multiprocessing.Manager()
 protsC = {}
-protsL = manager.dict()
-protsS = manager.dict()
-protsN = manager.dict()
+protsL = dict()#manager.dict()
+protsS = dict()#manager.dict()
+protsN = dict()#manager.dict()
 stime = time()
 redcolor='#FC6264'
 bluecolor='#70aed1'
@@ -1131,10 +1131,9 @@ def main(argv_in, union_custom=False):
 
         protsL['total proteins'] = 0
         protsL['total peptides'] = 0
+        def get_number_of_peptides(prot, expasy, mc, minl, maxl):
+            return sum(minl <= len(x) <= maxl for x in parser.cleave(prot, expasy, mc))
         def protein_handle(fq, fq_output, protsL, protsN, protsS, expasy, mc, minl, maxl):
-            def get_number_of_peptides(prot, expasy, mc, minl, maxl):
-                return sum(minl <= len(x) <= maxl for x in parser.cleave(prot, expasy, mc))
-
             while 1:
                 try:
                     x = fq.get(timeout=1)
@@ -1156,23 +1155,35 @@ def main(argv_in, union_custom=False):
             if settings.get('input', 'add decoy') == 'yes':
                 decoy_method = settings.get('input', 'decoy method')
                 decoy_prefix = settings.get('input', 'decoy prefix')
-                for x in fasta.decoy_db(fastafile, mode=decoy_method, prefix=decoy_prefix):
-                    fq.put(x)
+                fastagen = fasta.decoy_db(fastafile, mode=decoy_method, prefix=decoy_prefix)
+                # for x in fasta.decoy_db(fastafile, mode=decoy_method, prefix=decoy_prefix):
+                #     fq.put(x)
             else:
-                for x in fasta.read(fastafile):
-                    fq.put(x)
+                fastagen = fasta.read(fastafile)
+                # for x in fasta.read(fastafile):
+                #     fq.put(x)
+
 
         minl = settings.getint('search', 'peptide minimum length')
         maxl = settings.getint('search', 'peptide maximum length')
-        for i in range(fnprocs):
-            p = multiprocessing.Process(target=protein_handle, args=(fq, fq_output, protsL, protsN, protsS, expasy, mc, minl, maxl))
-            fprocs.append(p)
-            p.start()
 
-        while fq_output.qsize() != fnprocs:
-            sleep(10)
-        for p in fprocs:
-            p.terminate()
+        for x in fastagen:
+            dbname = x[0].split(' ')[0]
+            protsS[dbname] = x[1]
+            protsL[dbname] = len(x[1])
+            protsN[dbname] = get_number_of_peptides(x[1], expasy, mc, minl, maxl)
+            protsL['total proteins'] += 1
+            protsL['total peptides'] += protsN.get(dbname, 0)
+
+        # for i in range(fnprocs):
+        #     p = multiprocessing.Process(target=protein_handle, args=(fq, fq_output, protsL, protsN, protsS, expasy, mc, minl, maxl))
+        #     fprocs.append(p)
+        #     p.start()
+
+        # while fq_output.qsize() != fnprocs:
+        #     sleep(10)
+        # for p in fprocs:
+        #     p.terminate()
 
         procs = []
         nprocs = 1
