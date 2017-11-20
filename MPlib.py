@@ -304,8 +304,8 @@ class PeptideList:
                                     evalue = 1.0 / float(record['search_hit'][0]['search_score']['ionscore'])
                                 except IOError:
                                     'Cannot read e-value!'
-                            if not (FDR_type=='peptide' and best_scores.get(sequence, 1e6) < evalue) and not set(sequence).difference(standard_aminoacids):
-                                if FDR_type == 'peptide':
+                            if not (FDR_type.startswith('peptide') and best_scores.get(sequence, 1e6) < evalue) and not set(sequence).difference(standard_aminoacids):
+                                if FDR_type.startswith('peptide'):
                                     best_scores[sequence] = evalue
                                 mc = record['search_hit'][0].get('num_missed_cleavages', 0)
                                 modifications = record['search_hit'][0]['modifications']
@@ -356,7 +356,7 @@ class PeptideList:
 
         self.spectrumlist = np.array(self.spectrumlist)
 
-        if FDR_type == 'peptide':
+        if FDR_type.startswith('peptide'):
             js = []
             j = len(self.peptideslist) - 1
             while j >= 0:

@@ -78,7 +78,7 @@ def handle(q, q_output, settings, protsL):
             break
 
         FDR_type = settings.get('options', 'FDR_type')
-        if FDR_type == 'protein':
+        if FDR_type.startswith('protein'):
             FDR = 1.0
         else:
             FDR = settings.getfloat('options', 'FDR')
@@ -246,7 +246,7 @@ def handle(q, q_output, settings, protsL):
                         peptide.note2 = 'tr'
             peptides.total_number_of_PSMs_decoy = sum(1 for pept in peptides.peptideslist if pept.note2 == 'wr')
 
-            if FDR_type == 'peptide':
+            if FDR_type.startswith('peptide'):
                 print 'Choosing best PSM per peptide sequence'
                 peptidesdict = dict()
                 for peptide, spectrum in izip(peptides.peptideslist, peptides.spectrumlist):
@@ -557,7 +557,7 @@ def PSMs_info(peptides, valid_proteins, settings, fig=False, printresults=True, 
 
         FDR_type = settings.get('options', 'FDR_type')
         remove_decoy = settings.getint('advanced options', 'remove_decoy')
-        if FDR_type == 'protein':
+        if FDR_type.startswith('protein'):
             protFDR = settings.getfloat('options', 'FDR')
             prots = filter_evalue_prots(prots, FDR=protFDR, remove_decoy=remove_decoy, dec_prefix=settings.get('input', 'decoy prefix'))
             all_prots = set()
