@@ -1093,7 +1093,7 @@ def main(argv_in, union_custom=False):
         return inputdict
 
     for arg in argv_in:
-        if path.splitext(arg)[-1].lower() == '.fasta':
+        if path.splitext(arg)[-1].lower() in {'.fasta', '.faa'}:
             fastafile = arg
         elif path.splitext(arg)[-1] == '.cfg':
             configfile = arg
