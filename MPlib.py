@@ -14,6 +14,9 @@ from scipy.spatial import cKDTree
 from collections import Counter, defaultdict
 from operator import itemgetter
 from itertools import izip, izip_longest
+import logging
+logger = logging.getLogger(__name__)
+
 try:
     from configparser import RawConfigParser
 except ImportError:
@@ -107,7 +110,7 @@ def filter_evalue_prots(prots, FDR=1.0, remove_decoy=True, dec_prefix='DECOY_'):
         val[-1][1]['qval'] = val[-2]
         if (not remove_decoy or not val[-1][0].startswith(dec_prefix)):
             new_prots[val[-1][0]] = val[-1][1]
-    print '\nactual Protein level FDR = %.2f%%\n' % (aux.fdr(filtered_proteins, is_decoy=isdecoy) * 100, ) 
+    logger.info('Actual Protein level FDR = %.2f%%', aux.fdr(filtered_proteins, is_decoy=isdecoy) * 100)
     return new_prots
 
 def get_settings(fname=None, default_name='default.cfg'):
@@ -251,7 +254,7 @@ class PeptideList:
                     tmp = tmp[js_stay]
                     setattr(self, l, tmp)
                 else:
-                    print '\nUnknown type of PeptidesList attribute. Smth wrong in the Code!\n'
+                    logger.critical('Unknown type of PeptidesList attribute. Smth wrong in the Code!')
 
     def get_number_of_spectra(self):
         """Returns the number of MS/MS spectra used for the search. If mgf file is not available,
@@ -272,8 +275,7 @@ class PeptideList:
             self.total_number_of_proteins_in_searchspace = int(pepxml_params.get('modelling, total proteins used', self.total_number_of_proteins_in_searchspace))
             self.total_number_of_spectra = int(pepxml_params.get('modelling, total spectra used', self.total_number_of_spectra))
         except Exception as e:
-            print 'smth wrong with .pep.xml file'
-            print e, e.args
+            logger.critical('Error reading pepXML file: %s, %s ', e, e.args)
             return 0
 
         best_scores = {}
@@ -284,14 +286,14 @@ class PeptideList:
                 if int(min_charge) <= int(record['assumed_charge']) and (int(record['assumed_charge']) <= int(max_charge) or not max_charge):
                     if first_psm:
                         if 'num_missed_cleavages' not in record['search_hit'][0]:
-                            print 'missed cleavages are missed in pepxml file, using 0 value for all peptides'
+                            logger.warning('Missed cleavages are missing in pepXML file, using 0 for all peptides')
                         try:
                             float(record['retention_time_sec'])
                         except:
                             try:
                                 float(record['spectrum'].split(',')[2].split()[0])
-                            except:
-                                print 'RT experimental is missed in pepxml file, using 0 value for all peptides'
+                            except Exception:
+                                logger.warning('RT experimental is missing in pepXML file, using 0 value for all peptides')
                         first_psm = False
                     if 'peptide' in record['search_hit'][0]:
                         sequence = record['search_hit'][0]['peptide']
@@ -393,7 +395,7 @@ class PeptideList:
             if 'C' not in RC_dict['aa']:
                 RC_dict['aa']['C'] = RC_dict['aa']['C*']
         except:
-            print 'Error in get_RC for achrom model. Use RCs_gilar_rp'
+            logger.error('Error in get_RC for achrom model. Using RCs_gilar_rp')
             RC_dict = achrom.RCs_gilar_rp
         self.RC = RC_dict
 
@@ -401,7 +403,7 @@ class PeptideList:
         self.RT_predicted = []
         if RTtype == 'ssrcalc':
             if SSRCalc is None:
-                print 'SSRCalc not available. Make sure that mechanize is installed.'
+                logger.critical('SSRCalc not available. Make sure that mechanize is installed.')
                 sys.exit(1)
             ps = list(set([peptide.sequence for peptide in self.peptideslist]))
             SSRCalc_RTs = SSRCalc.calculate_RH(ps[:], pore_size=100, ion_pairing_agent='FA')
@@ -424,11 +426,11 @@ class PeptideList:
                     RT_predicted = float(SSRCalc_RT) * calibrate_coeff[0] + calibrate_coeff[1]
                 else:
                     RT_predicted = 0
-                    print 'SSRCalc error'
+                    logger.error('SSRCalc error')
             elif RTtype == 'biolccc':
                 RT_predicted = biolccc.calculateRT(peptide.sequence, biolccc.rpAcnTfaChain, biolccc.standardChromoConditions)
             else:
-                print 'RT_type error'
+                logger.error('RT_type error')
             self.RT_predicted.append(RT_predicted)
         self.check_arrays()
 
@@ -494,7 +496,7 @@ class PeptideList:
                 best_cut_evalue = 0
                 real_FDR = 0
             if toprint:
-                print real_FDR, best_cut_evalue, 'e-value'
+                logger.info('%s %s e-value', real_FDR, best_cut_evalue)
             best_cut_peptscore = 1.1
             if useMP:
                 tmp_peptides = []
@@ -510,7 +512,7 @@ class PeptideList:
                     best_cut_peptscore = 1.1
                     real_FDR = 0
                 if toprint:
-                    print real_FDR, best_cut_peptscore, 'MP score'
+                    logger.info('%s %s MP score', real_FDR, best_cut_peptscore)
             for val in qvals_e:
                 val[-1][0].qval = val[-2]
                 new_peptides.add_elem(val[-1])
@@ -773,7 +775,7 @@ class Peptide:
                         elif term and term == 'n':
                              self.modification_list[arg] += '-'
                         else:
-                            print 'label for %s modification is missing in parameters, using %s label' % (arg, self.modification_list[arg])
+                            logger.warning('label for %s modification is missing in parameters, using %s label', arg, self.modification_list[arg])
                         done_flag = 1
                         break
                 if not done_flag:
@@ -792,7 +794,7 @@ class Peptide:
                     self.modified_sequence = self.modification_list[modname] + self.modified_sequence
                 except:
                     add_modification(modname, term='n')
-                    print 'label for %s nterm modification is missing in parameters, using %s label' % (modname, self.modification_list[modname])
+                    logger.warning('label for %s nterm modification is missing in parameters, using %s label', modname, self.modification_list[modname])
                     self.aa_mass[self.modification_list[modname]] = float(modif['mass'])
                     self.modified_sequence = self.modification_list[modname] + self.modified_sequence
             elif modif['position'] == len(self.sequence) + 1:
@@ -801,7 +803,7 @@ class Peptide:
                     self.modified_sequence = self.modified_sequence + self.modification_list[modname]
                 except:
                     add_modification(modname, term='c')
-                    print 'label for %s cterm modification is missing in parameters, using label %s' % (modname, self.modification_list[modname])
+                    logger.warning('label for %s cterm modification is missing in parameters, using label %s', modname, self.modification_list[modname])
                     self.aa_mass[self.modification_list[modname]] = float(modif['mass'])
                     self.modified_sequence = self.modified_sequence + self.modification_list[modname]
             else:

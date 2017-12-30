@@ -1,5 +1,5 @@
 from MPlib import PeptideList, Descriptor, get_settings, filter_evalue_prots, FDbinSize
-from sys import argv
+import sys
 import os
 import matplotlib
 matplotlib.use('Agg')
@@ -16,6 +16,10 @@ import pickle
 from copy import copy, deepcopy
 from collections import defaultdict, Counter
 from itertools import izip
+import logging
+import logging.config
+logger = logging.getLogger(__name__)
+
 try:
     import seaborn
     seaborn.set(rc={'axes.facecolor':'#ffffff'})
@@ -120,7 +124,7 @@ def handle(q, q_output, settings, protsL):
                 if len(qpeptides.peptideslist):
                     mzmlfile = curfile.get('.mzML', None)
                     if mzmlfile:
-                        print 'mzml is processing'
+                        logger.info('Processing mzML')
                         # isolation_window = settings.getfloat('precursor ion fraction', 'isolation window')
                         # mass_acc = settings.getfloat('precursor ion fraction', 'mass accuracy')
                         # spectra_ms1 = []
@@ -162,7 +166,7 @@ def handle(q, q_output, settings, protsL):
                     if qpeptides.settings.getboolean('descriptors', 'fragment mass tolerance, Da') and not qpeptides.peptideslist[0].fragment_mt:
                         mgffile = curfile.get('.mgf', None)
                         if mgffile:
-                            print 'mgf is processing'
+                            logger.info('Processing MGF')
                             spectra = mgf.read(mgffile)
                             for spectrum in spectra:
                                 spectra_dict[spectrum['params']['title'].strip()] = spectrum['m/z array']
@@ -172,7 +176,7 @@ def handle(q, q_output, settings, protsL):
                                 qpeptides.total_number_of_spectra = len(spectra_dict)
                         if not spectra_dict and qpeptides.settings.getboolean('descriptors', 'fragment mass tolerance, Da'):
                             qpeptides.settings.set('descriptors', 'fragment mass tolerance, Da', '0')
-                            print 'fragment mass tolerance was turned off due to missed mgf file'
+                            logger.warning('Fragment mass tolerance was turned off due to missing MGF file')
                         if qpeptides.settings.getboolean('descriptors', 'fragment mass tolerance, Da'):
                             for peptide, spectrum in izip(qpeptides.peptideslist, qpeptides.spectrumlist):
                                 try:
@@ -226,8 +230,8 @@ def handle(q, q_output, settings, protsL):
         for p in iprocs:
             p.terminate()
 
-        print 'Total number of PSMs = %d' % (len(peptides.peptideslist),)
-        print 'Total number of peptides: %s' % (len(set(pept.sequence for pept in peptides.peptideslist)), )
+        logger.info('Total number of PSMs = %s', len(peptides.peptideslist))
+        logger.info('Total number of peptides: %s', len(set(pept.sequence for pept in peptides.peptideslist)))
         if len(peptides.peptideslist):
             prots_dict = defaultdict(int)
             pepts_dict = defaultdict(int)
@@ -247,7 +251,7 @@ def handle(q, q_output, settings, protsL):
             peptides.total_number_of_PSMs_decoy = sum(1 for pept in peptides.peptideslist if pept.note2 == 'wr')
 
             if FDR_type.startswith('peptide'):
-                print 'Choosing best PSM per peptide sequence'
+                logger.debug('Choosing best PSM per peptide sequence')
                 peptidesdict = dict()
                 for peptide, spectrum in izip(peptides.peptideslist, peptides.spectrumlist):
                     if peptide.sequence not in peptidesdict:
@@ -265,7 +269,7 @@ def handle(q, q_output, settings, protsL):
                 peptides.rem_elements(js)
                 del js
 
-            print 'Calculating number of peptides per protein'
+            logger.debug('Calculating number of peptides per protein')
             misprotflag = 0
             for peptide in peptides.peptideslist:
                 peptide.peptscore2 = pepts_dict[peptide.sequence]
@@ -280,14 +284,14 @@ def handle(q, q_output, settings, protsL):
                         peptide.protscore2 = float(prots_dict[protein.dbname]) / protsL[protein.dbname] * 500
 
             if misprotflag:
-                print '\nWARNING: Some proteins are missed in fasta, 5000 length and 50 theoretical peptides is used for normalization and emPAI calculation\n' \
-                      'It is highly recommended to check the fasta file for correct work of MPscore\n'
+                logger.warning('Some proteins are missing in FASTA. Using length 5000 and 50 theoretical peptides for normalization and emPAI calculation\n'
+                      'It is highly recommended to check the FASTA file for correct work of MPscore')
             pepts_dict = None
             prots_dict = None
-            print 'Starting first FDR filtering...'
+            logger.info('Starting first FDR filtering...')
             copy_peptides, threshold0, _ = peptides.filter_evalue_new(FDR=FDR, useMP=False)
 
-            print 'Default filtering:'
+            logger.info('Default filtering:')
             numPSMs, numpeptides_true, numprots_true = PSMs_info(copy_peptides, valid_proteins, settings)
             if numPSMs > 1:
                 descriptors = []
@@ -343,7 +347,7 @@ def handle(q, q_output, settings, protsL):
                         if peptides.settings.getint('advanced options', 'saveRC'):
                             pickle.dump(peptides.RC, open('RC.pickle', 'w'))
                         copy_peptides.calc_RT(RTtype=RT_type)
-                        print copy_peptides.get_calibrate_coeff()
+                        logger.debug('Calibration coefficients: %s', copy_peptides.get_calibrate_coeff())
                         peptides.calc_RT(RTtype=RT_type)
                     else:
                         copy_peptides.filter_modifications(RT_type=RT_type)
@@ -353,7 +357,7 @@ def handle(q, q_output, settings, protsL):
                         copy_peptides.filter_RT(RT_tolerance=3 * calibrate_coeff[3])
                         copy_peptides.calc_RT(RTtype=RT_type)
                         calibrate_coeff = copy_peptides.get_calibrate_coeff()
-                        print calibrate_coeff
+                        logger.debug('Calibration coefficients: %s', calibrate_coeff)
                         peptides.calc_RT(calibrate_coeff=calibrate_coeff, RTtype=RT_type)
                         copy_peptides, _, _ = peptides.filter_evalue_new(FDR=FDR, useMP=False)
                         copy_peptides.calc_RT(calibrate_coeff=calibrate_coeff, RTtype=RT_type)
@@ -612,7 +616,7 @@ def PSMs_info(peptides, valid_proteins, settings, fig=False, printresults=True, 
             fig = plot_quantiation(prots, curfile, peptides.settings, fig, separatefigs=settings.getboolean('advanced options', 'separatefigures'), ox=ox, oy=oy)
             fig = plot_useful_histograms(peptides, curfile, fig, separatefigs=settings.getboolean('advanced options', 'separatefigures'), savesvg=settings.getboolean('advanced options', 'saveSVG'), ox=ox, oy=oy)
         except:
-            print 'Cannot plot quantitation figures'
+            logger.error('Cannot plot quantitation figures')
         output_proteins = open('%s/%s_proteins.csv' % (ffolder, fname), 'w')
         output_proteins.write('dbname\tdescription\tPSMs\tpeptides\tsequence coverage\tLFQ(SIn)\tLFQ(NSAF)\tLFQ(emPAI)\tprotein LN(e-value)\tq-value\tall proteins\n')
         output_proteins_full = open('%s/%s_proteins_full.csv' % (ffolder, fname), 'w')
@@ -678,29 +682,28 @@ def PSMs_info(peptides, valid_proteins, settings, fig=False, printresults=True, 
         if protsC:
             temp_sum = sum([x[0] for x in temp_data])
             temp_data = [[x[0] / temp_sum, x[1]] for x in temp_data]
-            print 'conc: ', auxiliary.linear_regression([x[0] for x in temp_data], [x[1] for x in temp_data])
+            logger.debug('conc: %s', auxiliary.linear_regression([x[0] for x in temp_data], [x[1] for x in temp_data]))
 
         output_proteins.close()
         output_proteins_full.close()
     if printresults:
-        print 'PSMs: %s' % (len([1 for x in peptides.peptideslist if x.note2 == 'tr']), )
-        print 'Peptides: %d' % (len(set(p.sequence for p in peptides.peptideslist if p.note2 == 'tr')))
-        print 'Protein groups: %s' % (sum(1 for k in prots if not k.startswith(settings.get('input', 'decoy prefix'))))
-        print 'Protein groups with >= 2 peptides: %s' % (sum([1 for k, v in prots.iteritems() if v['Peptides'] >= 2 and not k.startswith(settings.get('input', 'decoy prefix'))]))
+        logger.info('PSMs: %s', sum(x.note2 == 'tr' for x in peptides.peptideslist))
+        logger.info('Peptides: %s', len(set(p.sequence for p in peptides.peptideslist if p.note2 == 'tr')))
+        logger.info('Protein groups: %s', sum(1 for k in prots if not k.startswith(settings.get('input', 'decoy prefix'))))
+        logger.info('Protein groups with >= 2 peptides: %s', sum(1 for k, v in prots.iteritems() if v['Peptides'] >= 2 and not k.startswith(settings.get('input', 'decoy prefix'))))
         if valid_proteins:
-            print 'PSMs_true: %s' % (len([1 for x in peptides.peptideslist if x.note3]), )
-            print 'Peptides_true: %d' % (len(set(x.sequence for x in peptides.peptideslist if x.note3)), )
-            print 'Protein groups_true: %s' % (len(true_prots), )
-            print 'Real FDR = %s' % (100 * float(len([1 for x in peptides.peptideslist if not x.note3])) / len(peptides.peptideslist) )
-        print '\n'
-    return (len([1 for x in peptides.peptideslist if x.note2 == 'tr']), len(set(p.sequence for p in peptides.peptideslist)), len([v for v in prots.values() if v['Peptides'] > 1]))
+            logger.info('PSMs_true: %s', sum(1 for x in peptides.peptideslist if x.note3))
+            logger.info('Peptides_true: %s', len(set(x.sequence for x in peptides.peptideslist if x.note3)))
+            logger.info('Protein groups_true: %s', len(true_prots))
+            logger.info('Real FDR = %s', (100 * float(sum(1 for x in peptides.peptideslist if not x.note3)) / len(peptides.peptideslist)))
+    return sum(x.note2 == 'tr' for x in peptides.peptideslist), len(set(p.sequence for p in peptides.peptideslist)), sum(v['Peptides'] > 1 for v in prots.values())
 
 def plot_useful_histograms(peptides, curfile, fig, separatefigs=False, savesvg=False, ox=False, oy=False):
     formulas = [
-        (lambda peptides: peptides.RT_exp, 'RT experimental', 'PSMs, RT experimental, min'),
+        (lambda peptide: peptide.RT_exp, 'RT experimental', 'PSMs, RT experimental, min'),
         (lambda peptide: peptide.mz, 'precursor mass', 'PSMs, precursor m/z'),
         (lambda peptide: len(peptide.sequence), 'peptide length', 'PSMs, peptide length'),
-        (lambda peptides: peptides.RT_exp, 'RT experimental, peptides', 'peptides, RT experimental, min'),
+        (lambda peptide: peptide.RT_exp, 'RT experimental, peptides', 'peptides, RT experimental, min'),
         (lambda peptide: peptide.mz, 'precursor mass, peptides', 'peptides, precursor m/z'),
         (lambda peptide: len(peptide.sequence), 'peptide length, peptides', 'peptides, peptide length')
     ]
@@ -813,11 +816,11 @@ def plot_histograms(descriptors, peptides, FDR, curfile, savesvg=False, sepfigur
         else:
             H3, _ = np.histogram(np.array(descriptor.formula(copy_peptides)), bins=np.arange(lbin, rbin+binsize, binsize))
 
-        if descriptor.name in ['precursor mass difference, ppm']:
+        if descriptor.name == 'precursor mass difference, ppm':
             mass_arr = np.array(descriptor.formula(copy_peptides))
             median_mass = np.median(mass_arr)
-            print 'MAX BIN precursor mass difference of top PSMs=%s ppm' % (bins_valid[:-1][H2 == H2.max()], )
-            print 'STD precursor mass difference of top PSMs=%s ppm' % (np.std(mass_arr - median_mass), )
+            logger.info('MAX BIN precursor mass difference of top PSMs = %s ppm', bins_valid[:-1][H2 == H2.max()])
+            logger.info('STD precursor mass difference of top PSMs = %s ppm', np.std(mass_arr - median_mass))
         if descriptor.group == 'B':
             H1 = H1.clip(1)
             H2 = H2.clip(1)
@@ -854,13 +857,13 @@ def plot_histograms(descriptors, peptides, FDR, curfile, savesvg=False, sepfigur
             ax.step(ind, H2, where='post', color=bluecolor,alpha=0.8)
             ax.step(ind, H1, where='post', color=redcolor,alpha=0.8)
         if any(descriptor.name.startswith(clabel) for clabel in ['missed cleavages', 'charge states', 'isotopes mass difference, Da']):
-            print descriptor.name, ind
+            logger.debug('%s %s', descriptor.name, ind)
             ax.set_xticks(np.arange(0.5, 5.5, 1.0))
             fig.canvas.draw()
             labels = [item.get_text() for item in ax.get_xticklabels()]
             ax.set_xticklabels([int(float(l)) for l in labels])
         elif descriptor.name.startswith('potential modifications'):
-            print descriptor.name, ind
+            logger.debug('%s %s', descriptor.name, ind)
             ax.set_xticks(np.arange(-1.5,5.5,1))
             ax.set_xticklabels(['NA','']+list(np.arange(0, 6, 1)))
        # else:
@@ -943,7 +946,7 @@ def plot_MP(descriptors, peptides, fig, FDR, FDR2, valid_proteins, settings, thr
     PSMs_wrong = [[(-np.log(pept.evalue) if pept.evalue != 0 else zero_evalue), (np.log(pept.peptscore) if pept.peptscore != 0 else zero_peptscore)] for pept in peptides.peptideslist if pept.note2 == 'wr']
     PSMs_true = [[(-np.log(pept.evalue) if pept.evalue != 0 else zero_evalue), (np.log(pept.peptscore) if pept.peptscore != 0 else zero_peptscore)] for pept in peptides.peptideslist if pept.note2 == 'tr']
 
-    print 'MP filtering:'
+    logger.info('MP filtering:')
     PSMs_info(copy_peptides, valid_proteins, settings, fig=fig, tofile=True, curfile=curfile, ox=ox, oy=oy)
     ffolder = path.dirname(path.realpath(curfile))
     if peptides.settings.get('options', 'files') == 'union':
@@ -954,7 +957,7 @@ def plot_MP(descriptors, peptides, fig, FDR, FDR2, valid_proteins, settings, thr
     output_PSMs_full.write('sequence\tmodified_sequence\tm/z exp\tcharge\tm/z error in ppm\tmissed cleavages\tnum tol term\tprev_aa\tnext_aa\te-value\tMPscore\tRT exp\tspectrum\tproteins\tproteins description\tSIn\tmassdiff\tis decoy\n')
     for val in peptides.get_izip_full():
         output_PSMs_full.write(get_output_string(val[0], val[1], val[2], type='psm', fragments_info=False, fragments_info_zeros=False, proteins_dict=peptides.proteins_dict))
-    print 'Without filtering, after removing outliers:'
+    logger.info('Without filtering, after removing outliers:')
     PSMs_info(peptides, valid_proteins, settings, loop=False)
 
     if sepfigures:
@@ -1056,10 +1059,10 @@ def calc_peptscore(cq, descriptors):
                     try:
                         tmp_peptscore *= float(descriptor.hist[0][j]) / descriptor.hsum#sum(descriptor.hist[0])
                     except:
-                        print descriptor.name
-                        print descriptor.hist[0]
-                        print descriptor.hist[1]
-                        print descriptor_value, descriptor.hist[1][j], descriptor.hist[1][descriptor.hist[1].searchsorted(descriptor_value)], descriptor.hist[1].searchsorted(descriptor_value)
+                        logger.error('Error when multiplying by descriptor %s', descriptor.name)
+                        logger.error('%s', descriptor.hist[0])
+                        logger.error('%s', descriptor.hist[1])
+                        logger.error('%s %s %s %s', descriptor_value, descriptor.hist[1][j], descriptor.hist[1][descriptor.hist[1].searchsorted(descriptor_value)], descriptor.hist[1].searchsorted(descriptor_value))
             elif descriptor.group == 'B':
                 tmp_peptscore *= float(descriptor.array.searchsorted(descriptor_value, side='right')) / descriptor.array.size
 
@@ -1122,7 +1125,7 @@ def main(argv_in, union_custom=False):
         try:
             mc = settings.getint('missed cleavages', 'number of missed cleavages')
         except:
-            print 'Number of missed cleavages is missed in parameters, using 2 for normalization and emPAI calculation'
+            logger.warning('Number of missed cleavages is missing in parameters, using 2 for normalization and emPAI calculation')
             mc = 2
         fprocs = []
         fnprocs = 12
@@ -1148,8 +1151,8 @@ def main(argv_in, union_custom=False):
                     protsN[dbname] = get_number_of_peptides(x[1], expasy, mc, minl, maxl)
                     protsL['total proteins'] += 1
                     protsL['total peptides'] += protsN.get(dbname, 0)
-                except:
-                    print 'Smth wrong with reading of FASTA file'
+                except Exception as e:
+                    logger.error('Error reading of FASTA file: %s', e)
 
         if fastafile:
             if settings.get('input', 'add decoy') == 'yes':
@@ -1162,7 +1165,9 @@ def main(argv_in, union_custom=False):
                 fastagen = fasta.read(fastafile)
                 # for x in fasta.read(fastafile):
                 #     fq.put(x)
-
+        else:
+            logger.critical('FASTA file not specified.')
+            return 1
 
         minl = settings.getint('search', 'peptide minimum length')
         maxl = settings.getint('search', 'peptide maximum length')
@@ -1206,6 +1211,36 @@ def main(argv_in, union_custom=False):
         for p in procs:
             p.terminate()
     else:
-        print '\nERROR: .cfg file with parameters is missing\n'
+        logger.critical('.cfg file with parameters is missing')
+
 if __name__ == '__main__':
-    main(argv)
+    LOGGING = {
+        'version': 1,
+        'disable_existing_loggers': True,
+        'formatters': {
+            'simple': {
+                'format': '%(levelname)8s: %(asctime)s %(message)s',
+                'datefmt': '[%H:%M:%S]',
+            },
+        },
+        'handlers': {
+            'console': {
+                'level': 'DEBUG',
+                'class': 'logging.StreamHandler',
+                'formatter': 'simple',
+            },
+        },
+        'loggers': {
+            '__main__': {
+                'handlers': ['console'],
+                'level': 'DEBUG',
+            },
+            'MPlib': {
+                'handlers': ['console'],
+                'level': 'DEBUG',
+            }
+        }
+    }
+
+    logging.config.dictConfig(LOGGING)
+    main(sys.argv)
