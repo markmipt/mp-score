@@ -1,9 +1,13 @@
-import sys
-import re
 try:
     import SSRCalc
 except ImportError:
     SSRCalc = None
+try:
+    from pyteomics import biolccc
+except ImportError:
+    pass
+import sys
+import re
 from string import punctuation, lowercase
 from pyteomics import parser, mass, auxiliary as aux, achrom
 import pepxml
@@ -21,11 +25,6 @@ try:
     from configparser import RawConfigParser
 except ImportError:
     from ConfigParser import RawConfigParser
-
-try:
-    from pyteomics import biolccc
-except ImportError:
-    pass
 
 infiles_dict = dict()
 

@@ -24,7 +24,7 @@ try:
     import seaborn
     seaborn.set(rc={'axes.facecolor':'#ffffff'})
     seaborn.set_style('whitegrid')
-except:
+except ImportError:
     pass
 
 manager = multiprocessing.Manager()
