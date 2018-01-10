@@ -672,9 +672,10 @@ def PSMs_info(peptides, valid_proteins, settings, fig=False, printresults=True, 
                 peptides_best_sp[peptide.sequence] = spectrum
             peptides_count[peptide.sequence] += 1
         for val in peptides.get_izip_full():
-            if val[1] == peptides_best_sp[val[0].sequence]:
+            if val[1] == peptides_best_sp.get(val[0].sequence, None):
                 if any(protein.dbname in prots for protein in peptides.proteins_dict[val[0].sequence]):#peptide.parentproteins):
                     output_peptides_detailed.write(get_output_string(val[0], val[1], val[2], type='psm', fragments_info=framents_info, fragments_info_zeros=framents_info_zeroes, peptide_count=peptides_count[val[0].sequence], proteins_dict=peptides.proteins_dict))
+                    del peptides_best_sp[val[0].sequence]
         output_peptides_detailed.close()
         output_PSMs.close()
 

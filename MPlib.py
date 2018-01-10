@@ -601,8 +601,9 @@ class PeptideList:
         new_peptides = self.copy_empty()
         for val in self.get_izip_full():
             peptide_ind = self.listing.index('peptideslist')
-            if val[peptide_ind] != edict.get(val[peptide_ind], None):
+            if val[peptide_ind].evalue == edict.get(val[peptide_ind].sequence, None):
                 new_peptides.add_elem(val)
+                del edict[val[peptide_ind].sequence]
         new_peptides.check_arrays()
         return new_peptides
 
