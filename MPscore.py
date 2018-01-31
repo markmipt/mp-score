@@ -128,7 +128,7 @@ def handle(q, q_output, settings, protsL):
                         # isolation_window = settings.getfloat('precursor ion fraction', 'isolation window')
                         # mass_acc = settings.getfloat('precursor ion fraction', 'mass accuracy')
                         # spectra_ms1 = []
-                        spectra_ms2 = []
+                        # spectra_ms2 = []
                         for spectrum in mzml.read(mzmlfile):
                             if spectrum['ms level'] == 2:
                                 spectra_dict[spectrum['id'].strip()] = spectrum['m/z array']
@@ -423,15 +423,21 @@ def nsaf(prots, norm=True):
 
 
 def calc_emPAI(prots, protsN, norm=True):
-    for dbname in prots:
-        PAI = float(prots[dbname]['PSMs']) / max(protsN[dbname], 1)
-        emPAI = 10 ** PAI - 1
-        prots[dbname]['emPAI'] = emPAI
+    try:
+        for dbname in prots:
+            PAI = float(prots[dbname]['PSMs']) / max(protsN[dbname], 1)
+            emPAI = 10 ** PAI - 1
+            prots[dbname]['emPAI'] = emPAI
 
-    sum_emPAI = sum(val['emPAI'] for val in prots.itervalues())
-    if norm:
-        for dbname in prots.keys():
-            prots[dbname]['emPAI'] = prots[dbname]['emPAI'] / sum_emPAI
+        sum_emPAI = sum(val['emPAI'] for val in prots.itervalues())
+        if norm:
+            for dbname in prots.keys():
+                prots[dbname]['emPAI'] = prots[dbname]['emPAI'] / sum_emPAI
+    except OverflowError:
+        logger.warning('OverflowError encountered in emPAI calculation. emPAI calculation disabled.')
+        for dbname, prot in prots.iteritems():
+            prot['emPAI'] = 1
+        sum_emPAI = 1
     return prots, sum_emPAI
 
 
@@ -615,8 +621,8 @@ def PSMs_info(peptides, valid_proteins, settings, fig=False, printresults=True, 
         try:
             fig = plot_quantiation(prots, curfile, peptides.settings, fig, separatefigs=settings.getboolean('advanced options', 'separatefigures'), ox=ox, oy=oy)
             fig = plot_useful_histograms(peptides, curfile, fig, separatefigs=settings.getboolean('advanced options', 'separatefigures'), savesvg=settings.getboolean('advanced options', 'saveSVG'), ox=ox, oy=oy)
-        except:
-            logger.error('Cannot plot quantitation figures')
+        except Exception as e:
+            logger.error('Cannot plot quantitation figures: %s', e)
         output_proteins = open('%s/%s_proteins.csv' % (ffolder, fname), 'w')
         output_proteins.write('dbname\tdescription\tPSMs\tpeptides\tsequence coverage\tLFQ(SIn)\tLFQ(NSAF)\tLFQ(emPAI)\tprotein LN(e-value)\tq-value\tall proteins\n')
         output_proteins_full = open('%s/%s_proteins_full.csv' % (ffolder, fname), 'w')
@@ -1070,7 +1076,7 @@ def calc_peptscore(cq, descriptors):
         yield (idx, tmp_peptscore)
 
 def main(argv_in, union_custom=False):
-    inputfile = argv_in[1]
+    # inputfile = argv_in[1]
     files = {}
     fastafile = None
     configfile = None
@@ -1109,7 +1115,10 @@ def main(argv_in, union_custom=False):
     files = update_dict(files)
 
     if configfile:
-        settings = get_settings(os.path.join(os.path.dirname(os.path.abspath(__file__)), 'default.cfg'))
+        defpath = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'default.cfg')
+        logger.debug('Loading defaults from %s ...', defpath)
+        settings = get_settings(defpath)
+        logger.debug('Loading config from %s ...', configfile)
         settings.read(configfile)
         if union_custom:
             settings.set('options', 'files', 'union')
@@ -1125,13 +1134,14 @@ def main(argv_in, union_custom=False):
         expasy = '|'.join((parser.expasy_rules[protease] if protease in parser.expasy_rules else protease for protease in proteases))
         try:
             mc = settings.getint('missed cleavages', 'number of missed cleavages')
-        except:
+        except Exception as e:
             logger.warning('Number of missed cleavages is missing in parameters, using 2 for normalization and emPAI calculation')
+            logger.debug(e)
             mc = 2
-        fprocs = []
-        fnprocs = 12
-        fq = multiprocessing.Queue()
-        fq_output = multiprocessing.Queue()
+        # fprocs = []
+        # fnprocs = 12
+        # fq = multiprocessing.Queue()
+        # fq_output = multiprocessing.Queue()
 
         protsL['total proteins'] = 0
         protsL['total peptides'] = 0

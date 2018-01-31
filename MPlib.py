@@ -109,7 +109,7 @@ def filter_evalue_prots(prots, FDR=1.0, remove_decoy=True, dec_prefix='DECOY_'):
         val[-1][1]['qval'] = val[-2]
         if (not remove_decoy or not val[-1][0].startswith(dec_prefix)):
             new_prots[val[-1][0]] = val[-1][1]
-    logger.info('Actual Protein level FDR = %.2f%%', aux.fdr(filtered_proteins, is_decoy=isdecoy) * 100)
+    logger.info('Actual protein-level FDR = %.2f%%', aux.fdr(filtered_proteins, is_decoy=isdecoy) * 100)
     return new_prots
 
 def get_settings(fname=None, default_name='default.cfg'):
