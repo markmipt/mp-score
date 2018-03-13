@@ -623,14 +623,14 @@ def PSMs_info(peptides, valid_proteins, settings, fig=False, printresults=True, 
             fig = plot_useful_histograms(peptides, curfile, fig, separatefigs=settings.getboolean('advanced options', 'separatefigures'), savesvg=settings.getboolean('advanced options', 'saveSVG'), ox=ox, oy=oy)
         except Exception as e:
             logger.error('Cannot plot quantitation figures: %s', e)
-        output_proteins = open('%s/%s_proteins.csv' % (ffolder, fname), 'w')
+        output_proteins = open('%s/%s_proteins.tsv' % (ffolder, fname), 'w')
         output_proteins.write('dbname\tdescription\tPSMs\tpeptides\tsequence coverage\tLFQ(SIn)\tLFQ(NSAF)\tLFQ(emPAI)\tprotein LN(e-value)\tq-value\tall proteins\n')
-        output_proteins_full = open('%s/%s_proteins_full.csv' % (ffolder, fname), 'w')
+        output_proteins_full = open('%s/%s_proteins_full.tsv' % (ffolder, fname), 'w')
         output_proteins_full.write('dbname\tdescription\tPSMs\tpeptides\tsequence coverage\tLFQ(SIn)\tLFQ(NSAF)\tLFQ(emPAI)\tprotein LN(e-value)\tall proteins\n')
-        output_PSMs = open('%s/%s_PSMs.csv' % (ffolder, fname), 'w')
+        output_PSMs = open('%s/%s_PSMs.tsv' % (ffolder, fname), 'w')
         output_PSMs_pepxml = '%s/%s_PSMs.pep.xml' % (ffolder, fname)
         output_PSMs.write('sequence\tmodified_sequence\tm/z exp\tcharge\tm/z error in ppm\tmissed cleavages\tnum tol term\tprev_aa\tnext_aa\te-value\tMPscore\tRT exp\tspectrum\tproteins\tproteins description\tSIn\tmassdiff\tis decoy')
-        output_peptides_detailed = open('%s/%s_peptides.csv' % (ffolder, fname), 'w')
+        output_peptides_detailed = open('%s/%s_peptides.tsv' % (ffolder, fname), 'w')
         output_peptides_detailed.write('sequence\tPSM count\tmodified_sequence\tm/z exp\tcharge\tm/z error in ppm\tmissed cleavages\tnum tol term\tprev_aa\tnext_aa\te-value\tMPscore\tRT exp\tspectrum\tproteins\tproteins description\tSIn\tmassdiff\tis decoy')
         framents_info = settings.getboolean('advanced options', 'fragments_info')
         framents_info_zeroes = settings.getboolean('advanced options', 'fragments_info_zeros')
@@ -644,7 +644,7 @@ def PSMs_info(peptides, valid_proteins, settings, fig=False, printresults=True, 
         output_peptides_detailed.write('\n')
         pickle.dump(peptides.RC, open('%s/%s_RC.pickle' % (ffolder, fname), 'w'))
         if protsC:
-            output_proteins_valid = open('%s/%s_proteins_valid.csv' % (ffolder, fname), 'w')
+            output_proteins_valid = open('%s/%s_proteins_valid.tsv' % (ffolder, fname), 'w')
             temp_data = []
 
         for k, v in prots_full.iteritems():
@@ -960,7 +960,7 @@ def plot_MP(descriptors, peptides, fig, FDR, FDR2, valid_proteins, settings, thr
         fname = 'union'
     else:
         fname = path.splitext(path.splitext(path.basename(curfile))[0])[0]
-    output_PSMs_full = open('%s/%s_PSMs_full.csv' % (ffolder, fname), 'w')
+    output_PSMs_full = open('%s/%s_PSMs_full.tsv' % (ffolder, fname), 'w')
     output_PSMs_full.write('sequence\tmodified_sequence\tm/z exp\tcharge\tm/z error in ppm\tmissed cleavages\tnum tol term\tprev_aa\tnext_aa\te-value\tMPscore\tRT exp\tspectrum\tproteins\tproteins description\tSIn\tmassdiff\tis decoy\n')
     for val in peptides.get_izip_full():
         output_PSMs_full.write(get_output_string(val[0], val[1], val[2], type='psm', fragments_info=False, fragments_info_zeros=False, proteins_dict=peptides.proteins_dict))
