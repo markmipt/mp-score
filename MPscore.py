@@ -444,9 +444,11 @@ def calc_emPAI(prots, protsN, norm=True):
 def PSMs_info(peptides, valid_proteins, settings, fig=False, printresults=True, tofile=False, curfile=False, loop=True, ox=False, oy=False):
     def keywithmaxval(d):
         #this method is much faster than using max(prots.iterkeys(), key=(lambda key: prots[key]))
-        v=list(d.values())
-        k=list(d.keys())
-        return k[v.index(max(v))]
+        # v=list(d.values())
+        # k=list(d.keys())
+        maxv = max(d.values())
+        tmp = [k for k, v in d.iteritems() if v == maxv]
+        return sorted(tmp)[0]
     tostay = set()
     prots = defaultdict(int)
     prots_pep = defaultdict(set)
