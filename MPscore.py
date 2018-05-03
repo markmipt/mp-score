@@ -456,7 +456,7 @@ def PSMs_info(peptides, valid_proteins, settings, fig=False, printresults=True, 
     for peptide in peptides.peptideslist:
         if peptide.sequence not in peptides_added:
             if peptide.note2 == 'wr':
-                add_label = settings.get('input', 'decoy prefix')
+                add_label = ''#settings.get('input', 'decoy prefix')
             else:
                 add_label = ''
             for protein in peptides.proteins_dict[peptide.sequence]:#peptide.parentproteins:
@@ -482,7 +482,7 @@ def PSMs_info(peptides, valid_proteins, settings, fig=False, printresults=True, 
         if tofile:
             peptide.sumI = round(peptide.sumI / peptide.it, 2)
         if peptide.note2 == 'wr':
-            add_label = settings.get('input', 'decoy prefix')
+            add_label = ''#settings.get('input', 'decoy prefix')
         else:
             add_label = ''
 
@@ -553,7 +553,7 @@ def PSMs_info(peptides, valid_proteins, settings, fig=False, printresults=True, 
         dec_label = settings.get('input', 'decoy prefix')
         for peptide in new_peptides.peptideslist:
             if peptide.note2 == 'wr':
-                add_label = dec_label
+                add_label = ''#dec_label
             else:
                 add_label = ''
             for protein in new_peptides.proteins_dict[peptide.sequence]:
@@ -588,11 +588,6 @@ def PSMs_info(peptides, valid_proteins, settings, fig=False, printresults=True, 
                 for k in prots_full.keys():
                     if k.startswith(settings.get('input', 'decoy prefix')):
                         del prots_full[k]
-        if not remove_decoy:
-            for prtemp in protsL.keys():
-                protsL[settings.get('input', 'decoy prefix') + prtemp] = protsL[prtemp]
-            for prtemp in protsN.keys():
-                protsN[settings.get('input', 'decoy prefix') + prtemp] = protsN[prtemp]
 
         prots_full, _ = nsaf(prots_full, norm=False)
         prots_full, _ = calc_emPAI(prots_full, protsN, norm=False)
