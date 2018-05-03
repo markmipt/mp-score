@@ -631,6 +631,7 @@ class Peptide:
     def __init__(self, sequence, settings, pcharge=0, evalue=0, note='unknown', mass_exp=0, modifications=[], modification_list={}, custom_aa_mass=None, sumI=0, mc=None, infile='unknown', frag_mt=None):
         self.sequence = sequence
         self.modified_sequence = sequence
+        self.modification_out_str = ''
         self.modification_list = modification_list
         self.pcharge = int(pcharge)
         self.aa_mass = custom_aa_mass
@@ -797,6 +798,7 @@ class Peptide:
                     logger.warning('label for %s nterm modification is missing in parameters, using %s label', modname, self.modification_list[modname])
                     self.aa_mass[self.modification_list[modname]] = float(modif['mass'])
                     self.modified_sequence = self.modification_list[modname] + self.modified_sequence
+                self.modification_out_str += '[n-term] %s,' % (self.modification_list[modname].replace('-', ''))
             elif modif['position'] == len(self.sequence) + 1:
                 modname = get_modif_name(modif, 'c')
                 try:
@@ -806,6 +808,7 @@ class Peptide:
                     logger.warning('label for %s cterm modification is missing in parameters, using label %s', modname, self.modification_list[modname])
                     self.aa_mass[self.modification_list[modname]] = float(modif['mass'])
                     self.modified_sequence = self.modified_sequence + self.modification_list[modname]
+                self.modification_out_str += '[c-term] %s,' % (self.modification_list[modname].replace('-', ''))
             else:
                 pos = modif['position']
                 modname = get_modif_name(modif, self.modified_sequence[pos - 1])
@@ -815,3 +818,10 @@ class Peptide:
                     add_modification(modname)
                     self.aa_mass[self.modification_list[modname]] = float(modif['mass'])
                     self.modified_sequence = self.modified_sequence[:pos - 1] + self.modification_list[modname] + self.modified_sequence[pos - 1:]
+                self.modification_out_str += '[%d] %s (%s),' % (modif['position'], self.modification_list[modname], self.sequence[pos - 1])
+        if self.modification_out_str:
+            self.modification_out_str = self.modification_out_str[:-1]
+            self.modification_out_str = ', '.join(self.modification_out_str.split(',')[::-1])
+        else:
+            self.modification_out_str = ' '
+            
