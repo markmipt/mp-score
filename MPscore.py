@@ -322,8 +322,7 @@ def handle(q, q_output, settings, protsL):
                         temp = settings.get('modifications', 'variable')
                         if temp:
                             for mod in temp.replace(' ', '').split(','):
-                                if '[' not in mod and ']' not in mod:
-                                    descriptors.append(Descriptor(name='%s, %s' % (dname, mod), single_formula=lambda peptide, mod=mod: peptide.count_modifications(mod), group='A', binsize=1))
+                                descriptors.append(Descriptor(name='%s, %s' % (dname, mod), single_formula=lambda peptide, mod=mod: peptide.count_modifications(mod), group='A', binsize=1))
                     dname = 'isotopes mass difference, Da'
                     if peptides.settings.getboolean('descriptors', dname):
                         descriptors.append(Descriptor(name=dname, single_formula=lambda peptide: round(peptide.massdiff, 0), group='A', binsize=1))
@@ -813,6 +812,10 @@ def plot_histograms(descriptors, peptides, FDR, curfile, savesvg=False, sepfigur
         if rbin_s and abs((rbin - rbin_s) / rbin_s) > 1.0:
             rbin = rbin_s * 1.05
         rbin += 1.5 * binsize
+        if descriptor.name.startswith('potential modifications'):
+            lbin = -1
+            rbin = 2.5
+            binsize = 1
         H1, _ = np.histogram(array_wrong, bins=np.arange(lbin, rbin+binsize, binsize))
         H2, bins_valid = np.histogram(array_valid, bins=np.arange(lbin, rbin+binsize, binsize))
         if descriptor.group == 'B':
@@ -868,8 +871,9 @@ def plot_histograms(descriptors, peptides, FDR, curfile, savesvg=False, sepfigur
             ax.set_xticklabels([int(float(l)) for l in labels])
         elif descriptor.name.startswith('potential modifications'):
             logger.debug('%s %s', descriptor.name, ind)
-            ax.set_xticks(np.arange(-1.5,5.5,1))
-            ax.set_xticklabels(['NA','']+list(np.arange(0, 6, 1)))
+            ax.set_xticks(np.arange(-1.5,2.5,1))
+            ax.set_xticklabels(['NA','']+list(np.arange(0, 3, 1)))
+            ax.set_xlim(-2, 2.5)
        # else:
         #    from matplotlib.ticker import MaxNLocator
          #   ax.get_xaxis().set_major_locator(MaxNLocator(nbins=6))

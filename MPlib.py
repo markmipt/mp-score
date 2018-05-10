@@ -709,12 +709,9 @@ class Peptide:
         return self.num_missed_cleavages[protease]
 
     def count_modifications(self, label):
-        if ']' in label:
+        if '-' in label:
             naa = 1
-            nmods = self.modified_sequence.count('-' + label[:-1])
-        elif '[' in label:
-            naa = 1
-            nmods = self.modified_sequence.count(label[:-1] + '-')
+            nmods = self.modified_sequence.count(label)
         else:
             naa = self.modified_sequence.count(label[-1])
             nmods = self.modified_sequence.count(label)
