@@ -71,12 +71,17 @@ def get_aa_mass(settings):
     aa_mass = mass.std_aa_mass.copy()
     aa_mass['-'] = 0.0
     fmods = settings.get('modifications', 'fixed')
-    if fmods:
-        for mod in re.split(r'[,;]\s*', fmods):
-            m, aa = parser._split_label(mod)
-            aa_mass[aa] += settings.getfloat('modifications', m)
-            aa_mass[mod] = aa_mass[aa] + settings.getfloat('modifications', m)
+    # if fmods:
+    #     for mod in re.split(r'[,;]\s*', fmods):
+    #         m, aa = parser._split_label(mod)
+    #         aa_mass[aa] += settings.getfloat('modifications', m)
+    #         aa_mass[mod] = aa_mass[aa] + settings.getfloat('modifications', m)
     vmods = settings.get('modifications', 'variable')
+    if fmods:
+        if vmods:
+            vmods = ','.join([vmods, fmods])
+        else:
+            vmods = fmods
     if vmods:
         mods = [custom_split_label(mod) for mod in re.split(r',\s*', vmods)]#[(l[:-1], l[-1]) for l in re.split(r',\s*', vmods)]
         if settings.getboolean('advanced options', 'snp'):
@@ -203,11 +208,17 @@ class PeptideList:
         self.proteins_dict = defaultdict(list)
 
         fmods = self.settings.get('modifications', 'fixed')
-        if fmods:
-            for mod in re.split(r'[,;]\s*', fmods):
-                m, aa = parser._split_label(mod)
-                self.modification_list[str(round(mass.std_aa_mass[aa] + settings.getfloat('modifications', m), 4)) + aa] = m
+        # if fmods:
+        #     for mod in re.split(r'[,;]\s*', fmods):
+        #         m, aa = parser._split_label(mod)
+        #         self.modification_list[str(round(mass.std_aa_mass[aa] + settings.getfloat('modifications', m), 4)) + aa] = m
+        
         vmods = settings.get('modifications', 'variable')
+        if fmods:
+            if vmods:
+                vmods = ','.join([vmods, fmods])
+            else:
+                vmods = fmods
         if vmods:
             mods = [custom_split_label(mod) for mod in re.split(r',\s*', vmods)]#[(l[:-1], l[-1]) for l in re.split(r',\s*', vmods)]
             if settings.getboolean('advanced options', 'snp'):
