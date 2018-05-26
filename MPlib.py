@@ -9,8 +9,7 @@
 import sys
 import re
 from string import punctuation, lowercase
-from pyteomics import parser, mass, auxiliary as aux, achrom
-import pepxml
+from pyteomics import parser, mass, auxiliary as aux, achrom, pepxml
 import numpy as np
 from scipy.stats import scoreatpercentile
 from copy import copy
