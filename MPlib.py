@@ -315,6 +315,10 @@ class PeptideList:
                                     evalue = 1.0 / float(record['search_hit'][0]['search_score']['ionscore'])
                                 except IOError:
                                     'Cannot read e-value!'
+                            tags = {}
+                            for k in record['search_hit'][0]['search_score'].keys():
+                                if k.startswith('tmt'):
+                                    tags[k] = float(record['search_hit'][0]['search_score'][k])
                             if not (FDR_type.startswith('peptide') and best_scores.get(sequence, 1e6) < evalue) and not set(sequence).difference(standard_aminoacids):
                                 if FDR_type.startswith('peptide'):
                                     best_scores[sequence] = evalue
@@ -335,7 +339,7 @@ class PeptideList:
                                 if pepxmlfile not in infiles_dict:
                                     infiles_dict[pepxmlfile] = len(infiles_dict)
                                 infile_current = infiles_dict[pepxmlfile]
-                                pept = Peptide(sequence=sequence, settings=self.settings, evalue=evalue, pcharge=pcharge, mass_exp=mass_exp, modifications=modifications, modification_list=self.modification_list, custom_aa_mass=self.aa_list, sumI=sumI, mc=mc, infile=infile_current, frag_mt=frag_mt)
+                                pept = Peptide(sequence=sequence, settings=self.settings, evalue=evalue, pcharge=pcharge, mass_exp=mass_exp, modifications=modifications, modification_list=self.modification_list, custom_aa_mass=self.aa_list, sumI=sumI, mc=mc, infile=infile_current, frag_mt=frag_mt, tags=tags)
                                 try:
                                     RT_exp = float(record['retention_time_sec']) / 60
                                 except:
@@ -638,7 +642,7 @@ class Peptide:
                  'num_missed_cleavages', 'mc', 'note', 'note2', 'note3', 'protscore2', 'peptscore',
                  'peptscore2', 'spectrum_mz', 'fragment_mt', 'sumI', 'it',
                  'infile', 'fragments', 'valid_sequence', 'prev_aa', 'next_aa', 'num_tol_term']
-    def __init__(self, sequence, settings, pcharge=0, evalue=0, note='unknown', mass_exp=0, modifications=[], modification_list={}, custom_aa_mass=None, sumI=0, mc=None, infile='unknown', frag_mt=None):
+    def __init__(self, sequence, settings, pcharge=0, evalue=0, note='unknown', mass_exp=0, modifications=[], modification_list={}, custom_aa_mass=None, sumI=0, mc=None, infile='unknown', frag_mt=None, tags=None):
         self.sequence = sequence
         self.modified_sequence = sequence
         self.modification_out_str = ''
@@ -679,6 +683,7 @@ class Peptide:
         self.infile = infile
         self.fragments = defaultdict(dict)
         self.valid_sequence = dict()
+        self.tags = tags if len(tags) else None
 
     def theor_spectrum(self, types=('b', 'y'), maxcharge=None, **kwargs):
         peaks = {}

@@ -36,7 +36,7 @@ stime = time()
 redcolor='#FC6264'
 bluecolor='#70aed1'
 greencolor='#8AA413'
-def get_output_string(obj, spectrum, RT_exp, type, fragments_info=False, fragments_info_zeros=False, peptide_count=False, proteins_dict={}):
+def get_output_string(obj, spectrum, RT_exp, type, fragments_info=False, fragments_info_zeros=False, peptide_count=False, proteins_dict={}, tags=None):
     if type == 'psm':
         out = '%s\t' % (obj.sequence, )
         if peptide_count:
@@ -49,6 +49,10 @@ def get_output_string(obj, spectrum, RT_exp, type, fragments_info=False, fragmen
         for protein in proteins_dict[obj.sequence]:
             out += '%s;' % (protein.description,)
         out += '\t%s\t%0.3f\t%s' % (obj.sumI, obj.massdiff, obj.note)
+
+        if tags:
+            out += '\t'
+            out += '\t'.join(str(obj.tags[t]) for t in tags)
         if fragments_info:
             for itype, val in obj.fragments.iteritems():
                 out += '\t'
@@ -625,9 +629,12 @@ def PSMs_info(peptides, valid_proteins, settings, fig=False, printresults=True, 
         output_proteins_full.write('dbname\tdescription\tPSMs\tpeptides\tsequence coverage\tLFQ(SIn)\tLFQ(NSAF)\tLFQ(emPAI)\tprotein LN(e-value)\tall proteins\n')
         output_PSMs = open('%s/%s_PSMs.tsv' % (ffolder, fname), 'w')
         output_PSMs_pepxml = '%s/%s_PSMs.pep.xml' % (ffolder, fname)
-        output_PSMs.write('sequence\tmodified_sequence\tmodifications\tm/z exp\tcharge\tm/z error in ppm\tmissed cleavages\tnum tol term\tprev_aa\tnext_aa\te-value\tMPscore\tRT exp\tspectrum\tproteins\tproteins description\tSIn\tmassdiff\tis decoy')
+
+        tags = peptides.peptideslist[0].tags.keys() if peptides.peptideslist[0].tags else None
+        tags_header = ('\t' + '\t'.join(tags)) if tags else ''
+        output_PSMs.write('sequence\tmodified_sequence\tmodifications\tm/z exp\tcharge\tm/z error in ppm\tmissed cleavages\tnum tol term\tprev_aa\tnext_aa\te-value\tMPscore\tRT exp\tspectrum\tproteins\tproteins description\tSIn\tmassdiff\tis decoy%s' % (tags_header, ))
         output_peptides_detailed = open('%s/%s_peptides.tsv' % (ffolder, fname), 'w')
-        output_peptides_detailed.write('sequence\tPSM count\tmodified_sequence\tmodifications\tm/z exp\tcharge\tm/z error in ppm\tmissed cleavages\tnum tol term\tprev_aa\tnext_aa\te-value\tMPscore\tRT exp\tspectrum\tproteins\tproteins description\tSIn\tmassdiff\tis decoy')
+        output_peptides_detailed.write('sequence\tPSM count\tmodified_sequence\tmodifications\tm/z exp\tcharge\tm/z error in ppm\tmissed cleavages\tnum tol term\tprev_aa\tnext_aa\te-value\tMPscore\tRT exp\tspectrum\tproteins\tproteins description\tSIn\tmassdiff\tis decoy%s' % (tags_header, ))
         framents_info = settings.getboolean('advanced options', 'fragments_info')
         framents_info_zeroes = settings.getboolean('advanced options', 'fragments_info_zeros')
         if framents_info:
@@ -664,7 +671,7 @@ def PSMs_info(peptides, valid_proteins, settings, fig=False, printresults=True, 
 
         for val in peptides.get_izip_full():
             if any(protein.dbname in prots for protein in peptides.proteins_dict[val[0].sequence]):#peptide.parentproteins):
-                output_PSMs.write(get_output_string(val[0], val[1], val[2], type='psm', fragments_info=framents_info, fragments_info_zeros=framents_info_zeroes, proteins_dict=peptides.proteins_dict))
+                output_PSMs.write(get_output_string(val[0], val[1], val[2], type='psm', fragments_info=framents_info, fragments_info_zeros=framents_info_zeroes, proteins_dict=peptides.proteins_dict, tags=tags))
         peptides_best = dict()
         peptides_best_sp = dict()
         peptides_count = Counter()
@@ -676,7 +683,7 @@ def PSMs_info(peptides, valid_proteins, settings, fig=False, printresults=True, 
         for val in peptides.get_izip_full():
             if val[1] == peptides_best_sp.get(val[0].sequence, None):
                 if any(protein.dbname in prots for protein in peptides.proteins_dict[val[0].sequence]):#peptide.parentproteins):
-                    output_peptides_detailed.write(get_output_string(val[0], val[1], val[2], type='psm', fragments_info=framents_info, fragments_info_zeros=framents_info_zeroes, peptide_count=peptides_count[val[0].sequence], proteins_dict=peptides.proteins_dict))
+                    output_peptides_detailed.write(get_output_string(val[0], val[1], val[2], type='psm', fragments_info=framents_info, fragments_info_zeros=framents_info_zeroes, peptide_count=peptides_count[val[0].sequence], proteins_dict=peptides.proteins_dict, tags=tags))
                     del peptides_best_sp[val[0].sequence]
         output_peptides_detailed.close()
         output_PSMs.close()
@@ -962,9 +969,11 @@ def plot_MP(descriptors, peptides, fig, FDR, FDR2, valid_proteins, settings, thr
     else:
         fname = path.splitext(path.splitext(path.basename(curfile))[0])[0]
     output_PSMs_full = open('%s/%s_PSMs_full.tsv' % (ffolder, fname), 'w')
-    output_PSMs_full.write('sequence\tmodified_sequence\tmodifications\tm/z exp\tcharge\tm/z error in ppm\tmissed cleavages\tnum tol term\tprev_aa\tnext_aa\te-value\tMPscore\tRT exp\tspectrum\tproteins\tproteins description\tSIn\tmassdiff\tis decoy\n')
+    tags = peptides.peptideslist[0].tags.keys() if peptides.peptideslist[0].tags else None
+    tags_header = ('\t' + '\t'.join(tags)) if tags else ''
+    output_PSMs_full.write('sequence\tmodified_sequence\tmodifications\tm/z exp\tcharge\tm/z error in ppm\tmissed cleavages\tnum tol term\tprev_aa\tnext_aa\te-value\tMPscore\tRT exp\tspectrum\tproteins\tproteins description\tSIn\tmassdiff\tis decoy%s\n' % (tags_header, ))
     for val in peptides.get_izip_full():
-        output_PSMs_full.write(get_output_string(val[0], val[1], val[2], type='psm', fragments_info=False, fragments_info_zeros=False, proteins_dict=peptides.proteins_dict))
+        output_PSMs_full.write(get_output_string(val[0], val[1], val[2], type='psm', fragments_info=False, fragments_info_zeros=False, proteins_dict=peptides.proteins_dict, tags=tags))
     logger.info('Without filtering, after removing outliers:')
     PSMs_info(peptides, valid_proteins, settings, loop=False)
 
