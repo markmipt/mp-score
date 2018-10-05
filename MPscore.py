@@ -121,9 +121,14 @@ def handle(q, q_output, settings, protsL):
         iq_output = multiprocessing.Queue()
 
         def getpepxml(iq, iq_output, settings, mods=False):
+            allowed_termini = set(int(z.strip()) for z in settings.get('missed cleavages', 'number_of_enzyme_termini').split(','))
+            print(allowed_termini)
             for curfile in iter(iq.get, None):
                 qpeptides = PeptideList(settings, mods)
-                qpeptides.get_from_pepxmlfile(curfile['.pep'], min_charge=min_charge, max_charge=max_charge, allowed_peptides=settings.get('advanced options', 'allowed peptides'), prefix=settings.get('input', 'decoy prefix'), FDR_type=settings.get('options', 'FDR_type'))
+                qpeptides.get_from_pepxmlfile(curfile['.pep'], min_charge=min_charge, max_charge=max_charge,
+                allowed_peptides=settings.get('advanced options', 'allowed peptides'),
+                prefix=settings.get('input', 'decoy prefix'), FDR_type=settings.get('options', 'FDR_type'),
+                termini=allowed_termini)
 
                 if len(qpeptides.peptideslist):
                     mzmlfile = curfile.get('.mzML', None)
@@ -688,7 +693,7 @@ def PSMs_info(peptides, valid_proteins, settings, fig=False, printresults=True, 
         output_peptides_detailed.close()
         output_PSMs.close()
 
-        pepxmltk.easy_write_pepxml([curfile], output_PSMs_pepxml, {val[1] for val in peptides.get_izip_full()})
+        # pepxmltk.easy_write_pepxml([curfile], output_PSMs_pepxml, {val[1] for val in peptides.get_izip_full()})
         if protsC:
             temp_sum = sum([x[0] for x in temp_data])
             temp_data = [[x[0] / temp_sum, x[1]] for x in temp_data]

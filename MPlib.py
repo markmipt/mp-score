@@ -274,7 +274,7 @@ class PeptideList:
         else:
             return self.total_number_of_PSMs
 
-    def get_from_pepxmlfile(self, pepxmlfile, min_charge=1, max_charge=0, allowed_peptides=False, prefix='DECOY_', FDR_type=None):
+    def get_from_pepxmlfile(self, pepxmlfile, min_charge=1, max_charge=0, allowed_peptides=False, prefix='DECOY_', FDR_type=None, termini=set([2,1,0])):
         if allowed_peptides:
             allowed_peptides_set = set([x.strip() for x in open(allowed_peptides)])
 
@@ -306,7 +306,8 @@ class PeptideList:
                         first_psm = False
                     if 'peptide' in record['search_hit'][0]:
                         sequence = record['search_hit'][0]['peptide']
-                        if (not allowed_peptides or sequence in allowed_peptides_set):
+                        num_tol_term_tmp = record['search_hit'][0]['proteins'][0]['num_tol_term']
+                        if num_tol_term_tmp in termini and (not allowed_peptides or sequence in allowed_peptides_set):
                             try:
                                 evalue = record['search_hit'][0]['search_score']['expect']
                                 # evalue = 1/record['search_hit'][0]['search_score']['hyperscore']
@@ -352,7 +353,7 @@ class PeptideList:
                                     pept.note = 'target'
                                 else:
                                     pept.note = 'decoy'
-                                pept.num_tol_term = record['search_hit'][0]['proteins'][0]['num_tol_term']
+                                pept.num_tol_term = num_tol_term_tmp
                                 pept.next_aa = record['search_hit'][0]['proteins'][0]['peptide_next_aa']
                                 pept.prev_aa = record['search_hit'][0]['proteins'][0]['peptide_prev_aa']
 
