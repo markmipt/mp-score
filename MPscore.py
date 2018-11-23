@@ -122,7 +122,6 @@ def handle(q, q_output, settings, protsL):
 
         def getpepxml(iq, iq_output, settings, mods=False):
             allowed_termini = set(int(z.strip()) for z in settings.get('missed cleavages', 'number_of_enzyme_termini').split(','))
-            print(allowed_termini)
             for curfile in iter(iq.get, None):
                 qpeptides = PeptideList(settings, mods)
                 qpeptides.get_from_pepxmlfile(curfile['.pep'], min_charge=min_charge, max_charge=max_charge,
