@@ -7,7 +7,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 from scipy.stats import scoreatpercentile
 from os import path, listdir
-from pyteomics import mzml, fasta, auxiliary, mgf, parser, pepxmltk
+from pyteomics import mzml, fasta, auxiliary, mgf, parser, pepxmltk, mass
 from Queue import Empty
 import multiprocessing
 import shutil
@@ -412,7 +412,7 @@ def handle(q, q_output, settings, protsL):
 
 def find_optimal_xy(descriptors):
     x, y = 1, 1
-    while x * y < len(descriptors) + 10:
+    while x * y < len(descriptors) + 11:
         if x > y:
             y += 1
         else:
@@ -625,6 +625,7 @@ def PSMs_info(peptides, valid_proteins, settings, fig=False, printresults=True, 
         try:
             fig = plot_quantiation(prots, curfile, peptides.settings, fig, separatefigs=settings.getboolean('advanced options', 'separatefigures'), ox=ox, oy=oy)
             fig = plot_useful_histograms(peptides, curfile, fig, separatefigs=settings.getboolean('advanced options', 'separatefigures'), savesvg=settings.getboolean('advanced options', 'saveSVG'), ox=ox, oy=oy)
+            fig = plot_aa_stats(peptides, curfile, fig, separatefigs=settings.getboolean('advanced options', 'separatefigures'), savesvg=settings.getboolean('advanced options', 'saveSVG'), ox=ox, oy=oy)
         except Exception as e:
             logger.error('Cannot plot quantitation figures: %s', e)
         output_proteins = open('%s/%s_proteins.tsv' % (ffolder, fname), 'w')
@@ -985,6 +986,58 @@ def plot_MP(descriptors, peptides, fig, FDR, FDR2, valid_proteins, settings, thr
         output_PSMs_full.write(get_output_string(val[0], val[1], val[2], type='psm', fragments_info=False, fragments_info_zeros=False, proteins_dict=peptides.proteins_dict, tags=tags))
     logger.info('Without filtering, after removing outliers:')
     PSMs_info(peptides, valid_proteins, settings, loop=False)
+
+    all_seqs = set([p.sequence for p in copy_peptides.peptideslist])
+    std_aa_list = list(mass.std_aa_mass.keys())
+    std_aa_list.remove('O')
+    std_aa_list.remove('U')
+    aa_exp = Counter()
+    for pep in all_seqs:
+        for aa in pep:
+            aa_exp[aa] += 1
+
+    aa_theor = Counter()
+    for pep in all_seqs:
+        for prot_obj in peptides.proteins_dict[pep]:
+            prot_name = prot_obj.dbname
+            prot_seq = protsS[prot_name]
+            for aa in prot_seq:
+                aa_theor[aa] += 1
+            
+    aa_exp_sum = sum(aa_exp.values())
+    aa_theor_sum = sum(aa_theor.values())
+    lbls, vals = [], []
+    for aa in sorted(std_aa_list):
+        lbls.append(aa)
+        vals.append((float(aa_exp.get(aa, 0))/aa_exp_sum)/(float(aa_theor.get(aa, 0))/aa_theor_sum))
+    std_val = np.std(vals)
+    clrs = [greencolor if abs(x-1)<=2*std_val else redcolor for x in vals]
+
+    if sepfigures:
+        plt.clf()
+        fig = plt.figure()
+        DPI = fig.get_dpi()
+        fig.set_size_inches(500.0/float(DPI), 400.0/float(DPI))
+        ax = fig.add_subplot(1, 1, 1)
+    else:
+        ax = fig.add_subplot(ox, oy, ox*oy-1)
+
+    ax.bar(range(len(vals)), vals, color=clrs)
+    ax.set_xticks(range(len(lbls)))
+    ax.set_xticklabels(lbls)
+    ax.hlines(1.0, range(len(vals))[0]-1, range(len(vals))[-1]+1)
+    ax.set_ylabel('amino acid ID rate')
+
+    if sepfigures:
+        plt.gcf().subplots_adjust(bottom=0.15, left=0.2, top=0.95, right=0.9)
+        # tmpfname = '%s/%s_%s' % (path.dirname(path.realpath(curfile)), fname, 'scores')
+        tmpfname = '%s_%s' % (fname, 'aa_stats')
+        tmpfname = tmpfname.replace(' ', '_').replace(',', '')
+        tmpfname = path.join(path.dirname(path.realpath(curfile)), tmpfname)
+        plt.savefig(tmpfname + '.png')
+        if settings.getboolean('advanced options', 'saveSVG'):
+            plt.savefig(tmpfname + '.svg')
+
 
     if sepfigures:
         plt.clf()
