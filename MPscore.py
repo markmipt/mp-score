@@ -692,7 +692,12 @@ def PSMs_info(peptides, valid_proteins, settings, fig=False, printresults=True, 
         output_peptides_detailed.close()
         output_PSMs.close()
 
-        # pepxmltk.easy_write_pepxml([curfile], output_PSMs_pepxml, {val[1] for val in peptides.get_izip_full()})
+        try:
+            filt_pepxml = settings.getint('advanced options', 'add_filtered_pepxml')
+        except:
+            filt_pepxml = 1
+        if filt_pepxml:
+            pepxmltk.easy_write_pepxml([curfile], output_PSMs_pepxml, {val[1] for val in peptides.get_izip_full()})
         if protsC:
             temp_sum = sum([x[0] for x in temp_data])
             temp_data = [[x[0] / temp_sum, x[1]] for x in temp_data]
