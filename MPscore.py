@@ -625,7 +625,6 @@ def PSMs_info(peptides, valid_proteins, settings, fig=False, printresults=True, 
         try:
             fig = plot_quantiation(prots, curfile, peptides.settings, fig, separatefigs=settings.getboolean('advanced options', 'separatefigures'), ox=ox, oy=oy)
             fig = plot_useful_histograms(peptides, curfile, fig, separatefigs=settings.getboolean('advanced options', 'separatefigures'), savesvg=settings.getboolean('advanced options', 'saveSVG'), ox=ox, oy=oy)
-            fig = plot_aa_stats(peptides, curfile, fig, separatefigs=settings.getboolean('advanced options', 'separatefigures'), savesvg=settings.getboolean('advanced options', 'saveSVG'), ox=ox, oy=oy)
         except Exception as e:
             logger.error('Cannot plot quantitation figures: %s', e)
         output_proteins = open('%s/%s_proteins.tsv' % (ffolder, fname), 'w')
