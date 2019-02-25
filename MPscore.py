@@ -1007,8 +1007,11 @@ def plot_MP(descriptors, peptides, fig, FDR, FDR2, valid_proteins, settings, thr
     aa_theor_sum = sum(aa_theor.values())
     lbls, vals = [], []
     for aa in sorted(std_aa_list):
-        lbls.append(aa)
-        vals.append((float(aa_exp.get(aa, 0))/aa_exp_sum)/(float(aa_theor.get(aa, 0))/aa_theor_sum))
+        if aa in aa_theor:
+            lbls.append(aa)
+            vals.append((float(aa_exp.get(aa, 0))/aa_exp_sum)/(float(aa_theor.get(aa, 0))/aa_theor_sum))
+        else:
+            logger.warning('Amino acid %s is missing in theor sequences' % (aa, ))
     std_val = np.std(vals)
     clrs = [greencolor if abs(x-1)<=2*std_val else redcolor for x in vals]
 
