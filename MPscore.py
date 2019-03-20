@@ -787,6 +787,7 @@ def plot_useful_histograms(peptides, curfile, fig, separatefigs=False, savesvg=F
                 plt.savefig(tmpfname + '.png')
                 if savesvg:
                     plt.savefig(tmpfname + '.svg')
+                plt.close()
     del tmp_dict
     return fig
 
@@ -918,6 +919,7 @@ def plot_histograms(descriptors, peptides, FDR, curfile, savesvg=False, sepfigur
             plt.savefig(tmpfname + '.png' )
             if savesvg:
                 plt.savefig(tmpfname + '.svg')
+            plt.close()
     return fig
 
 
@@ -951,6 +953,7 @@ def plot_quantiation(prots, curfile, settings, fig, separatefigs, ox, oy):
             plt.savefig(tmpfname + '.png')
             if settings.getboolean('advanced options', 'saveSVG'):
                 plt.savefig(tmpfname + '.svg')
+            plt.close()
     return fig
 
 
@@ -1039,6 +1042,7 @@ def plot_MP(descriptors, peptides, fig, FDR, FDR2, valid_proteins, settings, thr
         plt.savefig(tmpfname + '.png')
         if settings.getboolean('advanced options', 'saveSVG'):
             plt.savefig(tmpfname + '.svg')
+        plt.close()
 
 
     if sepfigures:
@@ -1087,6 +1091,7 @@ def plot_MP(descriptors, peptides, fig, FDR, FDR2, valid_proteins, settings, thr
         plt.savefig(tmpfname + '.png')
         if settings.getboolean('advanced options', 'saveSVG'):
             plt.savefig(tmpfname + '.svg')
+        plt.close()
     else:
         plt.gcf().subplots_adjust(bottom=0.05, left=0.05, top=0.95, right=0.95)
         # tmpfname = '%s/%s' % (path.dirname(path.realpath(curfile)), fname)
@@ -1097,6 +1102,7 @@ def plot_MP(descriptors, peptides, fig, FDR, FDR2, valid_proteins, settings, thr
         plt.savefig(tmpfname + '.png')
         if settings.getboolean('advanced options', 'saveSVG'):
             plt.savefig(tmpfname + '.svg')
+        plt.close()
 
 
 def prepare_hist(descriptors, copy_peptides, first=False):
