@@ -8,7 +8,7 @@
 #     pass
 import sys
 import re
-from string import punctuation, lowercase
+import string
 from pyteomics import parser, mass, auxiliary as aux, achrom, pepxml
 import numpy as np
 from scipy.stats import scoreatpercentile
@@ -48,9 +48,10 @@ class CustomRawConfigParser(RawConfigParser):
 def get_dbname(prot):
     return prot['protein']
 
+_modchars = set(string.ascii_lowercase + string.digits)
 def custom_split_label(mod):
     j = 0
-    while mod[j].islower():
+    while mod[j] in _modchars:
         j += 1
     if j == 0:
         return mod[1:], '-', ']'
@@ -59,9 +60,9 @@ def custom_split_label(mod):
     elif len(mod[j:]) > 1 and ']' in mod:
         return mod[:j], mod[j:].replace(']', ''), ']'
     elif len(mod[j:]) == 1:
-        if mod.startswith('-') or ']' in mod:
+        if mod[0] == '-' or ']' in mod:
             return mod[:j], '-', ']'
-        elif mod.endswith('-') or '[' in mod:
+        elif mod[-1] == '-' or '[' in mod:
             return mod[:j], '-', '['
         else:
             return mod[:j], mod[j:], ''
@@ -88,8 +89,8 @@ def get_aa_mass(settings):
                 for kk in mass.std_aa_mass.keys():
                     aa_mass['snp' + kk.lower()] = v
                 # mods.append(('snp' + k.lower(), round(v, 4), 'snp'))
-        # for (mod, aa, term), char in zip(mods, punctuation):
-        for (mod, aa, term), char in zip(mods, punctuation):
+        # for (mod, aa, term), char in zip(mods, string.punctuation):
+        for (mod, aa, term), char in zip(mods, string.punctuation):
             if term == '[' and aa == '-':
                 aa_mass[mod + '-'] = settings.getfloat('modifications', mod.replace('-', '')) + settings.getfloat('modifications', 'protein nterm cleavage')
             elif term == ']' and aa == '-':
@@ -223,7 +224,7 @@ class PeptideList:
             if settings.getboolean('advanced options', 'snp'):
                 for k, v in mass.std_aa_mass.items():
                     mods.append(('snp' + k.lower(), round(v, 4), 'snp'))
-            for (mod, aa, term), char in zip(mods, punctuation):
+            for (mod, aa, term), char in zip(mods, string.punctuation):
                 if term == 'snp':
                     self.modification_list[aa] = mod
                 elif term == '[' and aa == '-':
@@ -781,7 +782,7 @@ class Peptide:
             i = ''
             done_flag = 0
             while 1:
-                for x in lowercase:
+                for x in string.ascii_lowercase:
                     if i + x not in self.modification_list.values():
                         self.modification_list[arg] = i + x
                         if term and term == 'c':
@@ -793,10 +794,10 @@ class Peptide:
                         done_flag = 1
                         break
                 if not done_flag:
-                    if i and i[-1] != lowercase[-1]:
-                        i = i[:-1] + lowercase.index(i[-1] + 1)
+                    if i and i[-1] != string.ascii_lowercase[-1]:
+                        i = i[:-1] + string.ascii_lowercase.index(i[-1] + 1)
                     else:
-                        i += lowercase[0]
+                        i += string.ascii_lowercase[0]
                 else:
                     break
 
