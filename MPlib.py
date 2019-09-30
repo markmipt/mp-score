@@ -21,9 +21,9 @@ import logging
 logger = logging.getLogger(__name__)
 
 try:
-    from configparser import RawConfigParser
-except ImportError:
     from ConfigParser import RawConfigParser
+except ImportError:
+    from configparser import RawConfigParser
 
 infiles_dict = dict()
 
